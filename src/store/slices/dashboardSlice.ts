@@ -1,16 +1,11 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 export interface DashboardStats {
-  totalProducts?: { value: number; change: string };
-  activeSites?: { value: number; change: string };
-  totalWorkers?: { value: number; change: string };
-  totalOffers?: { value: number; change: string };
-  activeClients?: { value: number; change: string };
-  ordersThisMonth?: { value: number; change: string };
-  assignedOrders?: { value: number; change: string };
-  processingOrders?: { value: number; change: string };
-  readyOrders?: { value: number; change: string };
-  completedToday?: { value: number; change: string };
+  value: number;
+  label: string;
+  icon: string;
+  color: string;
+  change: string;
 }
 
 export interface DashboardMetrics {
@@ -27,7 +22,7 @@ export interface DashboardMetrics {
   activeTeams: number;
 }
 
-export interface RecentActivity {
+export interface ActivityLog {
   id: string;
   action: string;
   module: string;
@@ -38,53 +33,119 @@ export interface RecentActivity {
   timeAgo: string;
 }
 
-export interface DashboardState {
-  stats: DashboardStats;
+export interface QuickAction {
+  titleKey: string;
+  descKey: string;
+  icon: string;
+  action: string;
+  color: string;
+}
+
+export interface DashboardData {
+  stats: Record<string, DashboardStats>;
   metrics: DashboardMetrics;
-  recentActivity: RecentActivity[];
+  recentActivity: ActivityLog[];
+  quickActions: QuickAction[];
+  summary: {
+    totalModules: number;
+    hasFullAccess: boolean;
+    lastUpdated: string;
+  };
+}
+
+export interface DashboardState {
+  data: DashboardData | null;
   isLoading: boolean;
   isInitialized: boolean;
   error: string | null;
   lastFetchedRole: string | null;
+  lastFetchedTime: number | null;
 }
 
 const initialState: DashboardState = {
-  stats: {},
-  metrics: {
-    totalServices: 0,
-    completedSites: 0,
-    siteCompletionRate: 0,
-    acceptedOffers: 0,
-    offerAcceptanceRate: 0,
-    completedOrders: 0,
-    orderCompletionRate: 0,
-    activeWorkers: 0,
-    workerUtilization: 0,
-    todayAssignments: 0,
-    activeTeams: 0,
-  },
-  recentActivity: [],
+  data: null,
   isLoading: false,
   isInitialized: false,
   error: null,
   lastFetchedRole: null,
+  lastFetchedTime: null,
 };
+
+// Cache duration in milliseconds (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000;
 
 let pendingFetchRequest: Promise<any> | null = null;
 
 /**
- * Fetch dashboard data with deduplication
+ * Sanitize data to ensure it's fully serializable
  */
-export const fetchDashboardData = createAsyncThunk(
-  'dashboard/fetchDashboardData',
-  async (role: string, { rejectWithValue }) => {
-    // Prevent duplicate requests for the same role
-    if (pendingFetchRequest) {
-      return pendingFetchRequest;
-    }
+function sanitizeData(data: any): any {
+  if (data === null || data === undefined) {
+    return data;
+  }
 
+  if (typeof data !== 'object') {
+    return data;
+  }
+
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeData(item));
+  }
+
+  // For objects, recursively sanitize all properties
+  const sanitized: any = {};
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      const value = data[key];
+      
+      // Skip functions and symbols
+      if (typeof value === 'function' || typeof value === 'symbol') {
+        continue;
+      }
+
+      sanitized[key] = sanitizeData(value);
+    }
+  }
+
+  return sanitized;
+}
+
+/**
+ * Fetch dashboard data with deduplication and caching
+ */
+export const fetchDashboard = createAsyncThunk(
+  'dashboard/fetchDashboard',
+  async (
+    { role, forceRefresh = false }: { role: string; forceRefresh?: boolean },
+    { rejectWithValue, getState }
+  ) => {
     try {
-      const request = fetch(`/api/dashboard?role=${encodeURIComponent(role)}`, {
+      const state = getState() as any;
+      const dashboardState = state.dashboard;
+
+      // Check cache validity
+      const now = Date.now();
+      const isCacheValid =
+        dashboardState.data &&
+        dashboardState.lastFetchedRole === role &&
+        dashboardState.lastFetchedTime &&
+        now - dashboardState.lastFetchedTime < CACHE_DURATION &&
+        !forceRefresh;
+
+      if (isCacheValid) {
+        return dashboardState.data;
+      }
+
+      // Deduplicate requests
+      if (pendingFetchRequest) {
+        return pendingFetchRequest;
+      }
+
+      const request = fetch(`/api/dashboard?role=${role}`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -97,15 +158,17 @@ export const fetchDashboardData = createAsyncThunk(
         return rejectWithValue('Failed to fetch dashboard data');
       }
 
-      const data = await response.json();
+      const result = await response.json();
       pendingFetchRequest = null;
 
-      if (!data.success) {
-        return rejectWithValue(data.error || 'Failed to load dashboard data');
+      if (!result.success) {
+        return rejectWithValue(result.error || 'Failed to load dashboard data');
       }
 
-      // Serialize data to ensure no non-serializable values
-      return JSON.parse(JSON.stringify(data.data));
+      // Sanitize all data to ensure it's serializable
+      const sanitizedData = sanitizeData(result.data);
+      
+      return sanitizedData;
     } catch (error) {
       pendingFetchRequest = null;
       return rejectWithValue(
@@ -122,49 +185,35 @@ const dashboardSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    invalidateCache: (state) => {
+      state.lastFetchedTime = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchDashboardData.pending, (state) => {
+      .addCase(fetchDashboard.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        // Keep old data visible while loading
       })
-      .addCase(fetchDashboardData.fulfilled, (state, action) => {
-        const data = action.payload;
-
-        // Update stats
-        state.stats = data.stats || {};
-
-        // Update metrics
-        if (data.metrics) {
-          state.metrics = {
-            totalServices: data.metrics.totalServices || 0,
-            completedSites: data.metrics.completedSites || 0,
-            siteCompletionRate: data.metrics.siteCompletionRate || 0,
-            acceptedOffers: data.metrics.acceptedOffers || 0,
-            offerAcceptanceRate: data.metrics.offerAcceptanceRate || 0,
-            completedOrders: data.metrics.completedOrders || 0,
-            orderCompletionRate: data.metrics.orderCompletionRate || 0,
-            activeWorkers: data.metrics.activeWorkers || 0,
-            workerUtilization: data.metrics.workerUtilization || 0,
-            todayAssignments: data.metrics.todayAssignments || 0,
-            activeTeams: data.metrics.activeTeams || 0,
-          };
-        }
-
-        // Update recent activity
-        state.recentActivity = data.recentActivity || [];
-
+      .addCase(fetchDashboard.fulfilled, (state, action) => {
+        // Sanitize payload before storing
+        const sanitizedPayload = sanitizeData(action.payload);
+        state.data = sanitizedPayload;
         state.isLoading = false;
         state.isInitialized = true;
-        state.lastFetchedRole = action.meta.arg;
+        state.lastFetchedTime = Date.now();
+        // Extract role from the thunk argument
+        const role = (action.meta.arg as any).role;
+        state.lastFetchedRole = role;
       })
-      .addCase(fetchDashboardData.rejected, (state, action) => {
+      .addCase(fetchDashboard.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+        // Keep old data visible on error
       });
   },
 });
 
-export const { clearError } = dashboardSlice.actions;
+export const { clearError, invalidateCache } = dashboardSlice.actions;
 export default dashboardSlice.reducer;

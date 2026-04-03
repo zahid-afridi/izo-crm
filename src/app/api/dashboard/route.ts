@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-    // Fetch all dashboard data in parallel
+    // Fetch all dashboard data in parallel - optimized queries
     const [
       totalProducts,
       totalServices,
@@ -69,7 +70,18 @@ export async function GET(request: NextRequest) {
       totalOffers,
       activeClients,
       ordersThisMonth,
-      recentActivity
+      recentActivity,
+      totalSites,
+      completedSites,
+      acceptedOffers,
+      totalOrders,
+      completedOrders,
+      todayAssignments,
+      activeTeams,
+      assignedOrders,
+      processingOrders,
+      readyOrders,
+      completedToday
     ] = await Promise.all([
       // Total Products
       prisma.product.count(),
@@ -79,23 +91,17 @@ export async function GET(request: NextRequest) {
 
       // Active Sites
       prisma.site.count({
-        where: {
-          status: 'active'
-        }
+        where: { status: 'active' }
       }),
 
       // Total Workers
       prisma.users.count({
-        where: {
-          role: 'worker'
-        }
+        where: { role: 'worker' }
       }),
 
       // Active Workers
       prisma.worker.count({
-        where: {
-          removeStatus: 'active'
-        }
+        where: { removeStatus: 'active' }
       }),
 
       // Total Offers
@@ -103,26 +109,20 @@ export async function GET(request: NextRequest) {
 
       // Active Clients
       prisma.client.count({
-        where: {
-          status: 'active'
-        }
+        where: { status: 'active' }
       }),
 
       // Orders This Month
       prisma.order.count({
         where: {
-          orderDate: {
-            gte: startOfMonth
-          }
+          orderDate: { gte: startOfMonth }
         }
       }),
 
       // Recent Activity (last 10 activities)
       prisma.activityLog.findMany({
         take: 10,
-        orderBy: {
-          timestamp: 'desc'
-        },
+        orderBy: { timestamp: 'desc' },
         include: {
           user: {
             select: {
@@ -132,43 +132,19 @@ export async function GET(request: NextRequest) {
             }
           }
         }
-      })
-    ]);
+      }),
 
-    // Get additional statistics
-    const [
-      totalSites,
-      completedSites,
-      allOffers,
-      acceptedOffers,
-      totalOrders,
-      completedOrders,
-      todayAssignments,
-      activeTeams,
-      // Office Employee specific metrics
-      assignedOrders,
-      processingOrders,
-      readyOrders,
-      completedToday
-    ] = await Promise.all([
       // Total Sites
       prisma.site.count(),
 
       // Completed Sites
       prisma.site.count({
-        where: {
-          status: 'completed'
-        }
+        where: { status: 'completed' }
       }),
-
-      // Total Offers
-      prisma.offer.count(),
 
       // Accepted Offers
       prisma.offer.count({
-        where: {
-          offerStatus: 'accepted'
-        }
+        where: { offerStatus: 'accepted' }
       }),
 
       // Total Orders
@@ -176,9 +152,7 @@ export async function GET(request: NextRequest) {
 
       // Completed Orders
       prisma.order.count({
-        where: {
-          orderStatus: 'completed'
-        }
+        where: { orderStatus: 'completed' }
       }),
 
       // Today's Assignments
@@ -186,7 +160,7 @@ export async function GET(request: NextRequest) {
         where: {
           assignedDate: {
             gte: startOfDay,
-            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+            lt: endOfDay
           },
           status: 'active'
         }
@@ -194,46 +168,34 @@ export async function GET(request: NextRequest) {
 
       // Active Teams
       prisma.team.count({
-        where: {
-          status: 'active'
-        }
+        where: { status: 'active' }
       }),
 
-      // Office Employee - Assigned Orders (orders assigned to office employees)
+      // Office Employee - Assigned Orders
       prisma.order.count({
         where: {
-          assignedToId: {
-            not: null
-          },
-          orderStatus: {
-            in: ['pending', 'processing', 'ready']
-          }
+          assignedToId: { not: null },
+          orderStatus: { in: ['pending', 'processing', 'ready'] }
         }
       }),
 
       // Office Employee - Processing Orders
       prisma.order.count({
-        where: {
-          orderStatus: 'processing'
-        }
+        where: { orderStatus: 'processing' }
       }),
 
       // Office Employee - Ready for Delivery Orders
       prisma.order.count({
-        where: {
-          orderStatus: 'ready'
-        }
+        where: { orderStatus: 'ready' }
       }),
 
       // Office Employee - Completed Today
       prisma.order.count({
         where: {
-          orderStatus: {
-            in: ['delivered', 'completed']
-          },
+          orderStatus: { in: ['delivered', 'completed'] },
           updatedAt: {
             gte: startOfDay,
-            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+            lt: endOfDay
           }
         }
       })
@@ -241,7 +203,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate percentages and growth
     const siteCompletionRate = totalSites > 0 ? Math.round((completedSites / totalSites) * 100) : 0;
-    const offerAcceptanceRate = allOffers > 0 ? Math.round((acceptedOffers / allOffers) * 100) : 0;
+    const offerAcceptanceRate = totalOffers > 0 ? Math.round((acceptedOffers / totalOffers) * 100) : 0;
     const orderCompletionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
     const workerUtilization = totalWorkers > 0 ? Math.round((activeWorkers / totalWorkers) * 100) : 0;
 

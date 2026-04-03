@@ -13,7 +13,20 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these action types for serialization checks
-        ignoredActions: ['auth/checkAuth/fulfilled', 'auth/login/fulfilled'],
+        ignoredActions: [
+          'auth/checkAuth/fulfilled',
+          'auth/login/fulfilled',
+          'dashboard/fetchDashboard/fulfilled',
+        ],
+        // Ignore these paths in the state
+        ignoredPaths: [
+          'dashboard.data',
+          'dashboard.data.stats',
+          'dashboard.data.metrics',
+          'dashboard.data.recentActivity',
+          'dashboard.data.quickActions',
+          'dashboard.data.summary',
+        ],
       },
     }),
 });

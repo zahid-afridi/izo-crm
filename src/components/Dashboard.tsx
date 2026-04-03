@@ -1,97 +1,33 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 import { Card } from './ui/card';
 import { Package, Construction, Users, FileText, Store, ShoppingCart, TrendingUp, Calendar, Building2, UserPlus, Loader, MessageSquare, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { useDashboard } from '@/hooks/useDashboard';
 
 interface DashboardProps {
   userRole: string;
 }
 
-interface DashboardData {
-  stats: Record<string, {
-    value: number;
-    label: string;
-    icon: string;
-    color: string;
-    change: string;
-  }>;
-  metrics: {
-    totalServices: number;
-    completedSites: number;
-    siteCompletionRate: number;
-    acceptedOffers: number;
-    offerAcceptanceRate: number;
-    completedOrders: number;
-    orderCompletionRate: number;
-    activeWorkers: number;
-    workerUtilization: number;
-    todayAssignments: number;
-    activeTeams: number;
-  };
-  recentActivity: Array<{
-    id: string;
-    action: string;
-    module: string;
-    description: string;
-    user: string;
-    userRole: string;
-    timestamp: string;
-    timeAgo: string;
-  }>;
-  quickActions: Array<{
-    title?: string;
-    description?: string;
-    titleKey?: string;
-    descKey?: string;
-    icon: string;
-    action: string;
-    color: string;
-  }>;
-  summary: {
-    totalModules: number;
-    hasFullAccess: boolean;
-    lastUpdated: string;
-  };
-}
-
 export function Dashboard({ userRole }: DashboardProps) {
   const { t } = useTranslation();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const {
+    data: dashboardData,
+    isLoading: loading,
+    isInitialized,
+    error,
+    fetchDashboard,
+    clearError,
+  } = useDashboard(userRole);
 
-  // Fetch dashboard data
+  // Fetch dashboard data on mount
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/dashboard?role=${userRole}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard data');
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setDashboardData(result.data);
-      } else {
-        throw new Error(result.error || 'Failed to load dashboard data');
-      }
-    } catch (err: any) {
-      console.error('Dashboard fetch error:', err);
-      setError(err.message);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchDashboard();
+  }, [userRole]);
 
   // Handle quick action navigation
   const handleQuickAction = (action: string) => {
@@ -172,7 +108,7 @@ export function Dashboard({ userRole }: DashboardProps) {
 
   // Get stats based on role and available data
   const getStatsForRole = () => {
-    if (!dashboardData) return [];
+    if (!dashboardData?.stats) return [];
 
     const { stats, metrics } = dashboardData;
 
@@ -181,43 +117,43 @@ export function Dashboard({ userRole }: DashboardProps) {
         return [
           {
             title: t('dashboard.totalProducts'),
-            value: stats.totalProducts?.value?.toString() || '0',
-            change: stats.totalProducts?.change || '+0%',
+            value: stats?.totalProducts?.value?.toString() || '0',
+            change: stats?.totalProducts?.change || '+0%',
             icon: Package,
             color: 'bg-blue-500'
           },
           {
             title: t('dashboard.activeSites'),
-            value: stats.activeSites?.value?.toString() || '0',
-            change: stats.activeSites?.change || '+0%',
+            value: stats?.activeSites?.value?.toString() || '0',
+            change: stats?.activeSites?.change || '+0%',
             icon: Construction,
             color: 'bg-green-500'
           },
           {
             title: t('dashboard.totalWorkers'),
-            value: stats.totalWorkers?.value?.toString() || '0',
-            change: stats.totalWorkers?.change || '+0%',
+            value: stats?.totalWorkers?.value?.toString() || '0',
+            change: stats?.totalWorkers?.change || '+0%',
             icon: Users,
             color: 'bg-purple-500'
           },
           {
             title: t('dashboard.totalOffers'),
-            value: stats.totalOffers?.value?.toString() || '0',
-            change: stats.totalOffers?.change || '+0%',
+            value: stats?.totalOffers?.value?.toString() || '0',
+            change: stats?.totalOffers?.change || '+0%',
             icon: FileText,
             color: 'bg-orange-500'
           },
           {
             title: t('dashboard.activeClients'),
-            value: stats.activeClients?.value?.toString() || '0',
-            change: stats.activeClients?.change || '+0%',
+            value: stats?.activeClients?.value?.toString() || '0',
+            change: stats?.activeClients?.change || '+0%',
             icon: Store,
             color: 'bg-indigo-500'
           },
           {
             title: t('dashboard.ordersThisMonth'),
-            value: stats.ordersThisMonth?.value?.toString() || '0',
-            change: stats.ordersThisMonth?.change || '+0%',
+            value: stats?.ordersThisMonth?.value?.toString() || '0',
+            change: stats?.ordersThisMonth?.change || '+0%',
             icon: ShoppingCart,
             color: 'bg-red-500'
           }
@@ -226,28 +162,28 @@ export function Dashboard({ userRole }: DashboardProps) {
         return [
           {
             title: t('dashboard.activeSites'),
-            value: stats.activeSites?.value?.toString() || '0',
-            change: stats.activeSites?.change || '+0%',
+            value: stats?.activeSites?.value?.toString() || '0',
+            change: stats?.activeSites?.change || '+0%',
             icon: Construction,
             color: 'bg-green-500'
           },
           {
             title: t('dashboard.activeWorkers'),
-            value: metrics.activeWorkers?.toString() || '0',
-            change: `${metrics.workerUtilization || 0}%`,
+            value: metrics?.activeWorkers?.toString() || '0',
+            change: `${metrics?.workerUtilization || 0}%`,
             icon: Users,
             color: 'bg-purple-500'
           },
           {
             title: t('dashboard.todayAssignments'),
-            value: metrics.todayAssignments?.toString() || '0',
+            value: metrics?.todayAssignments?.toString() || '0',
             change: '+0',
             icon: Calendar,
             color: 'bg-blue-500'
           },
           {
             title: t('dashboard.activeTeams'),
-            value: metrics.activeTeams?.toString() || '0',
+            value: metrics?.activeTeams?.toString() || '0',
             change: '+0',
             icon: Users,
             color: 'bg-indigo-500'
@@ -257,21 +193,21 @@ export function Dashboard({ userRole }: DashboardProps) {
         return [
           {
             title: t('dashboard.totalOffers'),
-            value: stats.totalOffers?.value?.toString() || '0',
-            change: stats.totalOffers?.change || '+0%',
+            value: stats?.totalOffers?.value?.toString() || '0',
+            change: stats?.totalOffers?.change || '+0%',
             icon: FileText,
             color: 'bg-orange-500'
           },
           {
             title: t('dashboard.activeClients'),
-            value: stats.activeClients?.value?.toString() || '0',
-            change: stats.activeClients?.change || '+0%',
+            value: stats?.activeClients?.value?.toString() || '0',
+            change: stats?.activeClients?.change || '+0%',
             icon: Store,
             color: 'bg-indigo-500'
           },
           {
             title: t('dashboard.acceptanceRate'),
-            value: `${metrics.offerAcceptanceRate || 0}%`,
+            value: `${metrics?.offerAcceptanceRate || 0}%`,
             change: '+0%',
             icon: TrendingUp,
             color: 'bg-green-500'
@@ -281,21 +217,21 @@ export function Dashboard({ userRole }: DashboardProps) {
         return [
           {
             title: t('dashboard.ordersThisMonth'),
-            value: stats.ordersThisMonth?.value?.toString() || '0',
-            change: stats.ordersThisMonth?.change || '+0%',
+            value: stats?.ordersThisMonth?.value?.toString() || '0',
+            change: stats?.ordersThisMonth?.change || '+0%',
             icon: ShoppingCart,
             color: 'bg-red-500'
           },
           {
             title: t('dashboard.activeClients'),
-            value: stats.activeClients?.value?.toString() || '0',
-            change: stats.activeClients?.change || '+0%',
+            value: stats?.activeClients?.value?.toString() || '0',
+            change: stats?.activeClients?.change || '+0%',
             icon: Store,
             color: 'bg-indigo-500'
           },
           {
             title: t('dashboard.completionRate'),
-            value: `${metrics.orderCompletionRate || 0}%`,
+            value: `${metrics?.orderCompletionRate || 0}%`,
             change: '+0%',
             icon: TrendingUp,
             color: 'bg-green-500'
@@ -305,29 +241,29 @@ export function Dashboard({ userRole }: DashboardProps) {
         return [
           {
             title: t('dashboard.assignedOrders'),
-            value: stats.assignedOrders?.value?.toString() || '0',
-            change: stats.assignedOrders?.change || '+0%',
+            value: stats?.assignedOrders?.value?.toString() || '0',
+            change: stats?.assignedOrders?.change || '+0%',
             icon: ShoppingCart,
             color: 'bg-blue-500'
           },
           {
             title: t('dashboard.processingOrders'),
-            value: stats.processingOrders?.value?.toString() || '0',
-            change: stats.processingOrders?.change || '+0%',
+            value: stats?.processingOrders?.value?.toString() || '0',
+            change: stats?.processingOrders?.change || '+0%',
             icon: Package,
             color: 'bg-orange-500'
           },
           {
             title: t('dashboard.readyForDelivery'),
-            value: stats.readyOrders?.value?.toString() || '0',
-            change: stats.readyOrders?.change || '+0%',
+            value: stats?.readyOrders?.value?.toString() || '0',
+            change: stats?.readyOrders?.change || '+0%',
             icon: TrendingUp,
             color: 'bg-green-500'
           },
           {
             title: t('dashboard.completedToday'),
-            value: stats.completedToday?.value?.toString() || '0',
-            change: stats.completedToday?.change || '+0%',
+            value: stats?.completedToday?.value?.toString() || '0',
+            change: stats?.completedToday?.change || '+0%',
             icon: FileText,
             color: 'bg-purple-500'
           }
@@ -345,7 +281,7 @@ export function Dashboard({ userRole }: DashboardProps) {
     }
   };
 
-  if (loading) {
+  if (loading && !isInitialized) {
     return (
       <div className="max-w-[1600px] mx-auto space-y-6">
         <Card className="p-6 bg-brand-gradient text-white shadow-lg">
@@ -372,12 +308,20 @@ export function Dashboard({ userRole }: DashboardProps) {
         <Card className="p-6 bg-red-50 border-red-200">
           <h2 className="text-red-800 mb-2">{t('dashboard.errorLoadingDashboard')}</h2>
           <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            {t('dashboard.retry')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchDashboard(true)}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              {t('dashboard.retry')}
+            </button>
+            <button
+              onClick={clearError}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+            >
+              {t('common.dismiss')}
+            </button>
+          </div>
         </Card>
       </div>
     );
@@ -414,8 +358,8 @@ export function Dashboard({ userRole }: DashboardProps) {
                 </div>
                 {stat.change && (
                   <div className={`text-xs px-2 py-1 rounded ${stat.change.startsWith('+') ? 'bg-green-100 text-green-700' :
-                      stat.change.startsWith('-') ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
+                    stat.change.startsWith('-') ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
                     }`}>
                     {stat.change}
                   </div>
@@ -460,9 +404,9 @@ export function Dashboard({ userRole }: DashboardProps) {
               dashboardData.recentActivity.map((activity) => (
                 <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className={`w-2 h-2 rounded-full ${activity.action === 'create' ? 'bg-green-500' :
-                      activity.action === 'update' ? 'bg-blue-500' :
-                        activity.action === 'delete' ? 'bg-red-500' :
-                          'bg-orange-500'
+                    activity.action === 'update' ? 'bg-blue-500' :
+                      activity.action === 'delete' ? 'bg-red-500' :
+                        'bg-orange-500'
                     }`}></div>
                   <div className="flex-1">
                     <p className="text-sm text-gray-900">{activity.description}</p>
