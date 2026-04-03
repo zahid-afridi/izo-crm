@@ -1,0 +1,110 @@
+IZOGRUP CRM - ROLES & PERMISSIONS CONFIGURATION
+================================================
+
+PREDEFINED ROLES (9 Total):
+1. Admin - Full system access
+2. Product Manager - Manage products and services
+3. Site Manager - Manage construction sites and workers
+4. Offer Manager - Create and manage offers
+5. Order Manager - Manage orders and sales agents
+6. Sales Agent - Create orders and manage clients
+7. Office Employee - Process orders
+8. Worker - View assigned tasks
+9. Website Manager - Manage website content
+
+PERMISSIONS BY ROLE:
+===================
+
+1. ADMIN
+   - Dashboard: Read, Create, Update, Delete, Export, Approve
+   - Products: Read, Create, Update, Delete, Export, Approve
+   - Services: Read, Create, Update, Delete, Export, Approve
+   - Sites: Read, Create, Update, Delete, Export, Approve
+   - Workers: Read, Create, Update, Delete, Export, Approve
+   - Assignments: Read, Create, Update, Delete, Export, Approve
+   - Teams: Read, Create, Update, Delete, Export, Approve
+   - Cars: Read, Create, Update, Delete, Export, Approve
+   - Offers: Read, Create, Update, Delete, Export, Approve
+   - Clients: Read, Create, Update, Delete, Export, Approve
+   - Orders: Read, Create, Update, Delete, Export, Approve
+   - Service Packages: Read, Create, Update, Delete, Export, Approve
+   - Website Manager: Read, Create, Update, Delete, Export, Approve
+   - Chat: Read, Create, Update, Delete, Export, Approve
+   - Reports: Read, Create, Update, Delete, Export, Approve
+   - Roles: Read, Create, Update, Delete, Export, Approve
+   - Settings: Read, Create, Update, Delete, Export, Approve
+
+2. PRODUCT MANAGER
+   - Dashboard: Read only
+   - Products: Read, Create, Update, Delete, Export
+   - Services: Read, Create, Update, Delete, Export
+   - Service Packages: Read, Create, Update, Delete, Export
+
+3. SITE MANAGER
+   - Dashboard: Read only
+   - Sites: Read, Create, Update, Delete, Export
+   - Workers: Read, Update, Export
+   - Assignments: Read, Create, Update, Delete, Export
+   - Teams: Read, Create, Update, Delete, Export
+   - Cars: Read, Create, Update, Delete, Export
+   - Offers: Read, Export
+   - Reports: Read, Create, Update, Approve, Export
+
+4. OFFER MANAGER
+   - Dashboard: Read only
+   - Offers: Read, Create, Update, Delete, Export
+   - Service Packages: Read, Create, Update, Delete, Export
+   - Clients: Read, Create, Update, Export
+   - Products: Read only
+   - Services: Read only
+   - Reports: Read, Create, Update, Approve, Export
+
+5. ORDER MANAGER
+   - Dashboard: Read only
+   - Orders: Read, Create, Update, Approve, Export
+   - Offers: Read only
+   - Clients: Read only
+   - Products: Read only
+   - Reports: Read, Create, Update, Approve, Export
+
+6. SALES AGENT
+   - Dashboard: Read only
+   - Clients: Read, Create, Update, Export
+   - Orders: Read, Create, Update, Delete, Export
+   - Products: Read only
+   - Reports: Read, Create, Update, Approve, Export
+
+7. OFFICE EMPLOYEE
+   - Dashboard: Read only
+   - Orders: Read, Update, Export
+   - Clients: Read only
+   - Products: Read only
+
+8. WORKER
+   - Dashboard: Read only
+   - Assignments: Read only
+
+9. WEBSITE MANAGER
+   - Dashboard: Read only
+   - Website Manager: Read, Create, Update, Delete, Export, Approve
+   - Products: Read only
+   - Services: Read only
+   - Reports: Read, Create, Update, Approve, Export
+
+PERMISSION TYPES:
+================
+- Read: View resource
+- Create: Add new items
+- Update: Edit existing items
+- Delete: Remove items
+- Export: Download/export data
+- Approve: Approve actions/changes
+
+NOTES:
+======
+- All roles are system roles (cannot be deleted)
+- Admin can add custom roles through UI
+- Permissions are enforced at API level
+- UI elements are hidden based on permissions
+- Chat is available for all roles (pending implementation)
+- Reports module available for managers and admin

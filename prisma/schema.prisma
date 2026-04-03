@@ -1,0 +1,771 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  product_manager
+  site_manager
+  offer_manager
+  order_manager
+  website_manager
+  sales_agent
+  office_employee
+  worker
+  website_user
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+model Users {
+  id           String       @id @default(uuid())
+  username     String       @unique
+  email        String       @unique
+  password     String
+  fullName     String
+  phone        String?
+  dateOfBirth  DateTime?
+  idNumber     String?
+  address      String?
+  role         UserRole
+  profile      String?
+  status       UserStatus   @default(active)
+  isLocked     Boolean      @default(false)
+  lastLogin    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  assignments  Assignment[]
+  managedSites Site[]       @relation("SiteManager")
+  teamsLed     Team[]       @relation("TeamLead")
+  worker       Worker?
+  ordersAssigned Order[]
+  ordersCreated Order[]     @relation("OrderCreator")
+  activityLogs ActivityLog[]
+  notifications Notification[]
+  chatRoomMemberships ChatRoomMember[]
+  chatMessages ChatMessage[]
+  createdProducts Product[]  @relation("ProductCreator")
+  websiteOrders   WebsiteOrder[] @relation("WebsiteOrders")
+
+  @@index([username])
+  @@index([email])
+  @@index([isLocked])
+  @@index([role])
+}
+
+model ProductCategory {
+  id            String               @id @default(uuid())
+  name          String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  subcategories ProductSubcategory[]
+  products      Product[]            // Products with category but no subcategory
+
+  @@index([name])
+}
+
+model ProductSubcategory {
+  id         String          @id @default(uuid())
+  name       String
+  categoryId String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  products   Product[]
+  category   ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([name])
+  @@index([categoryId])
+}
+
+model ServiceCategory {
+  id            String               @id @default(uuid())
+  name          String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  subcategories ServiceSubcategory[]
+  services      Service[]            // Services with category but no subcategory
+
+  @@index([name])
+}
+
+model ServiceSubcategory {
+  id         String          @id @default(uuid())
+  name       String
+  categoryId String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  services   Service[]
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([name])
+  @@index([categoryId])
+}
+
+model Product {
+  id                String              @id @default(uuid())
+  title             String
+  description       String?
+  sku               String?             @unique
+  unit              String?
+  price             Float?
+  stock             Int?                @default(0)
+  status            String              @default("active")
+  categoryId        String?             // Main category when no subcategory selected
+  subcategoryId     String?
+  images            String[]
+  videos            String[]
+  documents         Json?
+  publishOnWebsite  Boolean             @default(true)
+  enableOnlineSales Boolean             @default(false)
+  metaTitle         String?
+  metaDescription   String?
+  createdBy         String?             // User ID of who created this product
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  homepageProduct   HomepageProduct?
+  category          ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory       ProductSubcategory? @relation(fields: [subcategoryId], references: [id])
+  creator           Users?              @relation("ProductCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([title])
+  @@index([sku])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([status])
+  @@index([publishOnWebsite])
+  @@index([createdBy])
+}
+
+model Service {
+  id                String              @id @default(uuid())
+  title             String
+  description       String?
+  price             Float?
+  status            String              @default("active")
+  categoryId        String?             // Main category when no subcategory selected
+  subcategoryId     String?
+  images            String[]
+  videos            String[]
+  documents         Json?
+  publishOnWebsite  Boolean             @default(true)
+  enableOnlineSales Boolean             @default(false)
+  metaTitle         String?
+  metaDescription   String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  homepageService   HomepageService?
+  category          ServiceCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory       ServiceSubcategory? @relation(fields: [subcategoryId], references: [id])
+
+  @@index([title])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([status])
+  @@index([publishOnWebsite])
+}
+
+model WebsiteSlider {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  imageUrl     String
+  buttonText   String?
+  buttonLink   String?
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model HomepageProduct {
+  id           String   @id @default(uuid())
+  productId    String   @unique
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model HomepageService {
+  id           String   @id @default(uuid())
+  serviceId    String   @unique
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model Project {
+  id               String           @id @default(uuid())
+  title            String
+  description      String?
+  client           String?
+  location         String?
+  completionDate   DateTime?
+  duration         String?
+  images           String[]
+  videos           String[]
+  documents        Json?
+  publishOnWebsite Boolean          @default(true)
+  featured         Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  homepageProject  HomepageProject?
+
+  @@index([title])
+  @@index([publishOnWebsite])
+  @@index([featured])
+}
+
+model HomepageProject {
+  id           String   @id @default(uuid())
+  projectId    String   @unique
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model BlogCategory {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blogs     Blog[]
+
+  @@index([name])
+}
+
+model Blog {
+  id               String        @id @default(uuid())
+  title            String
+  content          String
+  author           String
+  featuredImage    String?
+  images           String[]
+  categoryId       String?
+  tags             String[]
+  metaTitle        String?
+  metaDescription  String?
+  publishOnWebsite Boolean       @default(false)
+  showOnHomepage   Boolean       @default(false)
+  featured         Boolean       @default(false)
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  category         BlogCategory? @relation(fields: [categoryId], references: [id])
+  homepageBlog     HomepageBlog?
+
+  @@index([title])
+  @@index([publishOnWebsite])
+  @@index([showOnHomepage])
+  @@index([featured])
+  @@index([categoryId])
+  @@index([publishedAt])
+}
+
+model HomepageBlog {
+  id           String   @id @default(uuid())
+  blogId       String   @unique
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  blog         Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model Video {
+  id               String         @id @default(uuid())
+  title            String
+  description      String?
+  youtubeUrl       String
+  publishOnWebsite Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  homepageVideo    HomepageVideo?
+
+  @@index([title])
+  @@index([publishOnWebsite])
+}
+
+model HomepageVideo {
+  id           String   @id @default(uuid())
+  videoId      String   @unique
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model WeWorkWith {
+  id           String   @id @default(uuid())
+  logoUrl      String
+  websiteUrl   String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([displayOrder])
+}
+
+model CompanyInfo {
+  id            String   @id @default(uuid())
+  phone         String?
+  email         String?
+  address       String?
+  facebookUrl   String?
+  instagramUrl  String?
+  youtubeUrl    String?
+  linkedinUrl   String?
+  tiktokUrl     String?
+  googlePlayUrl String?
+  appStoreUrl   String?
+  companyCV     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WebsiteSettings {
+  id               String   @id @default(uuid())
+  websiteTitle     String?
+  metaDescription  String?
+  metaKeywords     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Site {
+  id                String       @id @default(uuid())
+  name              String
+  address           String
+  city              String?
+  postalCode        String?
+  clientId          String?
+  client            String?
+  startDate         DateTime
+  estimatedEndDate  DateTime?
+  actualEndDate     DateTime?
+  status            String       @default("scheduled")
+  progress          Int          @default(0)
+  progressUpdatedAt DateTime?
+  progressNotes     String?
+  siteManagerId     String?
+  workerIds         String[]     @default([])
+  description       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  assignments            Assignment[]
+  assignmentSiteHistory  AssignmentSiteHistory[]
+  siteManager            Users?       @relation("SiteManager", fields: [siteManagerId], references: [id])
+
+  @@index([status])
+  @@index([startDate])
+  @@index([clientId])
+  @@index([siteManagerId])
+}
+
+model AssignmentSiteHistory {
+  id          String   @id @default(uuid())
+  siteId      String
+  date        DateTime
+  workerCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, date])
+  @@index([siteId])
+  @@index([date])
+}
+
+model Worker {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  employeeType String
+  hourlyRate   Float?
+  monthlyRate  Float?
+  removeStatus String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([removeStatus])
+}
+
+model Client {
+  id          String    @id @default(uuid())
+  fullName    String
+  email       String    @unique
+  phone       String?
+  dateOfBirth DateTime?
+  idNumber    String?
+  address     String?
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([fullName])
+}
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  teamLeadId  String
+  memberIds   String[] @default([])
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  teamLead    Users    @relation("TeamLead", fields: [teamLeadId], references: [id])
+
+  @@index([teamLeadId])
+  @@index([status])
+  @@index([name])
+}
+
+model Assignment {
+  id                    String   @id @default(uuid())
+  siteId                String
+  workerId              String
+  carId                 String?
+  assignedDate          DateTime
+  status                String   @default("active")
+  notes                 String?
+  showAssignmentHistory Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  worker                Users    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  car                   Car?     @relation(fields: [carId], references: [id], onDelete: SetNull)
+
+  @@index([siteId])
+  @@index([workerId])
+  @@index([carId])
+  @@index([assignedDate])
+  @@index([status])
+}
+
+model Car {
+  id           String       @id @default(uuid())
+  name         String
+  number       String
+  color        String
+  model        String
+  status       String       @default("active")
+  isLocked     Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  assignments  Assignment[]
+
+  @@index([status])
+  @@index([isLocked])
+  @@index([name])
+  @@index([number])
+  @@index([color])
+  @@index([model])
+}
+
+model ServicePackage {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  unit        String   @default("m²")
+  price       Float
+  status      String   @default("active")
+  services    Json     @default("[]")
+  products    Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+}
+
+model Order {
+  id                    String   @id @default(uuid())
+  orderNumber           String   @unique
+  orderTitle            String?  // Add order title field
+  clientId              String?
+  client                String?
+  orderDate             DateTime
+  expectedDeliveryDate  DateTime?
+  actualDeliveryDate    DateTime?
+  orderStatus           String   @default("pending")
+  paymentStatus         String   @default("pending")
+  paymentMethod         String?
+  deliveryMethod        String?
+  deliveryAddress       String?
+  deliveryInstructions  String?
+  deliveryCost          Float    @default(0)
+  currency              String   @default("eur") // Add currency field
+  subtotal              Float    @default(0)
+  totalAmount           Float    @default(0)
+  notes                 String?
+  assignedToId          String?
+  createdBy             String?  // User ID of who created this order
+  items                 Json     @default("[]")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  assignedTo            Users?   @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  creator               Users?   @relation("OrderCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([orderNumber])
+  @@index([clientId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@index([orderDate])
+  @@index([assignedToId])
+  @@index([createdBy])
+}
+
+// Order items JSON structure: [{ type: "package|product|service", itemId: "id", quantity: 1, unitPrice: 10.50, total: 10.50 }, ...]
+
+model Offer {
+  id                  String        @id @default(uuid())
+  offerNumber         String        @unique
+  clientId            String?
+  client              String?
+  title               String
+  description         String?
+  offerDate           DateTime
+  validUntil          DateTime
+  currency            String        @default("eur")
+  offerStatus         String        @default("draft")
+  subtotal            Float         @default(0)
+  discount            Float         @default(0)
+  totalAmount         Float         @default(0)
+  paymentTerms        String?
+  deliveryTerms       String?
+  validityPeriod      String?
+  notes               String?
+  items               Json          @default("[]")
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  sharedOffers        SharedOffer[]
+
+  @@index([offerNumber])
+  @@index([clientId])
+  @@index([offerStatus])
+  @@index([offerDate])
+  @@index([validUntil])
+}
+
+// Offer items JSON structure: [{ type: "product|service|package", itemId: "id", name: "item name", quantity: 1, unitPrice: 10.50, discount: 0, total: 10.50 }, ...]
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String
+  user        Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // create, update, delete, view, login, etc.
+  module      String   // Products, Orders, Clients, Sites, Workers, etc.
+  description String
+  entityId    String?  // ID of the entity being acted upon
+  entityType  String?  // Type of entity (Product, Order, Client, etc.)
+  oldValues   Json?    // Previous values for updates
+  newValues   Json?    // New values for updates
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([timestamp])
+  @@index([entityId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  module    String   // assignments, orders, sites, etc.
+  type      String   // assignment_assigned, order_created, etc.
+  data      Json?
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([module])
+  @@index([createdAt])
+}
+
+// Each chat room (group/team chat or 1-to-1)
+model ChatRoom {
+  id        String      @id @default(uuid())
+  name      String?     // optional, for groups
+  isGroup   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  members   ChatRoomMember[]
+  messages  ChatMessage[]
+}
+
+// Users in the chat room
+model ChatRoomMember {
+  id      String  @id @default(uuid())
+  roomId  String
+  userId  String
+  isApproved Boolean @default(false) // For admin approval
+  joinedAt DateTime @default(now())
+
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user Users   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+// Messages in chat rooms
+model ChatMessage {
+  id        String   @id @default(uuid())
+  roomId    String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender Users    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([senderId])
+}
+
+model Attendance {
+  id           String    @id @default(uuid())
+  workerId     String
+  assignmentId String
+  checkInTime  DateTime
+  checkOutTime DateTime?
+  date         DateTime  // Date of the attendance (for grouping)
+  notes        String?
+  checkInLat   Float?
+  checkInLng   Float?
+  checkOutLat  Float?
+  checkOutLng  Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([workerId])
+  @@index([assignmentId])
+  @@index([date])
+  @@index([workerId, assignmentId, date])
+}
+
+model DailyProgram {
+  id                           String    @id @default(uuid())
+  date                         DateTime  @unique
+  workersOnDayOff              String[]  @default([])
+  allowWorkersToSeeFullProgram Boolean   @default(false)
+  isFinalized                  Boolean   @default(false)
+  finalizedAt                  DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  @@index([date])
+  @@index([isFinalized])
+}
+
+model SharedOffer {
+  id                String   @id @default(uuid())
+  offerId           String
+  filename          String
+  cloudinaryUrl     String
+  cloudinaryPublicId String
+  downloadCount     Int      @default(0)
+  lastDownloadedAt  DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  offer             Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model WebsiteOrder {
+  id                    String   @id @default(uuid())
+  orderNumber           String   @unique
+  userId                String?  // User ID if logged in
+  user                  Users?   @relation("WebsiteOrders", fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Customer Information
+  fullName              String
+  email                 String
+  phone                 String
+  
+  // Order Details
+  orderType             String   // "product" or "service"
+  items                 Json     // Array of {type, itemId, itemName, quantity, unitPrice, total}
+  
+  // Delivery Information
+  deliveryAddress       String
+  deliveryCity          String?
+  deliveryPostalCode    String?
+  deliveryInstructions  String?
+  deliveryMethod        String   @default("standard") // standard, express, pickup
+  expectedDeliveryDate  DateTime?
+  
+  // Pricing
+  subtotal              Float    @default(0)
+  deliveryCost          Float    @default(0)
+  tax                   Float    @default(0)
+  totalAmount           Float    @default(0)
+  currency              String   @default("eur")
+  
+  // Payment & Status
+  paymentMethod         String?  // credit_card, bank_transfer, cash, etc.
+  paymentStatus         String   @default("pending") // pending, completed, failed, refunded
+  orderStatus           String   @default("pending") // pending, confirmed, processing, shipped, delivered, cancelled
+  
+  // Additional Info
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([email])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@index([orderType])
+  @@index([createdAt])
+}
