@@ -550,21 +550,21 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
   const filteredWorkers_local = filteredWorkers;
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-4 sm:space-y-6 relative w-full">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex-1 flex gap-4 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-80">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 flex-shrink-0" />
             <Input
               placeholder={t('workers.searchWorkers')}
               value={filters.search}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
           <Select value={filters.status} onValueChange={setReduxStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -576,10 +576,10 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
           </Select>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsExportDialogOpen(true)}>
-            <Download className="w-4 h-4 mr-2" />
-            {t('workers.exportReport')}
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
+          <Button variant="outline" onClick={() => setIsExportDialogOpen(true)} className="w-full sm:w-auto">
+            <Download className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span className="truncate">{t('workers.exportReport')}</span>
           </Button>
 
           {canEdit && (
@@ -588,17 +588,16 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
               if (!open) {
                 resetForm();
               } else {
-                // Reset form when opening the dialog to ensure clean state
                 resetForm();
               }
             }}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('workers.addWorker')}
+                <Button className="w-full sm:w-auto">
+                  <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">{t('workers.addWorker')}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                   <DialogTitle>{t('workers.addWorker')}</DialogTitle>
                 </DialogHeader>
@@ -888,144 +887,145 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('workers.totalWorkers')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{filteredWorkers_local.length}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <Card className="p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">{t('workers.totalWorkers')}</p>
+          <p className="text-xl sm:text-2xl font-semibold text-gray-900">{filteredWorkers_local.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('workers.active')}</p>
-          <p className="text-2xl font-semibold text-gray-900">
+        <Card className="p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">{t('workers.active')}</p>
+          <p className="text-xl sm:text-2xl font-semibold text-gray-900">
             {filteredWorkers_local.filter(w => w.worker?.removeStatus === 'active').length}
           </p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('workers.onLeave')}</p>
-          <p className="text-2xl font-semibold text-gray-900">
+        <Card className="p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">{t('workers.onLeave')}</p>
+          <p className="text-xl sm:text-2xl font-semibold text-gray-900">
             {filteredWorkers_local.filter(w => w.worker?.removeStatus === 'on_leave').length}
           </p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('workers.removed')}</p>
-          <p className="text-2xl font-semibold text-gray-900">
+        <Card className="p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">{t('workers.removed')}</p>
+          <p className="text-xl sm:text-2xl font-semibold text-gray-900">
             {filteredWorkers_local.filter(w => w.worker?.removeStatus === 'removed').length}
           </p>
         </Card>
       </div>
 
       {/* Workers Table */}
-      <div className="relative">
-        <Card>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('workers.name')}</TableHead>
-                  <TableHead>{t('workers.role')}</TableHead>
-                  <TableHead>{t('workers.contact')}</TableHead>
-                  <TableHead>{t('workers.status')}</TableHead>
-                  <TableHead>{t('workers.employeeType')}</TableHead>
-                  <TableHead>{t('workers.hourlyRate')}</TableHead>
-                  <TableHead>{t('workers.monthlyRate')}</TableHead>
-                  <TableHead>{t('workers.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading && !isInitialized ? (
+      <div className="relative w-full overflow-hidden">
+        <Card className="p-0 sm:p-0">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full px-4 sm:px-0">
+              <Table className="w-full text-xs sm:text-sm">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader className="w-8 h-8 animate-spin text-gray-400" />
-                        <span className="text-gray-500">{t('workers.loadingWorkers')}</span>
-                      </div>
-                    </TableCell>
+                    <TableHead className="text-xs sm:text-sm">{t('workers.name')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm">{t('workers.role')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm">{t('workers.contact')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm">{t('workers.status')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell">{t('workers.employeeType')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">{t('workers.hourlyRate')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">{t('workers.monthlyRate')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm">{t('workers.actions')}</TableHead>
                   </TableRow>
-                ) : filteredWorkers_local.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                      {t('workers.noWorkersFound')}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredWorkers_local.map((worker) => (
-                    <TableRow key={worker.id}>
-                      <TableCell className="text-gray-900 font-medium">{worker.fullName}</TableCell>
-                      <TableCell>
-                        {/* Role editing via dropdown disabled – show current role only */}
-                        <Badge variant="outline">{getRoleLabel(worker.role)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {worker.phone && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
-                              <Phone className="w-3 h-3" />
-                              <span>{worker.phone}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <Mail className="w-3 h-3" />
-                            <span>{worker.email}</span>
-                          </div>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && !isInitialized ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 sm:py-12">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-gray-400" />
+                          <span className="text-xs sm:text-sm text-gray-500">{t('workers.loadingWorkers')}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {canEdit ? (
-                          <div className="relative" onClick={(e) => e.stopPropagation()}>
-                            <Select
-                              value={worker.worker?.removeStatus || 'active'}
-                              onValueChange={(value) => handleUpdateWorkerFieldLocal(worker.id, 'removeStatus', value)}
-                              disabled={isUpdatingField === `${worker.id}-removeStatus`}
-                            >
-                              <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
-                                <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
-                                <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {isUpdatingField === `${worker.id}-removeStatus` && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
-                                <Loader className="w-3 h-3 animate-spin text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <Badge variant={worker.worker?.removeStatus === 'active' ? 'default' : 'secondary'}>
-                            {worker.worker?.removeStatus === 'active' ? t('workers.statusActive') : worker.worker?.removeStatus === 'on_leave' ? t('workers.statusOnLeave') : t('workers.statusRemoved')}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        {worker.worker?.employeeType ? (
-                          worker.worker.employeeType === 'full-time' ? t('workers.employeeTypeFullTime') :
-                            worker.worker.employeeType === 'part-time' ? t('workers.employeeTypePartTime') :
-                              worker.worker.employeeType === 'contract' ? t('workers.employeeTypeContract') :
-                                worker.worker.employeeType
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell className="text-gray-900">
-                        {worker.worker?.hourlyRate ? `€${worker.worker.hourlyRate.toFixed(2)}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-gray-900">
-                        {worker.worker?.monthlyRate ? `€${worker.worker.monthlyRate.toFixed(2)}` : '-'}
-                      </TableCell>
-                      <TableCell className="relative">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => handleDropdownToggle(worker.id, e)}
-                          className="h-8 w-8 hover:bg-gray-100 transition-colors duration-150"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
+                    </TableRow>
+                  ) : filteredWorkers_local.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
+                        {t('workers.noWorkersFound')}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredWorkers_local.map((worker) => (
+                      <TableRow key={worker.id} className="text-xs sm:text-sm">
+                        <TableCell className="text-gray-900 font-medium whitespace-nowrap">{worker.fullName}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant="outline" className="text-xs">{getRoleLabel(worker.role)}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="space-y-0.5">
+                            {worker.phone && (
+                              <div className="flex items-center gap-1 text-gray-600 whitespace-nowrap">
+                                <Phone className="w-3 h-3 flex-shrink-0" />
+                                <span className="hidden sm:inline">{worker.phone}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 text-gray-600 truncate">
+                              <Mail className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{worker.email}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {canEdit ? (
+                            <div className="relative" onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={worker.worker?.removeStatus || 'active'}
+                                onValueChange={(value) => handleUpdateWorkerFieldLocal(worker.id, 'removeStatus', value)}
+                                disabled={isUpdatingField === `${worker.id}-removeStatus`}
+                              >
+                                <SelectTrigger className="w-auto min-w-[80px] h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
+                                  <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
+                                  <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {isUpdatingField === `${worker.id}-removeStatus` && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+                                  <Loader className="w-3 h-3 animate-spin text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant={worker.worker?.removeStatus === 'active' ? 'default' : 'secondary'} className="text-xs">
+                              {worker.worker?.removeStatus === 'active' ? t('workers.statusActive') : worker.worker?.removeStatus === 'on_leave' ? t('workers.statusOnLeave') : t('workers.statusRemoved')}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-gray-600 hidden sm:table-cell whitespace-nowrap text-xs">
+                          {worker.worker?.employeeType ? (
+                            worker.worker.employeeType === 'full-time' ? t('workers.employeeTypeFullTime') :
+                              worker.worker.employeeType === 'part-time' ? t('workers.employeeTypePartTime') :
+                                worker.worker.employeeType === 'contract' ? t('workers.employeeTypeContract') :
+                                  worker.worker.employeeType
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-gray-900 hidden md:table-cell whitespace-nowrap text-xs">
+                          {worker.worker?.hourlyRate ? `€${worker.worker.hourlyRate.toFixed(2)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-gray-900 hidden md:table-cell whitespace-nowrap text-xs">
+                          {worker.worker?.monthlyRate ? `€${worker.worker.monthlyRate.toFixed(2)}` : '-'}
+                        </TableCell>
+                        <TableCell className="relative whitespace-nowrap">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => handleDropdownToggle(worker.id, e)}
+                            className="h-7 w-7 hover:bg-gray-100 transition-colors duration-150"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </Card>
       </div>

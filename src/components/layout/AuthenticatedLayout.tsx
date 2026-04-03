@@ -42,14 +42,14 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
         onNavigate={(path) => router.push(path)}
       />
       <div
-        className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'
+        className={`flex-1 flex flex-col w-full transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
           }`}
       >
         <Header
@@ -59,7 +59,10 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
           currentPage={currentPage}
           userRole={user.role}
         />
-        <main className={`flex-1 min-h-0 ${isChatPage ? 'overflow-hidden' : 'p-6 overflow-y-auto overflow-x-hidden'}`}>
+        <main className={`flex-1 w-full overflow-x-hidden ${isChatPage
+            ? 'overflow-hidden'
+            : 'overflow-y-auto p-4 sm:p-6'
+          }`}>
           {children}
         </main>
       </div>

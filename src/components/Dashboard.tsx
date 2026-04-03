@@ -72,13 +72,13 @@ export function Dashboard({ userRole }: DashboardProps) {
     try {
       setLoading(true);
       const response = await fetch(`/api/dashboard?role=${userRole}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setDashboardData(result.data);
       } else {
@@ -372,7 +372,7 @@ export function Dashboard({ userRole }: DashboardProps) {
         <Card className="p-6 bg-red-50 border-red-200">
           <h2 className="text-red-800 mb-2">{t('dashboard.errorLoadingDashboard')}</h2>
           <p className="text-red-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={fetchDashboardData}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
@@ -413,11 +413,10 @@ export function Dashboard({ userRole }: DashboardProps) {
                   <Icon className="w-5 h-5 text-white" />
                 </div>
                 {stat.change && (
-                  <div className={`text-xs px-2 py-1 rounded ${
-                    stat.change.startsWith('+') ? 'bg-green-100 text-green-700' : 
-                    stat.change.startsWith('-') ? 'bg-red-100 text-red-700' : 
-                    'bg-gray-100 text-gray-700'
-                  }`}>
+                  <div className={`text-xs px-2 py-1 rounded ${stat.change.startsWith('+') ? 'bg-green-100 text-green-700' :
+                      stat.change.startsWith('-') ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-700'
+                    }`}>
                     {stat.change}
                   </div>
                 )}
@@ -438,7 +437,7 @@ export function Dashboard({ userRole }: DashboardProps) {
           {getQuickActionsForDisplay().map((action, index) => {
             const Icon = getIcon(action.icon);
             return (
-              <button 
+              <button
                 key={index}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand-500 hover:bg-brand-50 transition-colors"
                 onClick={() => handleQuickAction(action.action)}
@@ -460,12 +459,11 @@ export function Dashboard({ userRole }: DashboardProps) {
             {dashboardData.recentActivity.length > 0 ? (
               dashboardData.recentActivity.map((activity) => (
                 <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.action === 'create' ? 'bg-green-500' :
-                    activity.action === 'update' ? 'bg-blue-500' :
-                    activity.action === 'delete' ? 'bg-red-500' :
-                    'bg-orange-500'
-                  }`}></div>
+                  <div className={`w-2 h-2 rounded-full ${activity.action === 'create' ? 'bg-green-500' :
+                      activity.action === 'update' ? 'bg-blue-500' :
+                        activity.action === 'delete' ? 'bg-red-500' :
+                          'bg-orange-500'
+                    }`}></div>
                   <div className="flex-1">
                     <p className="text-sm text-gray-900">{activity.description}</p>
                     <p className="text-xs text-gray-500">

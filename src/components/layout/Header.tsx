@@ -119,30 +119,31 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
   return (
     <>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleSidebar}
+                className="h-8 w-8 sm:h-10 sm:w-10"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
-              <div>
-                <h1 className="text-gray-900">{pageTitle}</h1>
-                <p className="text-sm text-gray-500">{t('header.constructionSystem')}</p>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base text-gray-900 truncate">{pageTitle}</h1>
+                <p className="text-xs text-gray-500 hidden sm:block">{t('header.constructionSystem')}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Global Search */}
-              <div className="hidden md:flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2 w-80 cursor-pointer hover:bg-gray-100 transition-colors"
+            <div className="flex items-center gap-1 sm:gap-4">
+              {/* Global Search - Hidden on mobile */}
+              <div className="hidden lg:flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2 w-80 cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={handleSearchClick}>
-                <Search className="w-4 h-4 text-gray-400" />
+                <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <Input
                   placeholder={t('header.searchPlaceholder')}
-                  className="border-0 bg-transparent p-0 focus-visible:ring-0 cursor-pointer"
+                  className="border-0 bg-transparent p-0 focus-visible:ring-0 cursor-pointer text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -157,16 +158,16 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="lg:hidden h-8 w-8 sm:h-10 sm:w-10"
                 onClick={handleSearchClick}
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
 
               {/* Language Selector */}
               <Select value={i18n.language || 'en'} onValueChange={(lang) => i18n.changeLanguage(lang)}>
-                <SelectTrigger className="w-32">
-                  <Globe className="w-4 h-4 mr-2" />
+                <SelectTrigger className="w-24 sm:w-32 h-8 sm:h-10 text-xs sm:text-sm">
+                  <Globe className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -179,18 +180,18 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
               {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
+                  <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10">
+                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 bg-red-500 text-[10px] leading-[14px] text-white rounded-full flex items-center justify-center">
+                      <span className="absolute top-0 right-0 min-w-[16px] h-[16px] px-0.5 bg-red-500 text-[10px] leading-[16px] text-white rounded-full flex items-center justify-center">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-hidden">
+                <DropdownMenuContent align="end" className="w-72 sm:w-80 max-h-96 overflow-hidden">
                   <div className="flex items-center justify-between px-2 py-1.5">
-                    <p className="text-sm font-semibold text-gray-900">Notifications</p>
+                    <p className="text-xs sm:text-sm font-semibold text-gray-900">Notifications</p>
                     <button
                       className="text-xs text-brand-600 hover:underline disabled:text-gray-400"
                       disabled={unreadCount === 0}
@@ -202,20 +203,20 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
                   <DropdownMenuSeparator />
                   <div className="max-h-64 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-gray-500">
+                      <div className="px-3 py-4 text-xs sm:text-sm text-gray-500">
                         No notifications yet.
                       </div>
                     ) : (
                       notifications.map((notification) => (
                         <DropdownMenuItem
                           key={notification.id}
-                          className={`flex flex-col items-start gap-0.5 ${!notification.isRead ? 'bg-purple-50' : ''}`}
+                          className={`flex flex-col items-start gap-0.5 text-xs sm:text-sm ${!notification.isRead ? 'bg-purple-50' : ''}`}
                           onClick={() => handleNotificationNavigate(notification)}
                         >
                           <span className="text-xs uppercase tracking-wide text-gray-400">
                             {notification.module}
                           </span>
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-xs sm:text-sm font-medium text-gray-900">
                             {notification.title}
                           </span>
                           <span className="text-xs text-gray-600 line-clamp-2">
@@ -232,24 +233,24 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
               {currentUser && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-brand-gradient rounded-full flex items-center justify-center text-white text-sm font-semibold shadow-md">
+                    <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-3">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-brand-gradient rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold shadow-md flex-shrink-0">
                         {currentUser.name?.charAt(0) || currentUser.username?.charAt(0) || 'U'}
                       </div>
-                      <div className="hidden md:block text-left">
-                        <p className="text-sm text-gray-900">{currentUser.name || currentUser.username}</p>
-                        <p className="text-xs text-gray-500">@{currentUser.username}</p>
+                      <div className="hidden md:block text-left min-w-0">
+                        <p className="text-xs sm:text-sm text-gray-900 truncate">{currentUser.name || currentUser.username}</p>
+                        <p className="text-xs text-gray-500 truncate">@{currentUser.username}</p>
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align="end" className="w-48 sm:w-56">
                     <div className="p-2">
-                      <p className="text-sm text-gray-900">{currentUser.name || currentUser.username}</p>
-                      <p className="text-xs text-gray-500">@{currentUser.username}</p>
+                      <p className="text-xs sm:text-sm text-gray-900 truncate">{currentUser.name || currentUser.username}</p>
+                      <p className="text-xs text-gray-500 truncate">@{currentUser.username}</p>
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
-                      <LogOut className="w-4 h-4 mr-2" />
+                    <DropdownMenuItem onClick={onLogout} className="cursor-pointer text-xs sm:text-sm">
+                      <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
                       {t('common.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
