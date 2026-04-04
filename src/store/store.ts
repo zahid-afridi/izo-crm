@@ -5,6 +5,7 @@ import dashboardReducer from './slices/dashboardSlice';
 import sitesReducer from './slices/sitesSlice';
 import carsReducer from './slices/carsSlice';
 import teamsReducer from './slices/teamsSlice';
+import assignmentsReducer from './slices/assignmentsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     sites: sitesReducer,
     cars: carsReducer,
     teams: teamsReducer,
+    assignments: assignmentsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
