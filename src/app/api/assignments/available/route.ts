@@ -3,23 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 // GET available workers (not locked), sites, and cars for assignment creation
 // Optional teamId parameter to filter workers by team membership
-// Also unlocks all cars to make them available
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const teamId = searchParams.get('teamId');
-    const role = searchParams.get('role'); // Add role parameter support
-
-    // First, unlock all cars to make them available
-    await prisma.car.updateMany({
-      where: {
-        isLocked: true,
-      },
-      data: {
-        isLocked: false,
-      },
-    });
+    const role = searchParams.get('role');
 
     // Get all active sites
     const sites = await prisma.site.findMany({

@@ -16,7 +16,7 @@ import { AssignmentExportDialog } from './AssignmentExportDialog';
 import { WorkerAssignmentDetailsDialog } from './WorkerAssignmentDetailsDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
-  fetchAssignmentsData, fetchDailyProgramThunk,
+  fetchAssignmentsData, fetchDailyProgramThunk, lockEntities,
   setWorkerLocked, setBulkWorkersLocked, setCarLocked, setWorkerDayOff,
   type Assignment, type AssignmentWorker, type AssignmentCar, type AssignmentSite,
 } from '@/store/slices/assignmentsSlice';
@@ -155,8 +155,17 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
     setDialogAssignmentDate('');
   };
 
-  const getAvailableCars = () =>
-    allCars.filter((car: AssignmentCar) => car.status === 'active' && !car.isLocked);
+  const getAvailableCars = () => {
+    const available = allCars.filter((car: AssignmentCar) => car.status === 'active' && !car.isLocked);
+    // In edit mode, always include the currently assigned car even if locked
+    if (isEditMode && formData.carId) {
+      const assignedCar = allCars.find(c => c.id === formData.carId);
+      if (assignedCar && !available.find(c => c.id === assignedCar.id)) {
+        return [assignedCar, ...available];
+      }
+    }
+    return available;
+  };
 
   const getAvailableWorkersCount = () => availableWorkers.length;
 
@@ -267,12 +276,12 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
         if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to create assignment'); }
 
         if (lockCar && formData.carId) {
-          await fetch(`/api/cars/${formData.carId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLocked: true }) });
           dispatch(setCarLocked({ carId: formData.carId, isLocked: true }));
+          dispatch(lockEntities({ type: 'car', ids: [formData.carId], isLocked: true }));
         }
         if (lockWorkers) {
-          await fetch('/api/workers/bulk-lock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workerIds: validWorkerIds, isLocked: true }) });
           dispatch(setBulkWorkersLocked({ workerIds: validWorkerIds, isLocked: true }));
+          dispatch(lockEntities({ type: 'worker', ids: validWorkerIds, isLocked: true }));
         }
         refreshData();
         setIsCreateDialogOpen(false);
@@ -343,37 +352,37 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
 
   const handleLockWorker = async (workerId: string) => {
     dispatch(setWorkerLocked({ workerId, isLocked: true }));
-    try {
-      const res = await fetch(`/api/workers/${workerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLocked: true }) });
-      if (!res.ok) { dispatch(setWorkerLocked({ workerId, isLocked: false })); throw new Error('Failed to lock worker'); }
+    const result = await dispatch(lockEntities({ type: 'worker', ids: [workerId], isLocked: true }));
+    if (lockEntities.rejected.match(result)) {
+      dispatch(setWorkerLocked({ workerId, isLocked: false }));
+      toast.error(t('assignments.failedToLockWorker'));
+    } else {
       toast.success(t('assignments.workerLockedSuccess'));
-    } catch (err: any) {
-      toast.error(err.message || t('assignments.failedToLockWorker'));
     }
   };
 
   const handleUnlockWorker = async (workerId: string) => {
     dispatch(setWorkerLocked({ workerId, isLocked: false }));
-    try {
-      const res = await fetch(`/api/workers/${workerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLocked: false }) });
-      if (!res.ok) { dispatch(setWorkerLocked({ workerId, isLocked: true })); throw new Error('Failed to unlock worker'); }
+    const result = await dispatch(lockEntities({ type: 'worker', ids: [workerId], isLocked: false }));
+    if (lockEntities.rejected.match(result)) {
+      dispatch(setWorkerLocked({ workerId, isLocked: true }));
+      toast.error(t('assignments.failedToUnlockWorker'));
+    } else {
       toast.success(t('assignments.workerUnlockedSuccess'));
-    } catch (err: any) {
-      toast.error(err.message || t('assignments.failedToUnlockWorker'));
     }
   };
 
   const handleBulkLockWorkers = async (workerIds: string[], isLocked: boolean) => {
     const unique = [...new Set(workerIds)].filter(id => allWorkers.some(w => w.id === id));
-    if (unique.length === 0) { toast.error(t('assignments.noValidWorkersToUpdate')); return; }
+    if (!unique.length) { toast.error(t('assignments.noValidWorkersToUpdate')); return; }
     dispatch(setBulkWorkersLocked({ workerIds: unique, isLocked }));
-    try {
-      const res = await fetch('/api/workers/bulk-lock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workerIds: unique, isLocked }) });
-      if (!res.ok) { dispatch(setBulkWorkersLocked({ workerIds: unique, isLocked: !isLocked })); const d = await res.json(); throw new Error(d.error); }
-      const result = await res.json();
-      toast.success(result.message);
-    } catch (err: any) {
-      toast.error(err.message || t('assignments.failedToLoadData'));
+    const result = await dispatch(lockEntities({ type: 'worker', ids: unique, isLocked }));
+    if (lockEntities.rejected.match(result)) {
+      dispatch(setBulkWorkersLocked({ workerIds: unique, isLocked: !isLocked }));
+      toast.error(t('assignments.failedToLoadData'));
+    } else {
+      const data = result.payload as any;
+      toast.success(data?.message || `Workers ${isLocked ? 'locked' : 'unlocked'}`);
     }
   };
 
@@ -391,23 +400,23 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
 
   const handleLockCar = async (carId: string) => {
     dispatch(setCarLocked({ carId, isLocked: true }));
-    try {
-      const res = await fetch(`/api/cars/${carId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLocked: true }) });
-      if (!res.ok) { dispatch(setCarLocked({ carId, isLocked: false })); throw new Error('Failed to lock car'); }
+    const result = await dispatch(lockEntities({ type: 'car', ids: [carId], isLocked: true }));
+    if (lockEntities.rejected.match(result)) {
+      dispatch(setCarLocked({ carId, isLocked: false }));
+      toast.error(t('assignments.failedToLockCar'));
+    } else {
       toast.success(t('assignments.carLockedSuccess'));
-    } catch (err: any) {
-      toast.error(err.message || t('assignments.failedToLockCar'));
     }
   };
 
   const handleUnlockCar = async (carId: string) => {
     dispatch(setCarLocked({ carId, isLocked: false }));
-    try {
-      const res = await fetch(`/api/cars/${carId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLocked: false }) });
-      if (!res.ok) { dispatch(setCarLocked({ carId, isLocked: true })); throw new Error('Failed to unlock car'); }
+    const result = await dispatch(lockEntities({ type: 'car', ids: [carId], isLocked: false }));
+    if (lockEntities.rejected.match(result)) {
+      dispatch(setCarLocked({ carId, isLocked: true }));
+      toast.error(t('assignments.failedToUnlockCar'));
+    } else {
       toast.success(t('assignments.carUnlockedSuccess'));
-    } catch (err: any) {
-      toast.error(err.message || t('assignments.failedToUnlockCar'));
     }
   };
 
@@ -559,7 +568,9 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
                       <SelectContent>
                         <SelectItem value="none" className="text-sm">{t('assignments.noCar')}</SelectItem>
                         {getAvailableCars().map(car => (
-                          <SelectItem key={car.id} value={car.id} className="text-sm">{car.name} - {car.number} ({car.color})</SelectItem>
+                          <SelectItem key={car.id} value={car.id} className="text-sm">
+                            {car.name} - {car.number} ({car.color}){car.isLocked ? ' 🔒' : ''}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

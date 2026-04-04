@@ -128,20 +128,12 @@ export async function PUT(
       console.log('Keeping same worker in assignment, allowing even if locked');
     }
 
-    // Verify car if being updated
+    // Verify car if being updated — only reject if it's a DIFFERENT locked car
     if (carId && carId !== existingAssignment.carId) {
-      const car = await prisma.car.findUnique({
-        where: { id: carId },
-      });
-
+      const car = await prisma.car.findUnique({ where: { id: carId } });
       if (!car) {
-        return NextResponse.json(
-          { error: 'Car not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Car not found' }, { status: 404 });
       }
-
-      // Check if car is locked
       if (car.isLocked) {
         return NextResponse.json(
           { error: `Car "${car.name}" (${car.number}) is locked and cannot be assigned` },
@@ -149,6 +141,7 @@ export async function PUT(
         );
       }
     }
+    // Same car (or no car change) — always allow, even if locked
 
     const updateData: any = {};
     if (siteId !== undefined) updateData.siteId = siteId;

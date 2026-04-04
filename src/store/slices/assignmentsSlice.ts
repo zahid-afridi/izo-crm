@@ -69,54 +69,32 @@ const initialState: AssignmentsState = {
   error: null,
 };
 
+/** Fetch all board data in a single request */
 export const fetchAssignmentsData = createAsyncThunk(
   'assignments/fetchAll',
   async (selectedDate: string | undefined, { rejectWithValue }) => {
     try {
-      const bySiteUrl = selectedDate
-        ? `/api/assignments/by-site?date=${selectedDate}`
-        : `/api/assignments/by-site`;
+      const url = selectedDate
+        ? `/api/assignments/board?date=${selectedDate}`
+        : '/api/assignments/board';
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) return rejectWithValue('Failed to fetch board data');
+      const data = await res.json();
 
-      const dateParam = selectedDate || new Date().toISOString().split('T')[0];
-
-      const [bySiteRes, availableRes, carsRes, sitesRes, teamsRes, allWorkersRes, dailyProgramRes] = await Promise.all([
-        fetch(bySiteUrl, { credentials: 'include' }),
-        fetch('/api/assignments/available?role=worker', { credentials: 'include' }),
-        fetch('/api/cars', { credentials: 'include' }),
-        fetch('/api/sites', { credentials: 'include' }),
-        fetch('/api/teams', { credentials: 'include' }),
-        fetch('/api/workers?role=worker', { credentials: 'include' }),
-        fetch(`/api/daily-program?date=${dateParam}`, { credentials: 'include' }),
-      ]);
-
-      if (!bySiteRes.ok || !availableRes.ok || !carsRes.ok || !sitesRes.ok || !teamsRes.ok || !allWorkersRes.ok) {
-        return rejectWithValue('Failed to fetch assignments data');
-      }
-
-      const [bySiteData, availableData, carsData, sitesData, teamsData, allWorkersData, dailyProgramData] = await Promise.all([
-        bySiteRes.json(),
-        availableRes.json(),
-        carsRes.json(),
-        sitesRes.json(),
-        teamsRes.json(),
-        allWorkersRes.json(),
-        dailyProgramRes.ok ? dailyProgramRes.json() : Promise.resolve({ workersOnDayOff: [] }),
-      ]);
-
-      // Flatten by-site data into assignments array
+      // Flatten grouped-by-site assignments into a flat array
       const flatAssignments: Assignment[] = [];
-      (bySiteData.assignments || []).forEach((siteData: any) => {
-        siteData.workers.forEach((worker: any) => {
+      (data.assignments || []).forEach((siteData: any) => {
+        siteData.workers.forEach((w: any) => {
           flatAssignments.push({
-            id: worker.id,
+            id: w.id,
             siteId: siteData.id,
-            workerId: worker.workerId,
-            carId: worker.car?.id || null,
-            assignedDate: worker.assignedDate,
-            status: worker.status,
-            notes: worker.notes,
-            showAssignmentHistory: worker.showAssignmentHistory ?? false,
-            createdAt: worker.createdAt,
+            workerId: w.workerId,
+            carId: w.car?.id ?? undefined,
+            assignedDate: w.assignedDate,
+            status: w.status,
+            notes: w.notes,
+            showAssignmentHistory: w.showAssignmentHistory ?? false,
+            createdAt: w.createdAt,
             site: {
               id: siteData.id,
               name: siteData.name,
@@ -126,41 +104,34 @@ export const fetchAssignmentsData = createAsyncThunk(
               isCompleted: siteData.isCompleted || false,
             },
             worker: {
-              id: worker.workerId,
-              fullName: worker.workerName,
-              email: worker.workerEmail,
-              phone: worker.workerPhone,
-              role: worker.workerRole,
-              isLocked: worker.workerIsLocked,
+              id: w.workerId,
+              fullName: w.workerName,
+              email: w.workerEmail,
+              phone: w.workerPhone,
+              role: w.workerRole,
+              isLocked: w.workerIsLocked,
             },
-            car: worker.car ? {
-              id: worker.car.id,
-              name: worker.car.name,
-              number: worker.car.number,
-              color: worker.car.color,
-              model: worker.car.model,
-              status: worker.car.status || 'active',
-              isLocked: worker.car.isLocked || false,
-            } : undefined,
+            car: w.car ?? undefined,
           });
         });
       });
 
       return {
         assignments: flatAssignments,
-        allWorkers: allWorkersData.workers || [],
-        availableWorkers: availableData.workers || [],
-        allCars: carsData.cars || [],
-        allSites: sitesData.sites || [],
-        allTeams: teamsData.teams || [],
-        workersOnDayOff: dailyProgramData.workersOnDayOff || [],
+        allWorkers: data.allWorkers || [],
+        availableWorkers: data.availableWorkers || [],
+        allCars: data.allCars || [],
+        allSites: data.allSites || [],
+        allTeams: data.allTeams || [],
+        workersOnDayOff: data.workersOnDayOff || [],
       };
     } catch (e) {
-      return rejectWithValue('Failed to fetch assignments data');
+      return rejectWithValue('Failed to fetch board data');
     }
   }
 );
 
+/** Fetch daily program for a specific date (used when dialog date changes) */
 export const fetchDailyProgramThunk = createAsyncThunk(
   'assignments/fetchDailyProgram',
   async (date: string, { rejectWithValue }) => {
@@ -168,9 +139,34 @@ export const fetchDailyProgramThunk = createAsyncThunk(
       const res = await fetch(`/api/daily-program?date=${date}`, { credentials: 'include' });
       if (!res.ok) return rejectWithValue('Failed to fetch daily program');
       const data = await res.json();
-      return data.workersOnDayOff as string[];
+      return (data.workersOnDayOff ?? []) as string[];
     } catch {
       return rejectWithValue('Failed to fetch daily program');
+    }
+  }
+);
+
+/** Lock or unlock workers or cars via the unified lock endpoint */
+export const lockEntities = createAsyncThunk(
+  'assignments/lock',
+  async (
+    payload: { type: 'worker' | 'car'; ids: string[]; isLocked: boolean },
+    { rejectWithValue }
+  ) => {
+    try {
+      const res = await fetch('/api/assignments/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return rejectWithValue(err.error || 'Failed to update lock status');
+      }
+      return payload;
+    } catch {
+      return rejectWithValue('Failed to update lock status');
     }
   }
 );
@@ -179,25 +175,26 @@ const assignmentsSlice = createSlice({
   name: 'assignments',
   initialState,
   reducers: {
-    // Optimistic worker lock update
-    setWorkerLocked: (state, action: PayloadAction<{ workerId: string; isLocked: boolean }>) => {
+    /** Optimistic single worker lock toggle */
+    setWorkerLocked(state, action: PayloadAction<{ workerId: string; isLocked: boolean }>) {
       const { workerId, isLocked } = action.payload;
-      const worker = state.allWorkers.find(w => w.id === workerId);
-      if (worker) worker.isLocked = isLocked;
+      const w = state.allWorkers.find(w => w.id === workerId);
+      if (w) w.isLocked = isLocked;
       state.assignments = state.assignments.map(a =>
         a.workerId === workerId ? { ...a, worker: { ...a.worker, isLocked } } : a
       );
       if (isLocked) {
         state.availableWorkers = state.availableWorkers.filter(w => w.id !== workerId);
       } else {
-        const w = state.allWorkers.find(w => w.id === workerId);
-        if (w && !state.availableWorkers.find(aw => aw.id === workerId)) {
-          state.availableWorkers.push({ ...w, isLocked: false });
+        const worker = state.allWorkers.find(w => w.id === workerId);
+        if (worker && !state.availableWorkers.find(w => w.id === workerId)) {
+          state.availableWorkers.push({ ...worker, isLocked: false });
         }
       }
     },
-    // Optimistic bulk worker lock update
-    setBulkWorkersLocked: (state, action: PayloadAction<{ workerIds: string[]; isLocked: boolean }>) => {
+
+    /** Optimistic bulk worker lock toggle */
+    setBulkWorkersLocked(state, action: PayloadAction<{ workerIds: string[]; isLocked: boolean }>) {
       const { workerIds, isLocked } = action.payload;
       state.allWorkers = state.allWorkers.map(w =>
         workerIds.includes(w.id) ? { ...w, isLocked } : w
@@ -208,39 +205,45 @@ const assignmentsSlice = createSlice({
       if (isLocked) {
         state.availableWorkers = state.availableWorkers.filter(w => !workerIds.includes(w.id));
       } else {
-        const toAdd = state.allWorkers.filter(w =>
-          workerIds.includes(w.id) && !state.availableWorkers.find(aw => aw.id === w.id)
+        const toAdd = state.allWorkers.filter(
+          w => workerIds.includes(w.id) && !state.availableWorkers.find(aw => aw.id === w.id)
         );
         state.availableWorkers.push(...toAdd.map(w => ({ ...w, isLocked: false })));
       }
     },
-    // Optimistic car lock update
-    setCarLocked: (state, action: PayloadAction<{ carId: string; isLocked: boolean }>) => {
+
+    /** Optimistic car lock toggle */
+    setCarLocked(state, action: PayloadAction<{ carId: string; isLocked: boolean }>) {
       const { carId, isLocked } = action.payload;
       state.allCars = state.allCars.map(c => c.id === carId ? { ...c, isLocked } : c);
     },
-    // Optimistic day-off toggle
-    setWorkerDayOff: (state, action: PayloadAction<{ workerId: string; isOnDayOff: boolean }>) => {
+
+    /** Optimistic day-off toggle */
+    setWorkerDayOff(state, action: PayloadAction<{ workerId: string; isOnDayOff: boolean }>) {
       const { workerId, isOnDayOff } = action.payload;
       if (isOnDayOff) {
         if (!state.workersOnDayOff.includes(workerId)) state.workersOnDayOff.push(workerId);
+        state.availableWorkers = state.availableWorkers.filter(w => w.id !== workerId);
       } else {
         state.workersOnDayOff = state.workersOnDayOff.filter(id => id !== workerId);
+        const worker = state.allWorkers.find(w => w.id === workerId);
+        if (worker && !worker.isLocked && !state.availableWorkers.find(w => w.id === workerId)) {
+          state.availableWorkers.push(worker);
+        }
       }
     },
-    clearError: (state) => { state.error = null; },
+
+    clearError(state) { state.error = null; },
   },
+
   extraReducers: (builder) => {
     builder
-      .addCase(fetchAssignmentsData.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(fetchAssignmentsData.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(fetchAssignmentsData.fulfilled, (state, action) => {
-        state.assignments = action.payload.assignments;
-        state.allWorkers = action.payload.allWorkers;
-        state.availableWorkers = action.payload.availableWorkers;
-        state.allCars = action.payload.allCars;
-        state.allSites = action.payload.allSites;
-        state.allTeams = action.payload.allTeams;
-        state.workersOnDayOff = action.payload.workersOnDayOff;
+        Object.assign(state, action.payload);
         state.isLoading = false;
         state.isInitialized = true;
       })
@@ -249,12 +252,23 @@ const assignmentsSlice = createSlice({
         state.error = action.payload as string;
       });
 
-    builder
-      .addCase(fetchDailyProgramThunk.fulfilled, (state, action) => {
-        state.workersOnDayOff = action.payload;
-      });
+    builder.addCase(fetchDailyProgramThunk.fulfilled, (state, action) => {
+      state.workersOnDayOff = action.payload;
+    });
+
+    // lockEntities: apply optimistically via reducers, this just handles rejection
+    builder.addCase(lockEntities.rejected, (state, action) => {
+      state.error = action.payload as string;
+    });
   },
 });
 
-export const { setWorkerLocked, setBulkWorkersLocked, setCarLocked, setWorkerDayOff, clearError } = assignmentsSlice.actions;
+export const {
+  setWorkerLocked,
+  setBulkWorkersLocked,
+  setCarLocked,
+  setWorkerDayOff,
+  clearError,
+} = assignmentsSlice.actions;
+
 export default assignmentsSlice.reducer;
