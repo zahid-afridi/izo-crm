@@ -744,8 +744,8 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
           </div>
         )}
 
-        {/* Workers Pool */}
-        <div className="w-80 flex-shrink-0">
+        {/* Workers Pool — hidden on mobile (sm and below), visible from md up */}
+        <div className="hidden md:block w-80 flex-shrink-0">
           <Card className="p-4 h-full bg-white border border-gray-200 shadow-sm">
             <div className="mb-4">
               <h3 className="font-semibold text-gray-900 mb-3">{t('assignments.availableWorkersPool', { count: availableWorkers.length })}</h3>
@@ -818,7 +818,7 @@ export function AssignmentsPage({ userRole }: AssignmentsPageProps) {
         </div>
 
         {/* Sites Grid */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredSites.map(site => ({ site, siteAssignments: getSiteAssignments(site.id) }))
               .filter(({ siteAssignments }) => siteAssignments.length > 0)
