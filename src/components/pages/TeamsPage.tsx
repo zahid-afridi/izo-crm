@@ -13,341 +13,139 @@ import { Textarea } from '../ui/textarea';
 import { Plus, Search, Users, Edit, Trash2, UserPlus, Loader, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import { toast } from 'sonner';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  fetchTeams, fetchTeamWorkers, createTeam, updateTeam, deleteTeam,
+  setSearchFilter, setStatusFilter, type Team,
+} from '@/store/slices/teamsSlice';
+import {
+  selectFilteredTeams, selectTeamStats, selectTeamWorkers,
+  selectTeamsIsLoading, selectTeamsIsInitialized, selectTeamsLoadingWorkers, selectTeamsFilters,
+} from '@/store/selectors/teamsSelectors';
 
-interface TeamsPageProps {
-  userRole: string;
-}
+interface TeamsPageProps { userRole: string; }
 
-interface Worker {
-  id: string;
-  fullName: string;
-  email: string;
-  phone?: string;
-  role: string;
-}
-
-interface TeamMember {
-  id: string;
-  fullName: string;
-  email: string;
-  phone?: string;
-}
-
-interface TeamLead {
-  id: string;
-  fullName: string;
-  email: string;
-  phone?: string;
-}
-
-interface Team {
-  id: string;
-  name: string;
-  description?: string;
-  teamLeadId: string;
-  teamLead: TeamLead;
-  memberIds: string[];
-  members: TeamMember[];
-  memberCount: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const EMPTY_FORM = { name: '', description: '', teamLeadId: '', memberIds: [] as string[], status: 'active' };
 
 export function TeamsPage({ userRole }: TeamsPageProps) {
   const { t } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const dispatch = useAppDispatch();
+
+  const filteredTeams = useAppSelector(selectFilteredTeams);
+  const stats = useAppSelector(selectTeamStats);
+  const workers = useAppSelector(selectTeamWorkers);
+  const loading = useAppSelector(selectTeamsIsLoading);
+  const isInitialized = useAppSelector(selectTeamsIsInitialized);
+  const loadingWorkers = useAppSelector(selectTeamsLoadingWorkers);
+  const filters = useAppSelector(selectTeamsFilters);
+
+  const [searchQuery, setSearchQuery] = useState(filters.search);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-
-  // Form states
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    teamLeadId: '',
-    memberIds: [] as string[],
-    status: 'active',
-  });
-
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingWorkers, setLoadingWorkers] = useState(false);
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [viewingTeam, setViewingTeam] = useState<Team | null>(null);
 
   const canEdit = ['admin', 'site_manager'].includes(userRole);
   const canDelete = userRole === 'admin';
 
-  // Handle create dialog close - reset all form data and states
-  const handleCreateDialogClose = (open: boolean) => {
-    setIsCreateDialogOpen(open);
-
-    // If dialog is being closed, reset all form data
-    if (!open) {
-      resetForm();
-    }
-  };
-
-  // Handle edit dialog close - reset all form data and states
-  const handleEditDialogClose = (open: boolean) => {
-    setIsEditDialogOpen(open);
-
-    // If dialog is being closed, reset all form data
-    if (!open) {
-      resetForm();
-    }
-  };
-
-  // Load teams and workers on mount
   useEffect(() => {
-    loadTeams();
-    loadWorkers();
-  }, []);
+    if (!isInitialized) dispatch(fetchTeams());
+    dispatch(fetchTeamWorkers());
+  }, [dispatch, isInitialized]);
 
-  // Reload when filters change
   useEffect(() => {
-    loadTeams();
-  }, [statusFilter, searchQuery]);
+    const timer = setTimeout(() => dispatch(setSearchFilter(searchQuery)), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, dispatch]);
 
-  const loadTeams = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (searchQuery) params.append('search', searchQuery);
-
-      const response = await fetch(`/api/teams?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch teams');
-      const data = await response.json();
-      setTeams(data.teams || []);
-    } catch (err) {
-      console.error('Error loading teams:', err);
-      toast.error(t('teams.failedToLoad'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadWorkers = async () => {
-    setLoadingWorkers(true);
-    try {
-      const response = await fetch('/api/teams/workers');
-      if (!response.ok) throw new Error('Failed to fetch workers');
-      const data = await response.json();
-      setWorkers(data.workers || []);
-    } catch (err) {
-      console.error('Error loading workers:', err);
-      toast.error(t('workers.failedToFetch'));
-    } finally {
-      setLoadingWorkers(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      teamLeadId: '',
-      memberIds: [],
-      status: 'active',
-    });
-    setError('');
-    setEditingTeam(null);
-  };
+  const resetForm = () => { setFormData(EMPTY_FORM); setFormError(''); setEditingTeam(null); };
 
   const toggleMemberSelection = (workerId: string) => {
-    // Prevent removing team lead from members
-    if (workerId === formData.teamLeadId && formData.memberIds.includes(workerId)) {
-      return; // Don't allow removing team lead
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      memberIds: prev.memberIds.includes(workerId)
-        ? prev.memberIds.filter((id) => id !== workerId)
-        : [...prev.memberIds, workerId],
+    if (workerId === formData.teamLeadId && formData.memberIds.includes(workerId)) return;
+    setFormData((p) => ({
+      ...p,
+      memberIds: p.memberIds.includes(workerId)
+        ? p.memberIds.filter((id) => id !== workerId)
+        : [...p.memberIds, workerId],
     }));
   };
 
-  // Automatically include team lead in members when selected
   const handleTeamLeadChange = (teamLeadId: string) => {
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((p) => ({
+      ...p,
       teamLeadId,
-      memberIds: prev.memberIds.includes(teamLeadId)
-        ? prev.memberIds
-        : [...prev.memberIds, teamLeadId],
+      memberIds: p.memberIds.includes(teamLeadId) ? p.memberIds : [...p.memberIds, teamLeadId],
     }));
+  };
+
+  const buildPayload = () => {
+    const uniqueMemberIds = [...new Set(formData.memberIds)];
+    if (!uniqueMemberIds.includes(formData.teamLeadId)) uniqueMemberIds.push(formData.teamLeadId);
+    return { ...formData, memberIds: uniqueMemberIds };
+  };
+
+  const validate = () => {
+    if (!formData.name.trim()) { setFormError(t('teams.teamNameRequired')); return false; }
+    if (!formData.teamLeadId) { setFormError(t('teams.teamLeadRequired')); return false; }
+    if (formData.memberIds.length === 0) { setFormError(t('teams.atLeastOneMember')); return false; }
+    return true;
   };
 
   const handleCreateTeam = async () => {
-    setError('');
-
-    if (!formData.name.trim()) {
-      setError(t('teams.teamNameRequired'));
-      return;
-    }
-
-    if (!formData.teamLeadId) {
-      setError(t('teams.teamLeadRequired'));
-      return;
-    }
-
-    if (formData.memberIds.length === 0) {
-      setError(t('teams.atLeastOneMember'));
-      return;
-    }
-
-    // Clean up memberIds - remove duplicates and ensure team lead is included
-    const uniqueMemberIds = [...new Set(formData.memberIds)];
-    if (!uniqueMemberIds.includes(formData.teamLeadId)) {
-      uniqueMemberIds.push(formData.teamLeadId);
-    }
-
-    console.log('Creating team with cleaned data:', {
-      name: formData.name,
-      teamLeadId: formData.teamLeadId,
-      originalMemberIds: formData.memberIds,
-      cleanedMemberIds: uniqueMemberIds,
-    });
-
+    setFormError('');
+    if (!validate()) return;
     setSubmitting(true);
-    try {
-      const response = await fetch('/api/teams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          memberIds: uniqueMemberIds, // Use cleaned memberIds
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create team');
-      }
-
+    const result = await dispatch(createTeam(buildPayload()));
+    setSubmitting(false);
+    if (createTeam.fulfilled.match(result)) {
       toast.success(t('teams.createSuccess'));
       resetForm();
       setIsCreateDialogOpen(false);
-      loadTeams();
-    } catch (err: any) {
-      setError(err.message || t('teams.failedToCreate'));
-      toast.error(err.message || t('teams.failedToCreate'));
-    } finally {
-      setSubmitting(false);
+    } else {
+      const msg = (result.payload as string) || t('teams.failedToCreate');
+      setFormError(msg);
+      toast.error(msg);
     }
   };
 
   const handleUpdateTeam = async () => {
     if (!editingTeam) return;
-
-    setError('');
-
-    if (!formData.name.trim()) {
-      setError(t('teams.teamNameRequired'));
-      return;
-    }
-
-    if (!formData.teamLeadId) {
-      setError(t('teams.teamLeadRequired'));
-      return;
-    }
-
-    if (formData.memberIds.length === 0) {
-      setError(t('teams.atLeastOneMember'));
-      return;
-    }
-
-    // Clean up memberIds - remove duplicates and ensure team lead is included
-    const uniqueMemberIds = [...new Set(formData.memberIds)];
-    if (!uniqueMemberIds.includes(formData.teamLeadId)) {
-      uniqueMemberIds.push(formData.teamLeadId);
-    }
-
-    console.log('Updating team with cleaned data:', {
-      name: formData.name,
-      teamLeadId: formData.teamLeadId,
-      originalMemberIds: formData.memberIds,
-      cleanedMemberIds: uniqueMemberIds,
-    });
-
+    setFormError('');
+    if (!validate()) return;
     setSubmitting(true);
-    try {
-      const response = await fetch(`/api/teams/${editingTeam.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          memberIds: uniqueMemberIds, // Use cleaned memberIds
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update team');
-      }
-
+    const result = await dispatch(updateTeam({ id: editingTeam.id, data: buildPayload() }));
+    setSubmitting(false);
+    if (updateTeam.fulfilled.match(result)) {
       toast.success(t('teams.updateSuccess'));
       resetForm();
       setIsEditDialogOpen(false);
-      loadTeams();
-    } catch (err: any) {
-      setError(err.message || t('teams.failedToUpdate'));
-      toast.error(err.message || t('teams.failedToUpdate'));
-    } finally {
-      setSubmitting(false);
+    } else {
+      const msg = (result.payload as string) || t('teams.failedToUpdate');
+      setFormError(msg);
+      toast.error(msg);
     }
   };
 
   const handleDeleteTeam = async (id: string) => {
     if (!confirm(t('teams.deleteConfirm'))) return;
-
-    try {
-      const response = await fetch(`/api/teams/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete team');
-
+    const result = await dispatch(deleteTeam(id));
+    if (deleteTeam.fulfilled.match(result)) {
       toast.success(t('teams.deleteSuccess'));
-      loadTeams();
-    } catch (err: any) {
-      toast.error(err.message || t('teams.failedToDelete'));
+    } else {
+      toast.error(t('teams.failedToDelete'));
     }
   };
 
   const openEditDialog = (team: Team) => {
     setEditingTeam(team);
-    setFormData({
-      name: team.name,
-      description: team.description || '',
-      teamLeadId: team.teamLeadId,
-      memberIds: team.memberIds,
-      status: team.status,
-    });
+    setFormData({ name: team.name, description: team.description || '', teamLeadId: team.teamLeadId, memberIds: team.memberIds, status: team.status });
     setIsEditDialogOpen(true);
   };
 
-  const openViewDialog = (team: Team) => {
-    setViewingTeam(team);
-    setIsViewDialogOpen(true);
-  };
-
-  const filteredTeams = teams.filter((team) =>
-    team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.teamLead.fullName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Get available workers (all workers for member selection)
-  const availableWorkers = workers;
-
-  // Get selected members details
   const selectedMembersDetails = workers.filter((w) => formData.memberIds.includes(w.id));
 
   return (
@@ -359,141 +157,36 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
           <p className="text-sm text-gray-500 mt-1">{t('teams.subtitle')}</p>
         </div>
         {canEdit && (
-          <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogClose}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { setIsCreateDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('teams.createTeam')}
-              </Button>
+              <Button><Plus className="w-4 h-4 mr-2" />{t('teams.createTeam')}</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{t('teams.createNewTeam')}</DialogTitle>
-              </DialogHeader>
-              {error && (
+              <DialogHeader><DialogTitle>{t('teams.createNewTeam')}</DialogTitle></DialogHeader>
+              {formError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{formError}</AlertDescription>
                 </Alert>
               )}
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <Label>{t('teams.teamName')} *</Label>
-                    <Input
-                      placeholder={t('teams.placeholderTeamName')}
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>{t('teams.description')}</Label>
-                    <Textarea
-                      placeholder={t('teams.placeholderDescription')}
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>{t('teams.teamMembers')} *</Label>
-                    <p className="text-sm text-gray-500 mb-2">{t('teams.selectMembersFirst')}</p>
-                    <div className="border rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
-                      {loadingWorkers ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader className="w-5 h-5 animate-spin text-gray-400" />
-                        </div>
-                      ) : availableWorkers.length > 0 ? (
-                        availableWorkers.map((worker) => (
-                          <div
-                            key={worker.id}
-                            className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${worker.id === formData.teamLeadId
-                              ? 'border-amber-500 bg-amber-50 cursor-default'
-                              : formData.memberIds.includes(worker.id)
-                                ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                                : 'border-gray-200 hover:border-gray-300 cursor-pointer'
-                              }`}
-                            onClick={() => worker.id !== formData.teamLeadId && toggleMemberSelection(worker.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={formData.memberIds.includes(worker.id)}
-                                disabled={worker.id === formData.teamLeadId}
-                                onChange={() => worker.id !== formData.teamLeadId && toggleMemberSelection(worker.id)}
-                                className="rounded"
-                              />
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm text-gray-900">{worker.fullName}</p>
-                                  {worker.id === formData.teamLeadId && (
-                                    <Badge variant="outline" className="text-xs bg-amber-50">{t('teams.leader')}</Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500">{worker.email}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">{t('teams.noWorkersAvailable')}</div>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">{t('teams.workersSelected', { count: formData.memberIds.length })}</p>
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>{t('teams.teamLeaderChef')} *</Label>
-                    <p className="text-sm text-gray-500 mb-2">{t('teams.mustBeFromMembers')}</p>
-                    <Select value={formData.teamLeadId} onValueChange={handleTeamLeadChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('teams.selectLeaderPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedMembersDetails.length > 0 ? (
-                          selectedMembersDetails.map((worker) => (
-                            <SelectItem key={worker.id} value={worker.id}>
-                              {worker.fullName} ({worker.email})
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="p-2 text-sm text-gray-500">{t('teams.selectMembersFirstHint')}</div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>{t('teams.status')}</Label>
-                    <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">{t('teams.active')}</SelectItem>
-                        <SelectItem value="inactive">{t('teams.inactive')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      handleCreateDialogClose(false);
-                    }}
-                    disabled={submitting}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                  <Button onClick={handleCreateTeam} disabled={submitting || !formData.teamLeadId || formData.memberIds.length === 0}>
-                    {submitting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    {submitting ? t('teams.creating') : t('teams.createTeam')}
-                  </Button>
-                </div>
+              <TeamForm
+                formData={formData}
+                workers={workers}
+                loadingWorkers={loadingWorkers}
+                selectedMembersDetails={selectedMembersDetails}
+                onChange={(f) => setFormData((p) => ({ ...p, ...f }))}
+                onToggleMember={toggleMemberSelection}
+                onTeamLeadChange={handleTeamLeadChange}
+                t={t}
+              />
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); resetForm(); }} disabled={submitting}>
+                  {t('common.cancel')}
+                </Button>
+                <Button onClick={handleCreateTeam} disabled={submitting || !formData.teamLeadId || formData.memberIds.length === 0}>
+                  {submitting && <Loader className="w-4 h-4 mr-2 animate-spin" />}
+                  {submitting ? t('teams.creating') : t('teams.createTeam')}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -504,24 +197,15 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('teams.totalTeams')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{teams.length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('teams.activeTeams')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{teams.filter((t) => t.status === 'active').length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{stats.active}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('teams.totalWorkersInTeams')}</p>
-          <p className="text-2xl font-semibold text-gray-900">
-            {(() => {
-              const total = teams.reduce((sum, t) => sum + t.memberCount, 0);
-              console.log('Teams analytics:', {
-                teams: teams.map(t => ({ name: t.name, memberCount: t.memberCount, memberIds: t.memberIds })),
-                totalWorkers: total
-              });
-              return total;
-            })()}
-          </p>
+          <p className="text-2xl font-semibold text-gray-900">{stats.totalWorkers}</p>
         </Card>
       </div>
 
@@ -529,17 +213,10 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 sm:w-80">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder={t('teams.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+          <Input placeholder={t('teams.searchPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
+        <Select value={filters.status} onValueChange={(v) => dispatch(setStatusFilter(v))}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('teams.allStatus')}</SelectItem>
             <SelectItem value="active">{t('teams.active')}</SelectItem>
@@ -577,7 +254,9 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
                     <p className="text-sm text-gray-500">{t('teams.membersCount', { count: team.memberCount })}</p>
                   </div>
                 </div>
-                <Badge variant={team.status === 'active' ? 'default' : 'secondary'}>{team.status === 'active' ? t('teams.active') : t('teams.inactive')}</Badge>
+                <Badge variant={team.status === 'active' ? 'default' : 'secondary'}>
+                  {team.status === 'active' ? t('teams.active') : t('teams.inactive')}
+                </Badge>
               </div>
 
               <div className="mb-4">
@@ -585,18 +264,14 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
                   <UserPlus className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-600">{t('teams.teamLeader')}</span>
                 </div>
-                <Badge variant="outline" className="bg-amber-50">
-                  {team.teamLead.fullName}
-                </Badge>
+                <Badge variant="outline" className="bg-amber-50">{team.teamLead.fullName}</Badge>
               </div>
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">{t('teams.teamMembers')}</p>
                 <div className="flex flex-wrap gap-2">
                   {team.members.slice(0, 3).map((member) => (
-                    <Badge key={member.id} variant="secondary" className="text-xs">
-                      {member.fullName}
-                    </Badge>
+                    <Badge key={member.id} variant="secondary" className="text-xs">{member.fullName}</Badge>
                   ))}
                   {team.members.length > 3 && (
                     <Badge variant="secondary" className="text-xs">
@@ -607,16 +282,14 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
               </div>
 
               {team.description && (
-                <div className="mb-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
-                  {team.description}
-                </div>
+                <div className="mb-4 p-3 bg-gray-50 rounded text-sm text-gray-600">{team.description}</div>
               )}
 
               <div className="flex items-center justify-between pt-4 border-t text-xs text-gray-500">
                 <span>{t('teams.created')} {new Date(team.createdAt).toLocaleDateString()}</span>
                 {canEdit && (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openViewDialog(team)} title={t('teams.viewMembers')}>
+                    <Button variant="ghost" size="icon" onClick={() => { setViewingTeam(team); setIsViewDialogOpen(true); }} title={t('teams.viewMembers')}>
                       <Users className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(team)} title={t('teams.editTeamTooltip')}>
@@ -637,135 +310,33 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
 
       {/* Edit Dialog */}
       {canEdit && (
-        <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogClose}>
+        <Dialog open={isEditDialogOpen} onOpenChange={(open) => { setIsEditDialogOpen(open); if (!open) resetForm(); }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{t('teams.editTeam')}</DialogTitle>
-            </DialogHeader>
-            {error && (
+            <DialogHeader><DialogTitle>{t('teams.editTeam')}</DialogTitle></DialogHeader>
+            {formError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{formError}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label>Team Name *</Label>
-                  <Input
-                    placeholder="e.g., Team Alpha, Group A, etc."
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    placeholder="Team description and notes"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Team Members *</Label>
-                  <p className="text-sm text-gray-500 mb-2">Select members first, then choose a leader from them</p>
-                  <div className="border rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
-                    {loadingWorkers ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader className="w-5 h-5 animate-spin text-gray-400" />
-                      </div>
-                    ) : availableWorkers.length > 0 ? (
-                      availableWorkers.map((worker) => (
-                        <div
-                          key={worker.id}
-                          className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${worker.id === formData.teamLeadId
-                            ? 'border-amber-500 bg-amber-50 cursor-default'
-                            : formData.memberIds.includes(worker.id)
-                              ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                              : 'border-gray-200 hover:border-gray-300 cursor-pointer'
-                            }`}
-                          onClick={() => worker.id !== formData.teamLeadId && toggleMemberSelection(worker.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={formData.memberIds.includes(worker.id)}
-                              disabled={worker.id === formData.teamLeadId}
-                              onChange={() => worker.id !== formData.teamLeadId && toggleMemberSelection(worker.id)}
-                              className="rounded"
-                            />
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm text-gray-900">{worker.fullName}</p>
-                                {worker.id === formData.teamLeadId && (
-                                  <Badge variant="outline" className="text-xs bg-amber-50">{t('teams.leader')}</Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-500">{worker.email}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">{t('teams.noWorkersAvailable')}</div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">{t('teams.workersSelected', { count: formData.memberIds.length })}</p>
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Team Leader (Chef) *</Label>
-                  <p className="text-sm text-gray-500 mb-2">Must be selected from team members</p>
-                  <Select value={formData.teamLeadId} onValueChange={handleTeamLeadChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select team leader from members" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedMembersDetails.length > 0 ? (
-                        selectedMembersDetails.map((worker) => (
-                          <SelectItem key={worker.id} value={worker.id}>
-                            {worker.fullName} ({worker.email})
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-gray-500">{t('teams.selectMembersFirstHint')}</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    handleEditDialogClose(false);
-                  }}
-                  disabled={submitting}
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button onClick={handleUpdateTeam} disabled={submitting || !formData.teamLeadId || formData.memberIds.length === 0}>
-                  {submitting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  {submitting ? t('teams.updating') : t('teams.updateTeam')}
-                </Button>
-              </div>
+            <TeamForm
+              formData={formData}
+              workers={workers}
+              loadingWorkers={loadingWorkers}
+              selectedMembersDetails={selectedMembersDetails}
+              onChange={(f) => setFormData((p) => ({ ...p, ...f }))}
+              onToggleMember={toggleMemberSelection}
+              onTeamLeadChange={handleTeamLeadChange}
+              t={t}
+            />
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); resetForm(); }} disabled={submitting}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleUpdateTeam} disabled={submitting || !formData.teamLeadId || formData.memberIds.length === 0}>
+                {submitting && <Loader className="w-4 h-4 mr-2 animate-spin" />}
+                {submitting ? t('teams.updating') : t('teams.updateTeam')}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -773,74 +344,142 @@ export function TeamsPage({ userRole }: TeamsPageProps) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('teams.teamDetails')}</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{viewingTeam?.name}</DialogTitle></DialogHeader>
           {viewingTeam && (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">{t('teams.teamName')}</p>
-                  <p className="text-gray-900 font-medium">{viewingTeam.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t('teams.status')}</p>
-                  <Badge className="mt-1">{viewingTeam.status === 'active' ? t('teams.active') : t('teams.inactive')}</Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t('teams.teamLeader')}</p>
-                  <p className="text-gray-900">{viewingTeam.teamLead.fullName}</p>
-                  <p className="text-xs text-gray-600">{viewingTeam.teamLead.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t('teams.totalMembers')}</p>
-                  <p className="text-gray-900 font-medium">{viewingTeam.memberCount}</p>
-                </div>
-                {viewingTeam.description && (
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-500">{t('teams.description')}</p>
-                    <p className="text-gray-900">{viewingTeam.description}</p>
-                  </div>
-                )}
-                <div className="col-span-2">
-                  <p className="text-sm text-gray-500 mb-2">{t('teams.teamMembers')}</p>
-                  <div className="space-y-2">
-                    {viewingTeam.members.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <p className="text-sm text-gray-900">{member.fullName}</p>
-                          <p className="text-xs text-gray-600">{member.email}</p>
-                        </div>
-                        {member.id === viewingTeam.teamLeadId && <Badge variant="outline">{t('teams.leader')}</Badge>}
+            <div className="space-y-4 mt-2">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">{t('teams.teamLeader')}</p>
+                <Badge variant="outline" className="bg-amber-50">{viewingTeam.teamLead.fullName}</Badge>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  {t('teams.teamMembers')} ({viewingTeam.memberCount})
+                </p>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {viewingTeam.members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div>
+                        <p className="text-sm text-gray-900">{member.fullName}</p>
+                        <p className="text-xs text-gray-500">{member.email}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="col-span-2 text-xs text-gray-500">
-                  {t('teams.created')} {new Date(viewingTeam.createdAt).toLocaleDateString()}
+                      {member.id === viewingTeam.teamLeadId && (
+                        <Badge variant="outline" className="text-xs bg-amber-50">{t('teams.leader')}</Badge>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                  {t('common.close')}
-                </Button>
-                {canEdit && (
-                  <Button
-                    onClick={() => {
-                      setIsViewDialogOpen(false);
-                      openEditDialog(viewingTeam);
-                    }}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    {t('common.edit')}
-                  </Button>
-                )}
-              </div>
+              {viewingTeam.description && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1">{t('teams.description')}</p>
+                  <p className="text-sm text-gray-600 p-3 bg-gray-50 rounded">{viewingTeam.description}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+interface TeamFormProps {
+  formData: { name: string; description: string; teamLeadId: string; memberIds: string[]; status: string };
+  workers: { id: string; fullName: string; email: string; role: string }[];
+  loadingWorkers: boolean;
+  selectedMembersDetails: { id: string; fullName: string; email: string }[];
+  onChange: (fields: Partial<TeamFormProps['formData']>) => void;
+  onToggleMember: (id: string) => void;
+  onTeamLeadChange: (id: string) => void;
+  t: (key: string, opts?: any) => string;
+}
+
+function TeamForm({ formData, workers, loadingWorkers, selectedMembersDetails, onChange, onToggleMember, onTeamLeadChange, t }: TeamFormProps) {
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Label>{t('teams.teamName')} *</Label>
+          <Input placeholder={t('teams.placeholderTeamName')} value={formData.name} onChange={(e) => onChange({ name: e.target.value })} />
+        </div>
+        <div className="col-span-2">
+          <Label>{t('teams.description')}</Label>
+          <Textarea placeholder={t('teams.placeholderDescription')} value={formData.description} onChange={(e) => onChange({ description: e.target.value })} rows={3} />
+        </div>
+        <div className="col-span-2">
+          <Label>{t('teams.teamMembers')} *</Label>
+          <p className="text-sm text-gray-500 mb-2">{t('teams.selectMembersFirst')}</p>
+          <div className="border rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
+            {loadingWorkers ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : workers.length > 0 ? (
+              workers.map((worker) => (
+                <div
+                  key={worker.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${worker.id === formData.teamLeadId
+                      ? 'border-amber-500 bg-amber-50 cursor-default'
+                      : formData.memberIds.includes(worker.id)
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                    }`}
+                  onClick={() => worker.id !== formData.teamLeadId && onToggleMember(worker.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.memberIds.includes(worker.id)}
+                      disabled={worker.id === formData.teamLeadId}
+                      onChange={() => worker.id !== formData.teamLeadId && onToggleMember(worker.id)}
+                      className="rounded"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-900">{worker.fullName}</p>
+                        {worker.id === formData.teamLeadId && (
+                          <Badge variant="outline" className="text-xs bg-amber-50">{t('teams.leader')}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">{worker.email}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">{t('teams.noWorkersAvailable')}</div>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-2">{t('teams.workersSelected', { count: formData.memberIds.length })}</p>
+        </div>
+        <div className="col-span-2">
+          <Label>{t('teams.teamLeaderChef')} *</Label>
+          <p className="text-sm text-gray-500 mb-2">{t('teams.mustBeFromMembers')}</p>
+          <Select value={formData.teamLeadId} onValueChange={onTeamLeadChange}>
+            <SelectTrigger><SelectValue placeholder={t('teams.selectLeaderPlaceholder')} /></SelectTrigger>
+            <SelectContent>
+              {selectedMembersDetails.length > 0 ? (
+                selectedMembersDetails.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>{w.fullName} ({w.email})</SelectItem>
+                ))
+              ) : (
+                <div className="p-2 text-sm text-gray-500">{t('teams.selectMembersFirstHint')}</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2">
+          <Label>{t('teams.status')}</Label>
+          <Select value={formData.status} onValueChange={(v) => onChange({ status: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{t('teams.active')}</SelectItem>
+              <SelectItem value="inactive">{t('teams.inactive')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
     </div>
   );
 }
