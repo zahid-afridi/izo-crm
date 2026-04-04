@@ -11,139 +11,81 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Plus, Search, MoreVertical, Edit, Trash2, Download, AlertCircle, Loader } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Alert, AlertDescription } from '../ui/alert';
 import { toast } from 'sonner';
 import { CarExportDialog } from './CarExportDialog';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  fetchCars, createCar, updateCar, patchCarStatus, deleteCar,
+  optimisticStatusUpdate, setSearchFilter, setStatusFilter,
+  type Car,
+} from '@/store/slices/carsSlice';
+import {
+  selectFilteredCars, selectCarStats, selectCarsIsLoading,
+  selectCarsIsInitialized, selectCarsFilters,
+} from '@/store/selectors/carsSelectors';
 
 interface CarsPageProps {
   userRole: string;
 }
 
-interface Car {
-  id: string;
-  name: string;
-  number: string;
-  color: string;
-  model: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const EMPTY_FORM = { name: '', number: '', color: '', model: '', status: 'active' };
 
 export function CarsPage({ userRole }: CarsPageProps) {
   const { t } = useTranslation();
-  const [cars, setCars] = useState<Car[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const dispatch = useAppDispatch();
+
+  const filteredCars = useAppSelector(selectFilteredCars);
+  const stats = useAppSelector(selectCarStats);
+  const loading = useAppSelector(selectCarsIsLoading);
+  const isInitialized = useAppSelector(selectCarsIsInitialized);
+  const filters = useAppSelector(selectCarsFilters);
+
+  const [searchQuery, setSearchQuery] = useState(filters.search);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    number: '',
-    color: '',
-    model: '',
-    status: 'active',
-  });
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   const canEdit = ['admin', 'site_manager'].includes(userRole);
   const canDelete = userRole === 'admin';
 
-  // Fetch cars
   useEffect(() => {
-    fetchCars();
-  }, []);
+    if (!isInitialized) dispatch(fetchCars());
+  }, [dispatch, isInitialized]);
 
+  // Debounce search
   useEffect(() => {
-    fetchCars();
-  }, [statusFilter]);
+    const timer = setTimeout(() => {
+      dispatch(setSearchFilter(searchQuery));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, dispatch]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (openDropdownId) {
-        closeDropdown();
-      }
-    };
-
-    if (openDropdownId) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [openDropdownId]);
-
-  const fetchCars = async () => {
-    try {
-      setIsLoading(true);
-      const url = statusFilter === 'all' ? '/api/cars' : `/api/cars?status=${statusFilter}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch cars');
-      const data = await response.json();
-      setCars(data.cars || []);
-    } catch (err) {
-      setError(t('cars.failedToLoad'));
-      console.error(err);
-      toast.error(t('cars.failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const resetForm = () => { setFormData(EMPTY_FORM); setFormError(''); };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((p) => ({ ...p, [name]: value }));
   };
 
   const handleUpdateCarStatus = async (carId: string, newStatus: string) => {
-    try {
-      setIsUpdatingStatus(carId);
-      const response = await fetch(`/api/cars/${carId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: newStatus,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update car status');
-      }
-
-      // Update the car in the local state
-      setCars(prev => prev.map(car => 
-        car.id === carId ? { ...car, status: newStatus } : car
-      ));
-
+    setIsUpdatingStatus(carId);
+    dispatch(optimisticStatusUpdate({ id: carId, status: newStatus }));
+    const result = await dispatch(patchCarStatus({ id: carId, status: newStatus }));
+    if (patchCarStatus.rejected.match(result)) {
+      toast.error(t('cars.failedToUpdateStatus'));
+      dispatch(fetchCars()); // revert
+    } else {
       toast.success(t('cars.statusUpdateSuccess'));
-    } catch (err: any) {
-      toast.error(err.message || t('cars.failedToUpdateStatus'));
-    } finally {
-      setIsUpdatingStatus(null);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      number: '',
-      color: '',
-      model: '',
-      status: 'active',
-    });
-    setError('');
+    setIsUpdatingStatus(null);
   };
 
   const handleDropdownToggle = (carId: string, event: React.MouseEvent) => {
@@ -153,138 +95,85 @@ export function CarsPage({ userRole }: CarsPageProps) {
       setDropdownPosition(null);
     } else {
       const rect = event.currentTarget.getBoundingClientRect();
-      const dropdownHeight = 80; // Approximate height of dropdown (fewer items)
+      const dropdownHeight = 80;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      
-      // Position above if not enough space below
       const shouldPositionAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
-      
       setDropdownPosition({
-        top: shouldPositionAbove 
-          ? rect.top + window.scrollY - dropdownHeight - 5
-          : rect.bottom + window.scrollY + 5,
-        left: rect.left + window.scrollX - 100
+        top: shouldPositionAbove ? rect.top + window.scrollY - dropdownHeight - 5 : rect.bottom + window.scrollY + 5,
+        left: rect.left + window.scrollX - 100,
       });
       setOpenDropdownId(carId);
     }
   };
 
-  const closeDropdown = () => {
-    setOpenDropdownId(null);
-    setDropdownPosition(null);
-  };
+  const closeDropdown = () => { setOpenDropdownId(null); setDropdownPosition(null); };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!openDropdownId) return;
+    const handler = () => closeDropdown();
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openDropdownId]);
 
   const handleCreateCar = async () => {
-    try {
-      setError('');
-      if (!formData.name || !formData.number || !formData.color || !formData.model) {
-        setError(t('cars.allFieldsRequired'));
-        return;
-      }
-
-      setIsLoading(true);
-      const response = await fetch('/api/cars', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create car');
-      }
-
-      await fetchCars();
+    if (!formData.name || !formData.number || !formData.color || !formData.model) {
+      setFormError(t('cars.allFieldsRequired'));
+      return;
+    }
+    setSubmitting(true);
+    const result = await dispatch(createCar(formData));
+    setSubmitting(false);
+    if (createCar.fulfilled.match(result)) {
+      toast.success(t('cars.createSuccess'));
       setIsCreateDialogOpen(false);
       resetForm();
-      toast.success(t('cars.createSuccess'));
-    } catch (err: any) {
-      setError(err.message || t('cars.failedToCreate'));
-      toast.error(err.message || t('cars.failedToCreate'));
-    } finally {
-      setIsLoading(false);
+    } else {
+      const msg = (result.payload as string) || t('cars.failedToCreate');
+      setFormError(msg);
+      toast.error(msg);
     }
   };
 
   const handleUpdateCar = async () => {
     if (!selectedCar) return;
-
-    try {
-      setError('');
-      if (!formData.name || !formData.number || !formData.color || !formData.model) {
-        setError(t('cars.allFieldsRequired'));
-        return;
-      }
-
-      setIsLoading(true);
-      const response = await fetch(`/api/cars/${selectedCar.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update car');
-      }
-
-      await fetchCars();
+    if (!formData.name || !formData.number || !formData.color || !formData.model) {
+      setFormError(t('cars.allFieldsRequired'));
+      return;
+    }
+    setSubmitting(true);
+    const result = await dispatch(updateCar({ id: selectedCar.id, data: formData }));
+    setSubmitting(false);
+    if (updateCar.fulfilled.match(result)) {
+      toast.success(t('cars.updateSuccess'));
       setIsEditDialogOpen(false);
       resetForm();
       setSelectedCar(null);
-      toast.success(t('cars.updateSuccess'));
-    } catch (err: any) {
-      setError(err.message || t('cars.failedToUpdate'));
-      toast.error(err.message || t('cars.failedToUpdate'));
-    } finally {
-      setIsLoading(false);
+    } else {
+      const msg = (result.payload as string) || t('cars.failedToUpdate');
+      setFormError(msg);
+      toast.error(msg);
     }
   };
 
   const handleDeleteCar = async (id: string) => {
     if (!confirm(t('cars.deleteConfirm'))) return;
-
-    try {
-      setError('');
-      setIsLoading(true);
-      const response = await fetch(`/api/cars/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete car');
-
-      await fetchCars();
+    const result = await dispatch(deleteCar(id));
+    if (deleteCar.fulfilled.match(result)) {
       toast.success(t('cars.deleteSuccess'));
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete car');
-      toast.error(err.message || t('cars.failedToDelete'));
-    } finally {
-      setIsLoading(false);
+    } else {
+      toast.error(t('cars.failedToDelete'));
     }
   };
 
   const handleEditClick = (car: Car) => {
     setSelectedCar(car);
-    setFormData({
-      name: car.name,
-      number: car.number,
-      color: car.color,
-      model: car.model,
-      status: car.status,
-    });
+    setFormData({ name: car.name, number: car.number, color: car.color, model: car.model, status: car.status });
     setIsEditDialogOpen(true);
   };
 
-  const filteredCars = cars.filter(car => {
-    const matchesSearch =
-      car.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      car.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      car.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      car.color.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesSearch;
-  });
+  const allCars = useAppSelector((s) => s.cars.allIds.map((id) => s.cars.byId[id]));
 
   return (
     <div className="space-y-6 relative">
@@ -300,7 +189,7 @@ export function CarsPage({ userRole }: CarsPageProps) {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={filters.status} onValueChange={(v) => dispatch(setStatusFilter(v))}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
@@ -321,97 +210,24 @@ export function CarsPage({ userRole }: CarsPageProps) {
 
           {canEdit && (
             <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-              if (open) {
-                // Reset form when opening to ensure clean state
-                resetForm();
-              }
               setIsCreateDialogOpen(open);
-              if (!open) {
-                resetForm();
-              }
+              if (!open) resetForm();
             }}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('cars.addCar')}
-                </Button>
+                <Button><Plus className="w-4 h-4 mr-2" />{t('cars.addCar')}</Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{t('cars.addNewCar')}</DialogTitle>
-                </DialogHeader>
-                {error && (
+                <DialogHeader><DialogTitle>{t('cars.addNewCar')}</DialogTitle></DialogHeader>
+                {formError && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription>{formError}</AlertDescription>
                   </Alert>
                 )}
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label>{t('cars.carName')} *</Label>
-                    <Input
-                      name="name"
-                      placeholder={t('cars.placeholderCarName')}
-                      value={formData.name}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>{t('cars.licensePlateNumber')} *</Label>
-                    <Input
-                      name="number"
-                      placeholder={t('cars.placeholderLicensePlate')}
-                      value={formData.number}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>{t('cars.model')} *</Label>
-                    <Input
-                      name="model"
-                      placeholder={t('cars.placeholderModel')}
-                      value={formData.model}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>{t('cars.color')} *</Label>
-                    <Input
-                      name="color"
-                      placeholder={t('cars.placeholderColor')}
-                      value={formData.color}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>{t('cars.status')}</Label>
-                    <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">{t('cars.active')}</SelectItem>
-                        <SelectItem value="inactive">{t('cars.inactive')}</SelectItem>
-                        <SelectItem value="maintenance">{t('cars.maintenance')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" onClick={() => {
-                      setIsCreateDialogOpen(false);
-                      resetForm();
-                    }} disabled={isLoading}>
-                      {t('common.cancel')}
-                    </Button>
-                    <Button onClick={handleCreateCar} disabled={isLoading}>
-                      {isLoading ? t('common.loading') : t('cars.addCar')}
-                    </Button>
-                  </div>
+                <CarForm formData={formData} onChange={handleInputChange} onSelectChange={(n, v) => setFormData((p) => ({ ...p, [n]: v }))} t={t} />
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); resetForm(); }} disabled={submitting}>{t('common.cancel')}</Button>
+                  <Button onClick={handleCreateCar} disabled={submitting}>{submitting ? t('common.loading') : t('cars.addCar')}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -419,30 +235,18 @@ export function CarsPage({ userRole }: CarsPageProps) {
         </div>
       </div>
 
-      {/* Stats Summary */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('cars.totalCars')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{cars.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('cars.activeCars')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{cars.filter(c => c.status === 'active').length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('cars.inactive')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{cars.filter(c => c.status === 'inactive').length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">{t('cars.maintenance')}</p>
-          <p className="text-2xl font-semibold text-gray-900">{cars.filter(c => c.status === 'maintenance').length}</p>
-        </Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('cars.totalCars')}</p><p className="text-2xl font-semibold text-gray-900">{stats.total}</p></Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('cars.activeCars')}</p><p className="text-2xl font-semibold text-gray-900">{stats.active}</p></Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('cars.inactive')}</p><p className="text-2xl font-semibold text-gray-900">{stats.inactive}</p></Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('cars.maintenance')}</p><p className="text-2xl font-semibold text-gray-900">{stats.maintenance}</p></Card>
       </div>
 
-      {/* Cars Table */}
+      {/* Table */}
       <div className="relative">
         <Card>
-          {isLoading && cars.length === 0 ? (
+          {loading && filteredCars.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Loader className="w-8 h-8 animate-spin text-gray-400" />
             </div>
@@ -463,9 +267,7 @@ export function CarsPage({ userRole }: CarsPageProps) {
                 <TableBody>
                   {filteredCars.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                        {t('cars.noCarsFound')}
-                      </TableCell>
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">{t('cars.noCarsFound')}</TableCell>
                     </TableRow>
                   ) : (
                     filteredCars.map((car) => (
@@ -475,24 +277,15 @@ export function CarsPage({ userRole }: CarsPageProps) {
                         <TableCell className="text-gray-600">{car.model}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div
-                              className="w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: car.color.toLowerCase() }}
-                            />
+                            <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: car.color.toLowerCase() }} />
                             <span className="text-gray-600">{car.color}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           {canEdit ? (
                             <div className="relative" onClick={(e) => e.stopPropagation()}>
-                              <Select 
-                                value={car.status} 
-                                onValueChange={(value) => handleUpdateCarStatus(car.id, value)}
-                                disabled={isUpdatingStatus === car.id}
-                              >
-                                <SelectTrigger className="w-auto min-w-[120px] h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
+                              <Select value={car.status} onValueChange={(v) => handleUpdateCarStatus(car.id, v)} disabled={isUpdatingStatus === car.id}>
+                                <SelectTrigger className="w-auto min-w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="active">{t('cars.active')}</SelectItem>
                                   <SelectItem value="inactive">{t('cars.inactive')}</SelectItem>
@@ -506,24 +299,14 @@ export function CarsPage({ userRole }: CarsPageProps) {
                               )}
                             </div>
                           ) : (
-                            <Badge variant={
-                              car.status === 'active' ? 'default' :
-                              car.status === 'maintenance' ? 'secondary' : 'outline'
-                            }>
-                              {car.status === 'active' ? t('cars.active') :
-                               car.status === 'maintenance' ? t('cars.maintenance') : t('cars.inactive')}
+                            <Badge variant={car.status === 'active' ? 'default' : car.status === 'maintenance' ? 'secondary' : 'outline'}>
+                              {car.status === 'active' ? t('cars.active') : car.status === 'maintenance' ? t('cars.maintenance') : t('cars.inactive')}
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-gray-600 text-sm">
-                          {new Date(car.createdAt).toLocaleDateString()}
-                        </TableCell>
+                        <TableCell className="text-gray-600 text-sm">{new Date(car.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell className="relative">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => handleDropdownToggle(car.id, e)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={(e) => handleDropdownToggle(car.id, e)}>
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </TableCell>
@@ -537,43 +320,19 @@ export function CarsPage({ userRole }: CarsPageProps) {
         </Card>
       </div>
 
-      {/* Custom Dropdown Menu */}
+      {/* Custom Dropdown */}
       {openDropdownId && dropdownPosition && (
         <>
-          <div
-            className="fixed inset-0 z-[9998]"
-            onClick={closeDropdown}
-          />
-          <div
-            className="fixed z-[99999] min-w-[160px] bg-white border border-gray-200 rounded-md shadow-lg py-1"
-            style={{
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-            }}
-          >
+          <div className="fixed inset-0 z-[9998]" onClick={closeDropdown} />
+          <div className="fixed z-[99999] min-w-[160px] bg-white border border-gray-200 rounded-md shadow-lg py-1" style={{ top: dropdownPosition.top, left: dropdownPosition.left }}>
             {canEdit && (
-              <button
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center"
-                onClick={() => {
-                  const car = cars.find(c => c.id === openDropdownId);
-                  if (car) handleEditClick(car);
-                  closeDropdown();
-                }}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                {t('common.edit')}
+              <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center" onClick={() => { const car = filteredCars.find((c) => c.id === openDropdownId) || allCars.find((c) => c.id === openDropdownId); if (car) handleEditClick(car); closeDropdown(); }}>
+                <Edit className="w-4 h-4 mr-2" />{t('common.edit')}
               </button>
             )}
             {canDelete && (
-              <button
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center text-red-600"
-                onClick={() => {
-                  if (openDropdownId) handleDeleteCar(openDropdownId);
-                  closeDropdown();
-                }}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                {t('common.delete')}
+              <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center text-red-600" onClick={() => { if (openDropdownId) handleDeleteCar(openDropdownId); closeDropdown(); }}>
+                <Trash2 className="w-4 h-4 mr-2" />{t('common.delete')}
               </button>
             )}
           </div>
@@ -581,100 +340,63 @@ export function CarsPage({ userRole }: CarsPageProps) {
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        setIsEditDialogOpen(open);
-        if (!open) {
-          resetForm();
-          setSelectedCar(null);
-        }
-      }}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { setIsEditDialogOpen(open); if (!open) { resetForm(); setSelectedCar(null); } }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('cars.editCar')}</DialogTitle>
-          </DialogHeader>
-          {error && (
+          <DialogHeader><DialogTitle>{t('cars.editCar')}</DialogTitle></DialogHeader>
+          {formError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{formError}</AlertDescription>
             </Alert>
           )}
-          <div className="space-y-4 mt-4">
-            <div>
-              <Label>{t('cars.carName')}</Label>
-              <Input
-                name="name"
-                placeholder={t('cars.placeholderCarName')}
-                value={formData.name}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div>
-              <Label>{t('cars.licensePlateNumber')}</Label>
-              <Input
-                name="number"
-                placeholder={t('cars.placeholderLicensePlate')}
-                value={formData.number}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div>
-              <Label>{t('cars.model')}</Label>
-              <Input
-                name="model"
-                placeholder={t('cars.placeholderModel')}
-                value={formData.model}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div>
-              <Label>{t('cars.color')}</Label>
-              <Input
-                name="color"
-                placeholder={t('cars.placeholderColor')}
-                value={formData.color}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div>
-              <Label>{t('cars.status')}</Label>
-              <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{t('cars.active')}</SelectItem>
-                  <SelectItem value="inactive">{t('cars.inactive')}</SelectItem>
-                  <SelectItem value="maintenance">{t('cars.maintenance')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setIsEditDialogOpen(false);
-                resetForm();
-                setSelectedCar(null);
-              }} disabled={isLoading}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleUpdateCar} disabled={isLoading}>
-                {isLoading ? t('cars.updating') : t('cars.updateCar')}
-              </Button>
-            </div>
+          <CarForm formData={formData} onChange={handleInputChange} onSelectChange={(n, v) => setFormData((p) => ({ ...p, [n]: v }))} t={t} />
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); resetForm(); setSelectedCar(null); }} disabled={submitting}>{t('common.cancel')}</Button>
+            <Button onClick={handleUpdateCar} disabled={submitting}>{submitting ? t('cars.updating') : t('cars.updateCar')}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Car Export Dialog */}
-      <CarExportDialog 
-        isOpen={isExportDialogOpen} 
-        onClose={() => setIsExportDialogOpen(false)} 
-        cars={cars} 
-      />
+      <CarExportDialog isOpen={isExportDialogOpen} onClose={() => setIsExportDialogOpen(false)} cars={allCars} />
+    </div>
+  );
+}
+
+function CarForm({ formData, onChange, onSelectChange, t }: {
+  formData: { name: string; number: string; color: string; model: string; status: string };
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSelectChange: (name: string, value: string) => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="space-y-4 mt-4">
+      <div>
+        <Label>{t('cars.carName')} *</Label>
+        <Input name="name" placeholder={t('cars.placeholderCarName')} value={formData.name} onChange={onChange} />
+      </div>
+      <div>
+        <Label>{t('cars.licensePlateNumber')} *</Label>
+        <Input name="number" placeholder={t('cars.placeholderLicensePlate')} value={formData.number} onChange={onChange} />
+      </div>
+      <div>
+        <Label>{t('cars.model')} *</Label>
+        <Input name="model" placeholder={t('cars.placeholderModel')} value={formData.model} onChange={onChange} />
+      </div>
+      <div>
+        <Label>{t('cars.color')} *</Label>
+        <Input name="color" placeholder={t('cars.placeholderColor')} value={formData.color} onChange={onChange} />
+      </div>
+      <div>
+        <Label>{t('cars.status')}</Label>
+        <Select value={formData.status} onValueChange={(v) => onSelectChange('status', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">{t('cars.active')}</SelectItem>
+            <SelectItem value="inactive">{t('cars.inactive')}</SelectItem>
+            <SelectItem value="maintenance">{t('cars.maintenance')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }
