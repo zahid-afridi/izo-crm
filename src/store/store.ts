@@ -8,6 +8,8 @@ import teamsReducer from './slices/teamsSlice';
 import assignmentsReducer from './slices/assignmentsSlice';
 import clientsReducer from './slices/clientsSlice';
 import workerProfileReducer from './slices/workerProfileSlice';
+import offersReducer from './slices/offersSlice';
+import ordersReducer from './slices/ordersSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +22,8 @@ export const store = configureStore({
     assignments: assignmentsReducer,
     clients: clientsReducer,
     workerProfile: workerProfileReducer,
+    offers: offersReducer,
+    orders: ordersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

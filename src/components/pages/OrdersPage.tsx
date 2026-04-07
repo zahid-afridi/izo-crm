@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useOrders } from '@/hooks/useOrders';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -54,6 +55,15 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
   if (userRole === 'office_employee' && userId) {
     return <OfficeEmployeeOrdersPage userRole={userRole} userId={userId} />;
   }
+  const {
+    allOrders: orders,
+    isLoading,
+    isInitialized,
+    fetchOrders: dispatchFetchOrders,
+    createOrder: dispatchCreateOrder,
+    updateOrder: dispatchUpdateOrder,
+    deleteOrder: dispatchDeleteOrder,
+  } = useOrders();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState<string>(''); // Add sorting field
@@ -74,8 +84,6 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null); // Add loading state for status updates
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number; openUpward: boolean } | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [availableClients, setAvailableClients] = useState<any[]>([]);
@@ -125,7 +133,7 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
   };
 
   useEffect(() => {
-    fetchOrders();
+    if (!isInitialized) dispatchFetchOrders({ status: statusFilter });
     fetchClients();
     fetchProducts();
     fetchServices();
@@ -134,7 +142,7 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    dispatchFetchOrders({ status: statusFilter });
   }, [statusFilter]);
 
   useEffect(() => {
@@ -180,21 +188,6 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
       };
     }
   }, [openDropdownId]);
-
-  const fetchOrders = async () => {
-    try {
-      setIsLoading(true);
-      const url = statusFilter === 'all' ? '/api/orders' : `/api/orders?status=${statusFilter}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setOrders(data.orders || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to fetch orders');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchClients = async () => {
     try {
@@ -439,53 +432,34 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
     try {
       setIsSubmitting(true);
 
-      console.log('Creating order with data:', {
+      const payload = {
         clientId: formData.clientId,
         client: formData.client,
         orderTitle: formData.orderTitle,
-        total,
-        subtotal,
+        orderDate: formData.orderDate,
+        expectedDeliveryDate: formData.expectedDeliveryDate,
+        orderStatus: formData.orderStatus,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod,
+        deliveryMethod: formData.deliveryMethod,
+        deliveryAddress: formData.deliveryAddress,
+        deliveryInstructions: formData.deliveryInstructions,
         deliveryCost: parseFloat(formData.deliveryCost) || 0,
-        items: items.length,
-        formData: formData
-      });
+        currency: formData.currency,
+        subtotal,
+        totalAmount: total,
+        notes: formData.notes,
+        assignedToId: formData.assignedToId,
+        items,
+      };
 
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientId: formData.clientId,
-          client: formData.client,
-          orderTitle: formData.orderTitle, // Add order title
-          orderDate: formData.orderDate,
-          expectedDeliveryDate: formData.expectedDeliveryDate,
-          orderStatus: formData.orderStatus,
-          paymentStatus: formData.paymentStatus,
-          paymentMethod: formData.paymentMethod,
-          deliveryMethod: formData.deliveryMethod,
-          deliveryAddress: formData.deliveryAddress,
-          deliveryInstructions: formData.deliveryInstructions,
-          deliveryCost: parseFloat(formData.deliveryCost) || 0,
-          currency: formData.currency, // Add currency field
-          subtotal,
-          totalAmount: total,
-          notes: formData.notes,
-          assignedToId: formData.assignedToId,
-          items,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchOrders();
+      try {
+        await dispatchCreateOrder(payload);
         setIsCreateDialogOpen(false);
         resetForm();
         toast.success('Order created successfully!');
-      } else {
-        const error = await response.json();
-        console.error('Error creating order:', error);
-        toast.error(error.error || 'Failed to create order');
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to create order');
       }
     } catch (error) {
       console.error('Error creating order:', error);
@@ -531,42 +505,34 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(`/api/orders/${editingOrderId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientId: formData.clientId,
-          client: formData.client,
-          orderTitle: formData.orderTitle, // Add order title
-          orderDate: formData.orderDate,
-          expectedDeliveryDate: formData.expectedDeliveryDate,
-          orderStatus: formData.orderStatus,
-          paymentStatus: formData.paymentStatus,
-          paymentMethod: formData.paymentMethod,
-          deliveryMethod: formData.deliveryMethod,
-          deliveryAddress: formData.deliveryAddress,
-          deliveryInstructions: formData.deliveryInstructions,
-          deliveryCost: parseFloat(formData.deliveryCost) || 0,
-          currency: formData.currency, // Add currency field
-          subtotal,
-          totalAmount: total,
-          notes: formData.notes,
-          assignedToId: formData.assignedToId,
-          items,
-        }),
-      });
+      const payload = {
+        clientId: formData.clientId,
+        client: formData.client,
+        orderTitle: formData.orderTitle,
+        orderDate: formData.orderDate,
+        expectedDeliveryDate: formData.expectedDeliveryDate,
+        orderStatus: formData.orderStatus,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod,
+        deliveryMethod: formData.deliveryMethod,
+        deliveryAddress: formData.deliveryAddress,
+        deliveryInstructions: formData.deliveryInstructions,
+        deliveryCost: parseFloat(formData.deliveryCost) || 0,
+        currency: formData.currency,
+        subtotal,
+        totalAmount: total,
+        notes: formData.notes,
+        assignedToId: formData.assignedToId,
+        items,
+      };
 
-      if (response.ok) {
-        await fetchOrders();
+      try {
+        await dispatchUpdateOrder(editingOrderId, payload);
         setIsCreateDialogOpen(false);
         resetForm();
         toast.success('Order updated successfully!');
-      } else {
-        const error = await response.json();
-        console.error('Error updating order:', error);
-        toast.error(error.error || 'Failed to update order');
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to update order');
       }
     } catch (error) {
       console.error('Error updating order:', error);
@@ -584,34 +550,20 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
 
   const confirmDelete = async () => {
     if (!selectedOrder) return;
-
     try {
-      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        await fetchOrders();
+      await dispatchDeleteOrder(selectedOrder.id);
+      setIsDeleteConfirmOpen(false);
+      setSelectedOrder(null);
+      toast.success('Order deleted successfully');
+    } catch (err: any) {
+      if (err.message?.includes('not found')) {
+        dispatchFetchOrders({ status: statusFilter });
         setIsDeleteConfirmOpen(false);
         setSelectedOrder(null);
-        toast.success('Order deleted successfully');
+        toast.error('Order not found - it may have been already deleted');
       } else {
-        const errorData = await response.json();
-        console.error('Error deleting order:', errorData);
-
-        if (response.status === 404) {
-          // Order not found - refresh the list and close dialog
-          await fetchOrders();
-          setIsDeleteConfirmOpen(false);
-          setSelectedOrder(null);
-          toast.error('Order not found - it may have been already deleted');
-        } else {
-          toast.error(errorData.error || 'Failed to delete order');
-        }
+        toast.error(err.message || 'Failed to delete order');
       }
-    } catch (error) {
-      console.error('Error deleting order:', error);
-      toast.error('Failed to delete order');
     }
   };
 
@@ -622,32 +574,18 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
     }
 
     try {
-      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          assignedToId: selectedAssigneeId === 'unassign' ? null : selectedAssigneeId,
-        }),
+      await dispatchUpdateOrder(selectedOrder.id, {
+        assignedToId: selectedAssigneeId === 'unassign' ? null : selectedAssigneeId,
       });
-
-      if (response.ok) {
-        await fetchOrders();
-        setIsAssignDialogOpen(false);
-        setSelectedOrder(null);
-        setSelectedAssigneeId('');
-        const assigneeName = selectedAssigneeId === 'unassign'
-          ? 'Unassigned'
-          : availableUsers.find(u => u.id === selectedAssigneeId)?.fullName || 'Unknown';
-        toast.success(`Order ${selectedOrder.orderNumber} ${selectedAssigneeId === 'unassign' ? 'unassigned' : `assigned to ${assigneeName}`}`);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to assign order');
-      }
-    } catch (error) {
-      console.error('Error assigning order:', error);
-      toast.error('Failed to assign order');
+      setIsAssignDialogOpen(false);
+      setSelectedOrder(null);
+      setSelectedAssigneeId('');
+      const assigneeName = selectedAssigneeId === 'unassign'
+        ? 'Unassigned'
+        : availableUsers.find(u => u.id === selectedAssigneeId)?.fullName || 'Unknown';
+      toast.success(`Order ${selectedOrder.orderNumber} ${selectedAssigneeId === 'unassign' ? 'unassigned' : `assigned to ${assigneeName}`}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign order');
     }
   };
 
@@ -664,61 +602,26 @@ export function OrdersPage({ userRole, userId }: OrdersPageProps) {
     }
 
     try {
-      const promises = unassignedOrders.map(order =>
-        fetch(`/api/orders/${order.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            assignedToId: bulkAssigneeId,
-          }),
-        })
+      await Promise.all(
+        unassignedOrders.map(order => dispatchUpdateOrder(order.id, { assignedToId: bulkAssigneeId }))
       );
-
-      const results = await Promise.all(promises);
-      const successCount = results.filter(r => r.ok).length;
-
-      if (successCount > 0) {
-        await fetchOrders();
-        setIsBulkAssignOpen(false);
-        setBulkAssigneeId('');
-        const assigneeName = availableUsers.find(u => u.id === bulkAssigneeId)?.fullName || 'Unknown';
-        toast.success(`${successCount} orders assigned to ${assigneeName}`);
-      } else {
-        toast.error('Failed to assign orders');
-      }
+      setIsBulkAssignOpen(false);
+      setBulkAssigneeId('');
+      const assigneeName = availableUsers.find(u => u.id === bulkAssigneeId)?.fullName || 'Unknown';
+      toast.success(`${unassignedOrders.length} orders assigned to ${assigneeName}`);
     } catch (error) {
       console.error('Error bulk assigning orders:', error);
       toast.error('Failed to assign orders');
     }
   };
 
-  // Quick status update function
   const handleQuickStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
       setStatusUpdatingId(orderId);
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderStatus: newStatus,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchOrders();
-        toast.success(`Order status updated to ${newStatus}`);
-      } else {
-        const error = await response.json();
-        console.error('Error updating order status:', error);
-        toast.error(error.error || 'Failed to update order status');
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
+      await dispatchUpdateOrder(orderId, { orderStatus: newStatus });
+      toast.success(`Order status updated to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update order status');
     } finally {
       setStatusUpdatingId(null);
     }

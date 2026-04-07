@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useOffers } from '@/hooks/useOffers';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -56,13 +57,21 @@ interface OfferItem {
 
 export function OffersPage({ userRole }: OffersPageProps) {
   const { t } = useTranslation();
+  const {
+    filteredOffers: offers,
+    isLoading: isInitialLoading,
+    isInitialized,
+    fetchOffers: dispatchFetchOffers,
+    createOffer: dispatchCreateOffer,
+    updateOffer: dispatchUpdateOffer,
+    deleteOffer: dispatchDeleteOffer,
+  } = useOffers();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentTab, setCurrentTab] = useState('details');
-  const [offers, setOffers] = useState<Offer[]>([]);
   const [availableClients, setAvailableClients] = useState<any[]>([]);
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -82,7 +91,6 @@ export function OffersPage({ userRole }: OffersPageProps) {
   const [showEmailModalAfterSave, setShowEmailModalAfterSave] = useState(false); // Track if we should show email modal after save
   const [savedOfferForEmail, setSavedOfferForEmail] = useState<Offer | null>(null); // Store saved offer for email sharing
   const [isCreatingOffer, setIsCreatingOffer] = useState(false); // Track offer creation state
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // Track initial loading state
   const [isUpdatingField, setIsUpdatingField] = useState<string | null>(null); // For loading states
   const [offerData, setOfferData] = useState({
     client: '',
@@ -116,7 +124,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
   };
 
   useEffect(() => {
-    fetchOffers();
+    if (!isInitialized) dispatchFetchOffers({ status: statusFilter });
     fetchClients();
     fetchProducts();
     fetchServices();
@@ -125,7 +133,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
 
   // Refresh offers when status filter changes
   useEffect(() => {
-    fetchOffers();
+    dispatchFetchOffers({ status: statusFilter });
   }, [statusFilter]);
 
   // Close dropdown when clicking outside
@@ -183,7 +191,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
 
   const validateProductsTab = () => {
     const errors: string[] = [];
-    
+
     if (offerItems.length === 0) {
       errors.push(t('offers.atLeastOneItem'));
     } else {
@@ -198,19 +206,19 @@ export function OffersPage({ userRole }: OffersPageProps) {
             errors.push(t('offers.packageSelectRequired', { index: index + 1 }));
           }
         }
-        
+
         // Validate quantity
         if (item.quantity <= 0) {
           errors.push(t('offers.itemQuantityRequired', { index: index + 1 }));
         }
-        
+
         // Validate unit price
         if (item.unitPrice < 0) {
           errors.push(t('offers.itemUnitPriceNegative', { index: index + 1 }));
         }
       });
     }
-    
+
     setValidationErrors(errors);
     return errors.length === 0;
   };
@@ -318,20 +326,6 @@ export function OffersPage({ userRole }: OffersPageProps) {
     setIsClientDropdownOpen(false); // Close client dropdown
   };
 
-  const fetchOffers = async () => {
-    try {
-      setIsInitialLoading(true);
-      const url = statusFilter === 'all' ? '/api/offers' : `/api/offers?status=${statusFilter}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setOffers(data.offers || []);
-    } catch (error) {
-      console.error('Error fetching offers:', error);
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
-
   const fetchClients = async () => {
     try {
       const response = await fetch('/api/clients');
@@ -385,7 +379,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
       }, 100);
       return;
     }
-    
+
     // Validate products tab second
     if (!validateProductsTab()) {
       setCurrentTab('products');
@@ -400,85 +394,38 @@ export function OffersPage({ userRole }: OffersPageProps) {
     }
 
     try {
-      // Set loading state
       setIsCreatingOffer(true);
 
-      // Transform offerItems to match API format
       const transformedItems = offerItems.map(item => ({
-        type: item.type === 'service_package' ? 'package' : item.type, // Convert service_package to package
-        itemId: item.id, // Convert id to itemId
+        type: item.type === 'service_package' ? 'package' : item.type,
+        itemId: item.id,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         discount: item.discount || 0
       }));
 
-      console.log('Creating offer with data:', {
+      const payload = {
         ...offerData,
         items: transformedItems,
         subtotal: calculateSubtotal(),
         discount: calculateTotalDiscount(),
         totalAmount: calculateTotal(),
-      });
+      };
 
-      const response = await fetch('/api/offers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...offerData,
-          items: transformedItems,
-          subtotal: calculateSubtotal(),
-          discount: calculateTotalDiscount(),
-          totalAmount: calculateTotal(),
-        }),
-      });
+      const createdOffer = await dispatchCreateOffer(payload);
+      setIsCreateDialogOpen(false);
+      resetForm();
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Offer created successfully');
-        await fetchOffers();
-        setIsCreateDialogOpen(false);
-        resetForm();
-
-        if (shouldShowEmailModal && result.offer) {
-          // Convert the created offer to the format expected by email functions
-          const createdOffer: Offer = {
-            id: result.offer.id,
-            offerNumber: result.offer.offerNumber,
-            client: result.offer.client,
-            clientId: result.offer.clientId,
-            title: result.offer.title,
-            offerDate: result.offer.offerDate,
-            validUntil: result.offer.validUntil,
-            totalAmount: result.offer.totalAmount,
-            offerStatus: result.offer.offerStatus,
-            items: result.offer.items || [],
-            currency: result.offer.currency,
-            subtotal: result.offer.subtotal,
-            discount: result.offer.discount,
-            paymentTerms: result.offer.paymentTerms,
-            deliveryTerms: result.offer.deliveryTerms,
-            validityPeriod: result.offer.validityPeriod,
-            notes: result.offer.notes,
-            createdAt: result.offer.createdAt
-          };
-
-          // Show email sharing options
-          setSavedOfferForEmail(createdOffer);
-          setShowEmailModalAfterSave(true);
-        } else {
-          alert('Offer created successfully!');
-        }
+      if (shouldShowEmailModal && createdOffer) {
+        setSavedOfferForEmail(createdOffer as Offer);
+        setShowEmailModalAfterSave(true);
       } else {
-        const errorData = await response.json();
-        console.error('Error creating offer:', errorData);
-        setValidationErrors([errorData.error || 'Failed to create offer']);
-        alert(`Error creating offer: ${errorData.error || 'Failed to create offer'}`);
+        alert('Offer created successfully!');
       }
-    } catch (error) {
-      console.error('Error creating offer:', error);
-      setValidationErrors(['Failed to create offer. Please try again.']);
+    } catch (err: any) {
+      setValidationErrors([err.message || 'Failed to create offer']);
+      alert(`Error creating offer: ${err.message || 'Failed to create offer'}`);
     } finally {
-      // Clear loading state
       setIsCreatingOffer(false);
     }
   };
@@ -496,7 +443,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
       }, 100);
       return;
     }
-    
+
     // Validate products tab second
     if (!validateProductsTab()) {
       setCurrentTab('products');
@@ -509,89 +456,42 @@ export function OffersPage({ userRole }: OffersPageProps) {
       }, 100);
       return;
     }
-    
+
     if (!selectedOfferForView) return;
 
     try {
-      // Set loading state
       setIsCreatingOffer(true);
 
-      // Transform offerItems to match API format
       const transformedItems = offerItems.map(item => ({
-        type: item.type === 'service_package' ? 'package' : item.type, // Convert service_package to package
-        itemId: item.id, // Convert id to itemId
+        type: item.type === 'service_package' ? 'package' : item.type,
+        itemId: item.id,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         discount: item.discount || 0
       }));
 
-      console.log('Updating offer with data:', {
+      const payload = {
         ...offerData,
         items: transformedItems,
         subtotal: calculateSubtotal(),
         discount: calculateTotalDiscount(),
         totalAmount: calculateTotal(),
-      });
+      };
 
-      const response = await fetch(`/api/offers/${selectedOfferForView.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...offerData,
-          items: transformedItems,
-          subtotal: calculateSubtotal(),
-          discount: calculateTotalDiscount(),
-          totalAmount: calculateTotal(),
-        }),
-      });
+      const updatedOffer = await dispatchUpdateOffer(selectedOfferForView.id, payload);
+      setIsCreateDialogOpen(false);
+      resetForm();
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Offer updated successfully');
-        await fetchOffers();
-        setIsCreateDialogOpen(false);
-        resetForm();
-
-        if (shouldShowEmailModal && result.offer) {
-          // Convert the updated offer to the format expected by email functions
-          const updatedOffer: Offer = {
-            id: result.offer.id,
-            offerNumber: result.offer.offerNumber,
-            client: result.offer.client,
-            clientId: result.offer.clientId,
-            title: result.offer.title,
-            offerDate: result.offer.offerDate,
-            validUntil: result.offer.validUntil,
-            totalAmount: result.offer.totalAmount,
-            offerStatus: result.offer.offerStatus,
-            items: result.offer.items || [],
-            currency: result.offer.currency,
-            subtotal: result.offer.subtotal,
-            discount: result.offer.discount,
-            paymentTerms: result.offer.paymentTerms,
-            deliveryTerms: result.offer.deliveryTerms,
-            validityPeriod: result.offer.validityPeriod,
-            notes: result.offer.notes,
-            createdAt: result.offer.createdAt
-          };
-
-          // Show email sharing options
-          setSavedOfferForEmail(updatedOffer);
-          setShowEmailModalAfterSave(true);
-        } else {
-          alert('Offer updated successfully!');
-        }
+      if (shouldShowEmailModal && updatedOffer) {
+        setSavedOfferForEmail(updatedOffer as Offer);
+        setShowEmailModalAfterSave(true);
       } else {
-        const errorData = await response.json();
-        console.error('Error updating offer:', errorData);
-        setValidationErrors([errorData.error || 'Failed to update offer']);
-        alert(`Error updating offer: ${errorData.error || 'Failed to update offer'}`);
+        alert('Offer updated successfully!');
       }
-    } catch (error) {
-      console.error('Error updating offer:', error);
-      setValidationErrors(['Failed to update offer. Please try again.']);
+    } catch (err: any) {
+      setValidationErrors([err.message || 'Failed to update offer']);
+      alert(`Error updating offer: ${err.message || 'Failed to update offer'}`);
     } finally {
-      // Clear loading state
       setIsCreatingOffer(false);
     }
   };
@@ -1006,7 +906,7 @@ ${offerText.substring(0, 200)}...
   const handleDropdownToggle = (offerId: string, event: React.MouseEvent, type: 'email' | 'actions') => {
     event.preventDefault();
     event.stopPropagation();
-    
+
     if (openDropdownId === offerId && dropdownType === type) {
       setOpenDropdownId(null);
       setDropdownPosition(null);
@@ -1018,12 +918,12 @@ ${offerText.substring(0, 200)}...
       const dropdownHeight = type === 'email' ? 160 : 200; // Different heights for different dropdowns
       const dropdownWidth = 160; // Width of dropdown
       const padding = 8; // Minimum padding from viewport edges
-      
+
       // Check if dropdown should open upward
       const spaceBelow = viewportHeight - rect.bottom - padding;
       const spaceAbove = rect.top - padding;
       const shouldOpenUpward = spaceBelow < dropdownHeight && spaceAbove >= dropdownHeight;
-      
+
       // Calculate vertical position
       let top;
       if (shouldOpenUpward) {
@@ -1031,17 +931,17 @@ ${offerText.substring(0, 200)}...
       } else {
         top = rect.bottom;
       }
-      
+
       // Ensure dropdown doesn't go off-screen vertically
       if (top < padding) {
         top = padding;
       } else if (top + dropdownHeight > viewportHeight - padding) {
         top = viewportHeight - dropdownHeight - padding;
       }
-      
+
       // Calculate horizontal position (prefer right-aligned)
       let right = viewportWidth - rect.right;
-      
+
       // Ensure dropdown doesn't go off-screen horizontally
       if (right < padding) {
         // Not enough space on the right, try left-aligned
@@ -1051,7 +951,7 @@ ${offerText.substring(0, 200)}...
           right = padding;
         }
       }
-      
+
       setDropdownPosition({
         top,
         right: Math.max(padding, right),
@@ -1076,7 +976,7 @@ ${offerText.substring(0, 200)}...
   const handleEditOffer = (offer: Offer) => {
     setIsEditMode(true);
     setSelectedOfferForView(offer);
-    
+
     // Populate form with existing offer data
     setOfferData({
       client: offer.client,
@@ -1112,7 +1012,7 @@ ${offerText.substring(0, 200)}...
     setClientSearchQuery(''); // Reset client search
     setIsClientDropdownOpen(false); // Close client dropdown
     setIsCreateDialogOpen(true);
-    
+
     // Show warning about potential inactive items
     if (formattedItems.length > 0) {
       console.log('Note: When editing existing offers, please verify that all items are still active before saving.');
@@ -1121,60 +1021,25 @@ ${offerText.substring(0, 200)}...
 
   const confirmDeleteOffer = async () => {
     if (!selectedOfferForDelete) return;
-
     try {
-      const response = await fetch(`/api/offers/${selectedOfferForDelete.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        await fetchOffers();
-        setIsDeleteConfirmOpen(false);
-        setSelectedOfferForDelete(null);
-        alert('Offer deleted successfully!');
-      } else {
-        const errorData = await response.json();
-        console.error('Error deleting offer:', errorData);
-        alert(`Error deleting offer: ${errorData.error || 'Failed to delete offer'}`);
-      }
-    } catch (error) {
-      console.error('Error deleting offer:', error);
-      alert('Error deleting offer. Please try again.');
+      await dispatchDeleteOffer(selectedOfferForDelete.id);
+      setIsDeleteConfirmOpen(false);
+      setSelectedOfferForDelete(null);
+      alert('Offer deleted successfully!');
+    } catch (err: any) {
+      alert(`Error deleting offer: ${err.message || 'Failed to delete offer'}`);
     }
   };
 
-  // Handle offer status update
   const handleUpdateOfferStatus = async (offerId: string, newStatus: string) => {
     const fieldKey = `${offerId}-status`;
     setIsUpdatingField(fieldKey);
-
     try {
       const offer = offers.find(o => o.id === offerId);
       if (!offer) return;
-
-      const response = await fetch(`/api/offers/${offerId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...offer,
-          offerStatus: newStatus,
-        }),
-      });
-
-      if (response.ok) {
-        // Update local state
-        setOffers(prev => prev.map(o =>
-          o.id === offerId ? { ...o, offerStatus: newStatus } : o
-        ));
-      } else {
-        console.error('Failed to update offer status');
-        alert('Failed to update offer status');
-      }
+      await dispatchUpdateOffer(offerId, { ...offer, offerStatus: newStatus });
     } catch (error) {
-      console.error('Error updating offer status:', error);
-      alert('Error updating offer status');
+      alert('Failed to update offer status');
     } finally {
       setIsUpdatingField(null);
     }
@@ -1197,12 +1062,12 @@ ${offerText.substring(0, 200)}...
   const formatCurrency = (amount: number, currency?: string) => {
     const currencyToUse = currency || offerData.currency;
     const symbol = getCurrencySymbol(currencyToUse);
-    
+
     // For Albanian Lek, show without decimals if it's a whole number
     if (currencyToUse === 'all') {
       return `${symbol}${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
     }
-    
+
     return `${symbol}${amount.toFixed(2)}`;
   };
 
@@ -1261,13 +1126,13 @@ ${offerText.substring(0, 200)}...
 
   const handleCurrencyChange = (newCurrency: string) => {
     setOfferData({ ...offerData, currency: newCurrency });
-    
+
     // Force recalculation of all item totals to ensure proper display
     const updatedItems = offerItems.map(item => ({
       ...item,
       total: item.quantity * item.unitPrice * (1 - item.discount / 100)
     }));
-    
+
     setOfferItems(updatedItems);
   };
 
@@ -1426,17 +1291,17 @@ ${offerText.substring(0, 200)}...
                               onFocus={() => setIsClientDropdownOpen(true)}
                               className={!offerData.clientId && validationErrors.some(e => e === t('offers.clientRequired')) ? 'border-red-500' : ''}
                             />
-                            
+
                             {/* Searchable Dropdown */}
                             {isClientDropdownOpen && (
                               <>
-                                <div 
-                                  className="fixed inset-0 z-10" 
+                                <div
+                                  className="fixed inset-0 z-10"
                                   onClick={() => setIsClientDropdownOpen(false)}
                                 />
                                 <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                   {availableClients
-                                    .filter(client => 
+                                    .filter(client =>
                                       client.fullName.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
                                       client.email.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
                                       (client.phone && client.phone.includes(clientSearchQuery))
@@ -1465,15 +1330,15 @@ ${offerText.substring(0, 200)}...
                                     ))
                                   }
                                   {availableClients
-                                    .filter(client => 
+                                    .filter(client =>
                                       client.fullName.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
                                       client.email.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
                                       (client.phone && client.phone.includes(clientSearchQuery))
                                     ).length === 0 && clientSearchQuery && (
-                                    <div className="px-4 py-3 text-gray-500 text-center">
-                                      No clients found matching "{clientSearchQuery}"
-                                    </div>
-                                  )}
+                                      <div className="px-4 py-3 text-gray-500 text-center">
+                                        No clients found matching "{clientSearchQuery}"
+                                      </div>
+                                    )}
                                 </div>
                               </>
                             )}
@@ -1674,7 +1539,7 @@ ${offerText.substring(0, 200)}...
                                   }}
                                 >
                                   <SelectTrigger className={`min-h-[2.5rem] h-auto whitespace-normal [&_*[data-slot=select-value]]:line-clamp-none [&_*[data-slot=select-value]]:whitespace-normal ${(!item.id || item.id === '' || item.id === 'none') && validationErrors.some(e => e.includes(`#${index + 1}`)) ? 'border-red-500' : ''}`}>
-                                    <SelectValue 
+                                    <SelectValue
                                       placeholder={item.type === 'product' ? t('offers.selectProduct') : item.type === 'service' ? t('offers.selectService') : t('offers.selectPackage')}
                                     />
                                   </SelectTrigger>
@@ -1819,7 +1684,7 @@ ${offerText.substring(0, 200)}...
                                   .map((item, index) => {
                                     const product = availableProducts.find(p => p.id === item.id);
                                     // Access documents from the documents JSON field
-                                    const documents = product?.documents ? 
+                                    const documents = product?.documents ?
                                       (Array.isArray(product.documents) ? product.documents : []) : [];
 
                                     return (
@@ -1895,7 +1760,7 @@ ${offerText.substring(0, 200)}...
                                   .map((item, index) => {
                                     const service = availableServices.find(s => s.id === item.id);
                                     // Access documents from the documents JSON field
-                                    const documents = service?.documents ? 
+                                    const documents = service?.documents ?
                                       (Array.isArray(service.documents) ? service.documents : []) : [];
 
                                     return (
@@ -1971,7 +1836,7 @@ ${offerText.substring(0, 200)}...
                                   .map((item, index) => {
                                     const servicePackage = availablePackages.find(p => p.id === item.id);
                                     // Service packages might have documents in a different structure
-                                    const documents = servicePackage?.documents ? 
+                                    const documents = servicePackage?.documents ?
                                       (Array.isArray(servicePackage.documents) ? servicePackage.documents : []) : [];
 
                                     return (
@@ -2040,17 +1905,17 @@ ${offerText.substring(0, 200)}...
                                   {offerItems.reduce((total, item) => {
                                     if (item.type === 'product') {
                                       const product = availableProducts.find(p => p.id === item.id);
-                                      const documents = product?.documents ? 
+                                      const documents = product?.documents ?
                                         (Array.isArray(product.documents) ? product.documents : []) : [];
                                       return total + documents.length;
                                     } else if (item.type === 'service') {
                                       const service = availableServices.find(s => s.id === item.id);
-                                      const documents = service?.documents ? 
+                                      const documents = service?.documents ?
                                         (Array.isArray(service.documents) ? service.documents : []) : [];
                                       return total + documents.length;
                                     } else if (item.type === 'service_package') {
                                       const servicePackage = availablePackages.find(p => p.id === item.id);
-                                      const documents = servicePackage?.documents ? 
+                                      const documents = servicePackage?.documents ?
                                         (Array.isArray(servicePackage.documents) ? servicePackage.documents : []) : [];
                                       return total + documents.length;
                                     }
@@ -2356,14 +2221,14 @@ ${offerText.substring(0, 200)}...
                         <div>
                           <p className="text-lg font-medium text-gray-900 mb-1">{t('offers.noOffersFound')}</p>
                           <p className="text-sm text-gray-500">
-                            {searchQuery || statusFilter !== 'all' 
-                              ? t('offers.tryAdjustFilters') 
+                            {searchQuery || statusFilter !== 'all'
+                              ? t('offers.tryAdjustFilters')
                               : t('offers.getStarted')
                             }
                           </p>
                         </div>
                         {canEdit && !searchQuery && statusFilter === 'all' && (
-                          <Button 
+                          <Button
                             onClick={() => setIsCreateDialogOpen(true)}
                             className="mt-2"
                           >
@@ -2376,84 +2241,84 @@ ${offerText.substring(0, 200)}...
                   </TableRow>
                 ) : (
                   filteredOffers.map((offer) => (
-                  <TableRow key={offer.id}>
-                    <TableCell className="text-gray-900">{offer.offerNumber}</TableCell>
-                    <TableCell className="text-gray-900">{offer.client}</TableCell>
-                    <TableCell className="text-gray-600 max-w-[200px] truncate">{offer.title}</TableCell>
-                    <TableCell className="text-gray-600">{new Date(offer.offerDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-gray-600">{new Date(offer.validUntil).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-gray-900">{offer.items?.length || 0}</TableCell>
-                    <TableCell className="text-gray-900">
-                      {getCurrencySymbol(offer.currency)}{offer.totalAmount.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <Select
-                          value={offer.offerStatus}
-                          onValueChange={(value) => handleUpdateOfferStatus(offer.id, value)}
-                          disabled={isUpdatingField === `${offer.id}-status`}
-                        >
-                          <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sent">Sent</SelectItem>
-                            <SelectItem value="accepted">Accepted</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {isUpdatingField === `${offer.id}-status` && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
-                            <Loader className="w-3 h-3 animate-spin text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewOffer(offer)}
-                          className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          title={t('offers.viewOfferDetails')}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadOffer(offer)}
-                          className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                          title={t('offers.downloadPdf')}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleDropdownToggle(offer.id, e, 'email')}
-                          className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                          title={t('offers.emailOptions')}
-                          disabled={isSharing === offer.id}
-                        >
-                          {isSharing === offer.id ? (
-                            <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Mail className="w-4 h-4" />
+                    <TableRow key={offer.id}>
+                      <TableCell className="text-gray-900">{offer.offerNumber}</TableCell>
+                      <TableCell className="text-gray-900">{offer.client}</TableCell>
+                      <TableCell className="text-gray-600 max-w-[200px] truncate">{offer.title}</TableCell>
+                      <TableCell className="text-gray-600">{new Date(offer.offerDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-gray-600">{new Date(offer.validUntil).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-gray-900">{offer.items?.length || 0}</TableCell>
+                      <TableCell className="text-gray-900">
+                        {getCurrencySymbol(offer.currency)}{offer.totalAmount.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={offer.offerStatus}
+                            onValueChange={(value) => handleUpdateOfferStatus(offer.id, value)}
+                            disabled={isUpdatingField === `${offer.id}-status`}
+                          >
+                            <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sent">Sent</SelectItem>
+                              <SelectItem value="accepted">Accepted</SelectItem>
+                              <SelectItem value="rejected">Rejected</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {isUpdatingField === `${offer.id}-status` && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+                              <Loader className="w-3 h-3 animate-spin text-gray-400" />
+                            </div>
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleDropdownToggle(offer.id, e, 'actions')}
-                          className="h-8 px-2"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewOffer(offer)}
+                            className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title={t('offers.viewOfferDetails')}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadOffer(offer)}
+                            className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            title={t('offers.downloadPdf')}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDropdownToggle(offer.id, e, 'email')}
+                            className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            title={t('offers.emailOptions')}
+                            disabled={isSharing === offer.id}
+                          >
+                            {isSharing === offer.id ? (
+                              <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDropdownToggle(offer.id, e, 'actions')}
+                            className="h-8 px-2"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
               </TableBody>
@@ -2827,11 +2692,10 @@ ${offerText.substring(0, 200)}...
             onClick={closeDropdown}
           />
           <div
-            className={`fixed z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-md shadow-lg py-1 transition-all duration-150 ease-out ${
-              dropdownPosition.openUpward 
-                ? 'animate-in slide-in-from-bottom-1 fade-in-0' 
-                : 'animate-in slide-in-from-top-1 fade-in-0'
-            }`}
+            className={`fixed z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-md shadow-lg py-1 transition-all duration-150 ease-out ${dropdownPosition.openUpward
+              ? 'animate-in slide-in-from-bottom-1 fade-in-0'
+              : 'animate-in slide-in-from-top-1 fade-in-0'
+              }`}
             style={{
               top: `${dropdownPosition.top}px`,
               right: `${dropdownPosition.right}px`,
