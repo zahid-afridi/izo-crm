@@ -12,19 +12,6 @@ services:
     networks:
       - izo-net
 
-  nginx:
-    image: nginx:alpine
-    container_name: izo-crm-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - app
-    networks:
-      - izo-net
-
 networks:
   izo-net:
     driver: bridge
