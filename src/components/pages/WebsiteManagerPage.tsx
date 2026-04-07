@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWebsiteManager } from '@/hooks/useWebsiteManager';
+import { saveSettings, saveCompanyInfo } from '@/store/slices/websiteManagerSlice';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -24,15 +26,15 @@ import { BlogForm } from './BlogForm';
 import { BlogView } from './BlogView';
 import { VideoForm } from './VideoForm';
 import { ClientForm } from './ClientForm';
-import { 
-  Plus, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Globe, 
-  Image as ImageIcon, 
-  FileText, 
-  ExternalLink, 
+import {
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  Globe,
+  Image as ImageIcon,
+  FileText,
+  ExternalLink,
   Upload,
   Settings,
   Users,
@@ -197,83 +199,85 @@ const mockClients: Client[] = [
 
 export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
   const { t } = useTranslation();
+  const wm = useWebsiteManager();
+
+  // Destructure for convenience
+  const {
+    products, services, projects, blogs, blogCategories, videos, sliders,
+    partnerLogos, websiteOrders, homepageProducts, homepageServices,
+    homepageProjects, homepageBlogs, homepageVideos, companyInfo, settings,
+    loading, initialized, togglingProductIds, togglingServiceIds,
+  } = wm;
+
+  const loadingProducts = loading.products;
+  const loadingServices = loading.services;
+  const loadingProjects = loading.projects;
+  const loadingBlogs = loading.blogs;
+  const loadingBlogCategories = loading.blogCategories;
+  const loadingVideos = loading.videos;
+  const loadingSliders = loading.sliders;
+  const loadingPartnerLogos = loading.partnerLogos;
+  const loadingWebsiteOrders = loading.websiteOrders;
+  const loadingHomepageItems = loading.homepageItems;
+  const loadingCompanyInfo = loading.companyInfo;
+  const loadingSettings = loading.settings;
+
   const [activeTab, setActiveTab] = useState('homepage');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'product' | 'project' | 'blog' | 'client' | 'video'>('service');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Product/Service form states
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  
+
   // View modal states
   const [isProductViewOpen, setIsProductViewOpen] = useState(false);
   const [isServiceViewOpen, setIsServiceViewOpen] = useState(false);
   const [viewingItem, setViewingItem] = useState<any>(null);
-  
-  // Data states
-  const [products, setProducts] = useState<Product[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [loadingServices, setLoadingServices] = useState(false);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-  
-  // Toggle loading states for individual items
-  const [togglingProductIds, setTogglingProductIds] = useState<Set<string>>(new Set());
-  const [togglingServiceIds, setTogglingServiceIds] = useState<Set<string>>(new Set());
-  
+
+  // Data states — now from Redux (products, services, projects, etc.)
+
+  // Toggle loading states for individual items — now from Redux (togglingProductIds, togglingServiceIds)
+
   // Services filtering states
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [selectedServiceCategory, setSelectedServiceCategory] = useState('all');
-  const [serviceCategories, setServiceCategories] = useState<any[]>([]);
-  
+
   // Filtered services based on search and category
   const filteredServices = services.filter(service => {
-    const matchesSearch = !servicesSearchQuery || 
+    const matchesSearch = !servicesSearchQuery ||
       service.title.toLowerCase().includes(servicesSearchQuery.toLowerCase()) ||
       service.description?.toLowerCase().includes(servicesSearchQuery.toLowerCase()) ||
       service.subcategory?.name?.toLowerCase().includes(servicesSearchQuery.toLowerCase()) ||
       (service.category?.name ?? service.subcategory?.category?.name)?.toLowerCase().includes(servicesSearchQuery.toLowerCase());
-    
+
     const categoryName = service.category?.name ?? service.subcategory?.category?.name;
-    const matchesCategory = selectedServiceCategory === 'all' || 
+    const matchesCategory = selectedServiceCategory === 'all' ||
       categoryName === selectedServiceCategory;
-    
+
     return matchesSearch && matchesCategory;
   });
-  
-  // Slider states
-  const [sliders, setSliders] = useState<any[]>([]);
-  const [loadingSliders, setLoadingSliders] = useState(false);
+
+  // Slider states — data from Redux (sliders, loadingSliders)
   const [isSliderFormOpen, setIsSliderFormOpen] = useState(false);
   const [editingSlider, setEditingSlider] = useState<any>(null);
-  
-  // Homepage items states
-  const [homepageProducts, setHomepageProducts] = useState<any[]>([]);
-  const [homepageServices, setHomepageServices] = useState<any[]>([]);
-  const [homepageProjects, setHomepageProjects] = useState<any[]>([]);
-  const [homepageBlogs, setHomepageBlogs] = useState<any[]>([]);
-  const [homepageVideos, setHomepageVideos] = useState<any[]>([]);
-  const [loadingHomepageItems, setLoadingHomepageItems] = useState(false);
+
+  // Homepage items states — data from Redux
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [isAddBlogDialogOpen, setIsAddBlogDialogOpen] = useState(false);
   const [isAddVideoDialogOpen, setIsAddVideoDialogOpen] = useState(false);
-  
+
   // Project form states
   const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
   const [isProjectViewOpen, setIsProjectViewOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
   const [viewingProject, setViewingProject] = useState<any>(null);
-  
-  // Blog states
-  const [blogs, setBlogs] = useState<any[]>([]);
-  const [blogCategories, setBlogCategories] = useState<any[]>([]);
-  const [loadingBlogs, setLoadingBlogs] = useState(false);
-  const [loadingBlogCategories, setLoadingBlogCategories] = useState(false);
+
+  // Blog states — data from Redux (blogs, blogCategories, loadingBlogs, loadingBlogCategories)
   const [isBlogFormOpen, setIsBlogFormOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<any>(null);
   const [blogSubTab, setBlogSubTab] = useState('posts');
@@ -281,30 +285,24 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
   const [newBlogCategoryName, setNewBlogCategoryName] = useState('');
   const [isBlogViewOpen, setIsBlogViewOpen] = useState(false);
   const [viewingBlog, setViewingBlog] = useState<any>(null);
-  
-  // Video states
-  const [videos, setVideos] = useState<any[]>([]);
-  const [loadingVideos, setLoadingVideos] = useState(false);
+
+  // Video states — data from Redux (videos, loadingVideos)
   const [isVideoFormOpen, setIsVideoFormOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
-  
-  // Website Orders states
-  const [websiteOrders, setWebsiteOrders] = useState<any[]>([]);
-  const [loadingWebsiteOrders, setLoadingWebsiteOrders] = useState(false);
+
+  // Website Orders states — data from Redux (websiteOrders, loadingWebsiteOrders)
   const [websiteOrdersSearchQuery, setWebsiteOrdersSearchQuery] = useState('');
   const [websiteOrdersStatusFilter, setWebsiteOrdersStatusFilter] = useState('all');
   const [websiteOrdersTypeFilter, setWebsiteOrdersTypeFilter] = useState('all');
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  
-  // Partner Logo states
-  const [partnerLogos, setPartnerLogos] = useState<any[]>([]);
-  const [loadingPartnerLogos, setLoadingPartnerLogos] = useState(false);
+
+  // Partner Logo states — data from Redux (partnerLogos, loadingPartnerLogos)
   const [isPartnerLogoFormOpen, setIsPartnerLogoFormOpen] = useState(false);
   const [editingPartnerLogo, setEditingPartnerLogo] = useState<any>(null);
-  
-  // Company Info states
-  const [loadingCompanyInfo, setLoadingCompanyInfo] = useState(false);
+
+  // Company Info — data from Redux (companyInfo, loadingCompanyInfo)
+  // Local form state mirrors Redux companyInfo for editing
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
@@ -318,35 +316,19 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
   const [companyCV, setCompanyCV] = useState('');
   const [uploadingCV, setUploadingCV] = useState(false);
 
-  // Settings states
-  const [loadingSettings, setLoadingSettings] = useState(false);
+  // Settings — data from Redux (settings, loadingSettings)
+  // Local form state mirrors Redux settings for editing
   const [websiteTitle, setWebsiteTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
   const [metaKeywords, setMetaKeywords] = useState('');
-  const [originalSettings, setOriginalSettings] = useState({
-    websiteTitle: '',
-    metaDescription: '',
-    metaKeywords: '',
-  });
+  const [originalSettings, setOriginalSettings] = useState({ websiteTitle: '', metaDescription: '', metaKeywords: '' });
 
   // Company Info validation states
   const [originalCompanyInfo, setOriginalCompanyInfo] = useState({
-    phone: '',
-    email: '',
-    address: '',
-    facebookUrl: '',
-    instagramUrl: '',
-    youtubeUrl: '',
-    linkedinUrl: '',
-    tiktokUrl: '',
-    googlePlayUrl: '',
-    appStoreUrl: '',
+    phone: '', email: '', address: '', facebookUrl: '', instagramUrl: '',
+    youtubeUrl: '', linkedinUrl: '', tiktokUrl: '', googlePlayUrl: '', appStoreUrl: '',
   });
-  const [companyInfoErrors, setCompanyInfoErrors] = useState({
-    phone: '',
-    email: '',
-    address: '',
-  });
+  const [companyInfoErrors, setCompanyInfoErrors] = useState({ phone: '', email: '', address: '' });
 
   // Check if contact information has changes
   const hasContactInfoChanges = useMemo(() => {
@@ -411,10 +393,10 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
   // Check if form is valid
   const isCompanyInfoValid = useMemo(() => {
-    return phone.trim() && 
-           email.trim() && 
-           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && 
-           address.trim();
+    return phone.trim() &&
+      email.trim() &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
+      address.trim();
   }, [phone, email, address]);
 
   // Check if save button should be disabled for contact info
@@ -482,842 +464,236 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
   const canEdit = userRole === 'admin' || userRole === 'website_manager';
 
-  // Load products and services
-  // Load all data immediately on mount for stats
+  // Sync local form state from Redux when companyInfo loads
   useEffect(() => {
-    loadProducts();
-    loadServices();
-    loadProjects();
-    loadBlogs();
+    if (companyInfo) {
+      setPhone(companyInfo.phone || '');
+      setEmail(companyInfo.email || '');
+      setAddress(companyInfo.address || '');
+      setFacebookUrl(companyInfo.facebookUrl || '');
+      setInstagramUrl(companyInfo.instagramUrl || '');
+      setYoutubeUrl(companyInfo.youtubeUrl || '');
+      setLinkedinUrl(companyInfo.linkedinUrl || '');
+      setTiktokUrl(companyInfo.tiktokUrl || '');
+      setGooglePlayUrl(companyInfo.googlePlayUrl || '');
+      setAppStoreUrl(companyInfo.appStoreUrl || '');
+      setCompanyCV(companyInfo.companyCV || '');
+      setOriginalCompanyInfo({
+        phone: companyInfo.phone || '', email: companyInfo.email || '',
+        address: companyInfo.address || '', facebookUrl: companyInfo.facebookUrl || '',
+        instagramUrl: companyInfo.instagramUrl || '', youtubeUrl: companyInfo.youtubeUrl || '',
+        linkedinUrl: companyInfo.linkedinUrl || '', tiktokUrl: companyInfo.tiktokUrl || '',
+        googlePlayUrl: companyInfo.googlePlayUrl || '', appStoreUrl: companyInfo.appStoreUrl || '',
+      });
+      setCompanyInfoErrors({ phone: '', email: '', address: '' });
+    }
+  }, [companyInfo]);
+
+  // Sync local form state from Redux when settings load
+  useEffect(() => {
+    if (settings) {
+      setWebsiteTitle(settings.websiteTitle || '');
+      setMetaDescription(settings.metaDescription || '');
+      setMetaKeywords(settings.metaKeywords || '');
+      setOriginalSettings({
+        websiteTitle: settings.websiteTitle || '',
+        metaDescription: settings.metaDescription || '',
+        metaKeywords: settings.metaKeywords || '',
+      });
+    }
+  }, [settings]);
+
+  // Load all data on mount for stats
+  useEffect(() => {
+    if (!initialized.products) wm.loadProducts();
+    if (!initialized.services) wm.loadServices();
+    if (!initialized.projects) wm.loadProjects();
+    if (!initialized.blogs) wm.loadBlogs();
   }, []);
 
   // Load tab-specific data when tab changes
   useEffect(() => {
     if (activeTab === 'homepage') {
-      loadSliders();
-      loadHomepageItems();
-      loadPartnerLogos();
+      wm.loadSliders();
+      wm.loadHomepageItems();
+      wm.loadPartnerLogos();
     } else if (activeTab === 'blog') {
-      loadBlogCategories();
+      wm.loadBlogCategories();
     } else if (activeTab === 'videos') {
-      loadVideos();
+      wm.loadVideos();
     } else if (activeTab === 'orders') {
-      loadWebsiteOrders();
+      wm.loadWebsiteOrders();
     } else if (activeTab === 'company') {
-      loadCompanyInfo();
+      wm.loadCompanyInfo();
     } else if (activeTab === 'settings') {
-      loadSettings();
+      wm.loadSettings();
     }
   }, [activeTab]);
 
-  const loadProducts = async () => {
-    setLoadingProducts(true);
-    try {
-      const response = await fetch('/api/products');
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoadingProducts(false);
-    }
+  // Derive service categories from Redux services
+  const serviceCategories = useMemo(() =>
+    Array.from(new Set(services.map((s: any) => s.subcategory?.category?.name).filter(Boolean)))
+      .map(name => ({ id: name, name })),
+    [services]
+  );
+
+  const openDialog = (type: typeof dialogType) => { setDialogType(type); setIsDialogOpen(true); };
+  const openProductForm = (product?: any) => { setEditingItem(product || null); setIsProductFormOpen(true); };
+  const openServiceForm = (service?: any) => { setEditingItem(service || null); setIsServiceFormOpen(true); };
+  const openProductView = (product: any) => { setViewingItem(product); setIsProductViewOpen(true); };
+  const openServiceView = (service: any) => { setViewingItem(service); setIsServiceViewOpen(true); };
+
+  const handleProductSuccess = () => { wm.loadProducts(); setIsProductFormOpen(false); setEditingItem(null); };
+  const handleServiceSuccess = () => { wm.loadServices(); setIsServiceFormOpen(false); setEditingItem(null); };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm(t('websiteManager.confirmDeleteProduct'))) return;
+    wm.deleteProduct(id);
   };
 
-  const loadServices = async () => {
-    setLoadingServices(true);
-    try {
-      const response = await fetch('/api/services');
-      const data = await response.json();
-      setServices(data.services || []);
-      
-      // Extract unique categories from services
-      const categories = Array.from(
-        new Set(
-          (data.services || [])
-            .map((s: any) => s.subcategory?.category?.name)
-            .filter(Boolean)
-        )
-      ).map(name => ({ id: name, name }));
-      
-      setServiceCategories(categories);
-    } catch (error) {
-      console.error('Error loading services:', error);
-    } finally {
-      setLoadingServices(false);
-    }
+  const handleDeleteService = async (id: string) => {
+    if (!confirm(t('websiteManager.confirmDeleteService'))) return;
+    wm.deleteService(id);
   };
 
-  const loadSliders = async () => {
-    setLoadingSliders(true);
-    try {
-      const response = await fetch('/api/website-sliders');
-      const data = await response.json();
-      setSliders(data.sliders || []);
-    } catch (error) {
-      console.error('Error loading sliders:', error);
-    } finally {
-      setLoadingSliders(false);
-    }
-  };
+  const handleToggleProductPublished = (id: string, currentValue: boolean) =>
+    wm.toggleProductPublished(id, currentValue);
 
-  const loadProjects = async () => {
-    setLoadingProjects(true);
-    try {
-      const response = await fetch('/api/projects');
-      const data = await response.json();
-      setProjects(data.projects || []);
-    } catch (error) {
-      console.error('Error loading projects:', error);
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
+  const handleToggleServicePublished = (id: string, currentValue: boolean) =>
+    wm.toggleServicePublished(id, currentValue);
 
-  const loadHomepageItems = async () => {
-    setLoadingHomepageItems(true);
-    try {
-      const [productsRes, servicesRes, projectsRes, blogsRes, videosRes] = await Promise.all([
-        fetch('/api/homepage-products'),
-        fetch('/api/homepage-services'),
-        fetch('/api/homepage-projects'),
-        fetch('/api/homepage-blogs'),
-        fetch('/api/homepage-videos')
-      ]);
-      
-      const productsData = await productsRes.json();
-      const servicesData = await servicesRes.json();
-      const projectsData = await projectsRes.json();
-      const blogsData = await blogsRes.json();
-      const videosData = await videosRes.json();
-      
-      setHomepageProducts(productsData.homepageProducts || []);
-      setHomepageServices(servicesData.homepageServices || []);
-      setHomepageProjects(projectsData.homepageProjects || []);
-      setHomepageBlogs(blogsData.homepageBlogs || []);
-      setHomepageVideos(videosData.homepageVideos || []);
-    } catch (error) {
-      console.error('Error loading homepage items:', error);
-    } finally {
-      setLoadingHomepageItems(false);
-    }
-  };
+  const handleProductStatusChange = (id: string, newStatus: string) =>
+    wm.updateProductStatus(id, newStatus);
 
-  const openDialog = (type: typeof dialogType) => {
-    setDialogType(type);
-    setIsDialogOpen(true);
-  };
-
-  const openProductForm = (product?: any) => {
-    setEditingItem(product || null);
-    setIsProductFormOpen(true);
-  };
-
-  const openServiceForm = (service?: any) => {
-    setEditingItem(service || null);
-    setIsServiceFormOpen(true);
-  };
-
-  const openProductView = (product: any) => {
-    setViewingItem(product);
-    setIsProductViewOpen(true);
-  };
-
-  const openServiceView = (service: any) => {
-    setViewingItem(service);
-    setIsServiceViewOpen(true);
-  };
-
-  const handleProductSuccess = () => {
-    loadProducts();
-    setIsProductFormOpen(false);
-    setEditingItem(null);
-  };
-
-    const handleServiceSuccess = () => {
-      loadServices();
-      setIsServiceFormOpen(false);
-      setEditingItem(null);
-    };
-
-    const handleDeleteProduct = async (id: string) => {
-      if (!confirm(t('websiteManager.confirmDeleteProduct'))) return;
-      
-      try {
-        const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadProducts();
-        }
-      } catch (error) {
-        console.error('Error deleting product:', error);
-      }
-    };
-
-    const handleDeleteService = async (id: string) => {
-      if (!confirm(t('websiteManager.confirmDeleteService'))) return;
-      
-      try {
-        const response = await fetch(`/api/services/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadServices();
-        }
-      } catch (error) {
-        console.error('Error deleting service:', error);
-      }
-    };
-
-    const handleToggleProductPublished = async (id: string, currentValue: boolean) => {
-      // Optimistic update - update UI immediately
-      setProducts(prevProducts =>
-        prevProducts.map(p =>
-          p.id === id ? { ...p, publishOnWebsite: !currentValue } : p
-        )
-      );
-      
-      // Show loading state
-      setTogglingProductIds(prev => new Set(prev).add(id));
-      
-      try {
-        const formData = new FormData();
-        formData.append('publishOnWebsite', String(!currentValue));
-        
-        const response = await fetch(`/api/products/${id}`, {
-          method: 'PUT',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          // Revert on error
-          setProducts(prevProducts =>
-            prevProducts.map(p =>
-              p.id === id ? { ...p, publishOnWebsite: currentValue } : p
-            )
-          );
-          console.error('Failed to update product');
-        }
-      } catch (error) {
-        // Revert on error
-        setProducts(prevProducts =>
-          prevProducts.map(p =>
-            p.id === id ? { ...p, publishOnWebsite: currentValue } : p
-          )
-        );
-        console.error('Error toggling product published status:', error);
-      } finally {
-        // Remove loading state
-        setTogglingProductIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(id);
-          return newSet;
-        });
-      }
-    };
-
-    const handleToggleServicePublished = async (id: string, currentValue: boolean) => {
-      // Optimistic update - update UI immediately
-      setServices(prevServices =>
-        prevServices.map(s =>
-          s.id === id ? { ...s, publishOnWebsite: !currentValue } : s
-        )
-      );
-      
-      // Show loading state
-      setTogglingServiceIds(prev => new Set(prev).add(id));
-      
-      try {
-        const formData = new FormData();
-        formData.append('publishOnWebsite', String(!currentValue));
-        
-        const response = await fetch(`/api/services/${id}`, {
-          method: 'PUT',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          // Revert on error
-          setServices(prevServices =>
-            prevServices.map(s =>
-              s.id === id ? { ...s, publishOnWebsite: currentValue } : s
-            )
-          );
-          console.error('Failed to update service');
-        }
-      } catch (error) {
-        // Revert on error
-        setServices(prevServices =>
-          prevServices.map(s =>
-            s.id === id ? { ...s, publishOnWebsite: currentValue } : s
-          )
-        );
-        console.error('Error toggling service published status:', error);
-      } finally {
-        // Remove loading state
-        setTogglingServiceIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(id);
-          return newSet;
-        });
-      }
-    };
-
-    const handleProductStatusChange = async (id: string, newStatus: string) => {
-      try {
-        const formData = new FormData();
-        formData.append('status', newStatus);
-        
-        // If changing to inactive, also set publishOnWebsite to false
-        if (newStatus === 'inactive') {
-          formData.append('publishOnWebsite', 'false');
-        }
-        
-        const response = await fetch(`/api/products/${id}`, {
-          method: 'PUT',
-          body: formData,
-        });
-        
-        if (response.ok) {
-          loadProducts();
-        } else {
-          console.error('Failed to update product status');
-        }
-      } catch (error) {
-        console.error('Error updating product status:', error);
-      }
-    };
-
-    const handleServiceStatusChange = async (id: string, newStatus: string) => {
-      try {
-        const formData = new FormData();
-        formData.append('status', newStatus);
-        
-        // If changing to inactive, also set publishOnWebsite to false
-        if (newStatus === 'inactive') {
-          formData.append('publishOnWebsite', 'false');
-        }
-        
-        const response = await fetch(`/api/services/${id}`, {
-          method: 'PUT',
-          body: formData,
-        });
-        
-        if (response.ok) {
-          loadServices();
-        } else {
-          console.error('Failed to update service status');
-        }
-      } catch (error) {
-        console.error('Error updating service status:', error);
-      }
-    };
+  const handleServiceStatusChange = (id: string, newStatus: string) =>
+    wm.updateServiceStatus(id, newStatus);
 
   // Slider handlers
-  const openSliderForm = (slider?: any) => {
-    setEditingSlider(slider || null);
-    setIsSliderFormOpen(true);
-  };
-
-  const handleSliderSuccess = () => {
-    loadSliders();
-    setIsSliderFormOpen(false);
-    setEditingSlider(null);
-  };
-
+  const openSliderForm = (slider?: any) => { setEditingSlider(slider || null); setIsSliderFormOpen(true); };
+  const handleSliderSuccess = () => { wm.loadSliders(); setIsSliderFormOpen(false); setEditingSlider(null); };
   const handleDeleteSlider = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeleteSlider'))) return;
-    
-    try {
-      const response = await fetch(`/api/website-sliders/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadSliders();
-      }
-    } catch (error) {
-      console.error('Error deleting slider:', error);
-    }
+    wm.deleteSlider(id);
   };
 
   // Homepage items handlers
   const handleRemoveFromHomepage = async (id: string, type: 'product' | 'service' | 'project' | 'blog' | 'video') => {
     if (!confirm(t('websiteManager.removeFromHomepage', { type: t(`websiteManager.type${type.charAt(0).toUpperCase() + type.slice(1)}`) }))) return;
-    
-    try {
-      let endpoint = '';
-      if (type === 'product') endpoint = `/api/homepage-products/${id}`;
-      else if (type === 'service') endpoint = `/api/homepage-services/${id}`;
-      else if (type === 'project') endpoint = `/api/homepage-projects/${id}`;
-      else if (type === 'blog') endpoint = `/api/homepage-blogs/${id}`;
-      else if (type === 'video') endpoint = `/api/homepage-videos/${id}`;
-      
-      const response = await fetch(endpoint, { method: 'DELETE' });
-      if (response.ok) {
-        loadHomepageItems();
-      }
-    } catch (error) {
-      console.error(`Error removing ${type} from homepage:`, error);
-    }
+    wm.removeFromHomepage(id, type);
   };
 
   // Project handlers
-  const openProjectForm = (project?: any) => {
-    setEditingProject(project || null);
-    setIsProjectFormOpen(true);
-  };
-
-  const openProjectView = (project: any) => {
-    setViewingProject(project);
-    setIsProjectViewOpen(true);
-  };
-
-  const handleProjectSuccess = () => {
-    loadProjects();
-    setIsProjectFormOpen(false);
-    setEditingProject(null);
-  };
-
+  const openProjectForm = (project?: any) => { setEditingProject(project || null); setIsProjectFormOpen(true); };
+  const openProjectView = (project: any) => { setViewingProject(project); setIsProjectViewOpen(true); };
+  const handleProjectSuccess = () => { wm.loadProjects(); setIsProjectFormOpen(false); setEditingProject(null); };
   const handleDeleteProject = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeleteProject'))) return;
-    
-    try {
-      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadProjects();
-      }
-    } catch (error) {
-      console.error('Error deleting project:', error);
-    }
+    wm.deleteProject(id);
   };
 
   // Blog handlers
-  const loadBlogs = async () => {
-    setLoadingBlogs(true);
-    try {
-      const response = await fetch('/api/blogs');
-      const data = await response.json();
-      setBlogs(data.blogs || []);
-    } catch (error) {
-      console.error('Error loading blogs:', error);
-    } finally {
-      setLoadingBlogs(false);
-    }
-  };
-
-  const loadBlogCategories = async () => {
-    setLoadingBlogCategories(true);
-    try {
-      const response = await fetch('/api/blog-categories');
-      const data = await response.json();
-      setBlogCategories(data.categories || []);
-    } catch (error) {
-      console.error('Error loading blog categories:', error);
-    } finally {
-      setLoadingBlogCategories(false);
-    }
-  };
-
-  const openBlogForm = (blog?: any) => {
-    setEditingBlog(blog || null);
-    setIsBlogFormOpen(true);
-  };
-
-  const openBlogView = (blog: any) => {
-    setViewingBlog(blog);
-    setIsBlogViewOpen(true);
-  };
-
-  const handleBlogSuccess = () => {
-    loadBlogs();
-    setIsBlogFormOpen(false);
-    setEditingBlog(null);
-  };
-
+  const openBlogForm = (blog?: any) => { setEditingBlog(blog || null); setIsBlogFormOpen(true); };
+  const openBlogView = (blog: any) => { setViewingBlog(blog); setIsBlogViewOpen(true); };
+  const handleBlogSuccess = () => { wm.loadBlogs(); setIsBlogFormOpen(false); setEditingBlog(null); };
   const handleDeleteBlog = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeleteBlog'))) return;
-    
-    try {
-      const response = await fetch(`/api/blogs/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadBlogs();
-      }
-    } catch (error) {
-      console.error('Error deleting blog:', error);
-    }
+    wm.deleteBlog(id);
   };
-
   const handleCreateBlogCategory = async () => {
     if (!newBlogCategoryName.trim()) return;
-    
-    try {
-      const response = await fetch('/api/blog-categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newBlogCategoryName }),
-      });
-      if (response.ok) {
-        loadBlogCategories();
-        setIsBlogCategoryDialogOpen(false);
-        setNewBlogCategoryName('');
-      }
-    } catch (error) {
-      console.error('Error creating blog category:', error);
-    }
+    await wm.createBlogCategory(newBlogCategoryName);
+    setIsBlogCategoryDialogOpen(false);
+    setNewBlogCategoryName('');
   };
-
   const handleDeleteBlogCategory = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeleteCategory'))) return;
-    
-    try {
-      const response = await fetch(`/api/blog-categories/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadBlogCategories();
-      }
-    } catch (error) {
-      console.error('Error deleting blog category:', error);
-    }
+    wm.deleteBlogCategory(id);
   };
 
   // Video handlers
-  const loadVideos = async () => {
-    setLoadingVideos(true);
-    try {
-      const response = await fetch('/api/videos');
-      const data = await response.json();
-      setVideos(data.videos || []);
-    } catch (error) {
-      console.error('Error loading videos:', error);
-    } finally {
-      setLoadingVideos(false);
-    }
-  };
-
-  const openVideoForm = (video?: any) => {
-    setEditingVideo(video || null);
-    setIsVideoFormOpen(true);
-  };
-
-  const handleVideoSuccess = () => {
-    loadVideos();
-    setIsVideoFormOpen(false);
-    setEditingVideo(null);
-  };
-
+  const openVideoForm = (video?: any) => { setEditingVideo(video || null); setIsVideoFormOpen(true); };
+  const handleVideoSuccess = () => { wm.loadVideos(); setIsVideoFormOpen(false); setEditingVideo(null); };
   const handleDeleteVideo = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeleteVideo'))) return;
-    
-    try {
-      const response = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadVideos();
-      }
-    } catch (error) {
-      console.error('Error deleting video:', error);
-    }
+    wm.deleteVideo(id);
   };
 
   // Website Orders handlers
-  const loadWebsiteOrders = async () => {
-    setLoadingWebsiteOrders(true);
-    try {
-      const response = await fetch('/api/website-orders');
-      const data = await response.json();
-      setWebsiteOrders(data.orders || []);
-    } catch (error) {
-      console.error('Error loading website orders:', error);
-    } finally {
-      setLoadingWebsiteOrders(false);
-    }
-  };
-
-  const handleUpdateOrderStatus = async (id: string, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/website-orders/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderStatus: newStatus }),
-      });
-      
-      if (response.ok) {
-        loadWebsiteOrders();
-      } else {
-        console.error('Failed to update order status');
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-    }
-  };
+  const handleUpdateOrderStatus = (id: string, newStatus: string) =>
+    wm.updateWebsiteOrderStatus(id, newStatus);
 
   // Partner Logo handlers
-  const loadPartnerLogos = async () => {
-    setLoadingPartnerLogos(true);
-    try {
-      const response = await fetch('/api/we-work-with');
-      const data = await response.json();
-      console.log('data we work with',data)
-      setPartnerLogos(data.partners || []);
-    } catch (error) {
-      console.error('Error loading partner logos:', error);
-    } finally {
-      setLoadingPartnerLogos(false);
-    }
-  };
-
-  const openPartnerLogoForm = (partnerLogo?: any) => {
-    setEditingPartnerLogo(partnerLogo || null);
-    setIsPartnerLogoFormOpen(true);
-  };
-
-  const handlePartnerLogoSuccess = () => {
-    loadPartnerLogos();
-    setIsPartnerLogoFormOpen(false);
-    setEditingPartnerLogo(null);
-  };
-
+  const openPartnerLogoForm = (partnerLogo?: any) => { setEditingPartnerLogo(partnerLogo || null); setIsPartnerLogoFormOpen(true); };
+  const handlePartnerLogoSuccess = () => { wm.loadPartnerLogos(); setIsPartnerLogoFormOpen(false); setEditingPartnerLogo(null); };
   const handleDeletePartnerLogo = async (id: string) => {
     if (!confirm(t('websiteManager.confirmDeletePartnerLogo'))) return;
-    
-    try {
-      const response = await fetch(`/api/we-work-with/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        loadPartnerLogos();
-      }
-    } catch (error) {
-      console.error('Error deleting partner logo:', error);
-    }
-  };
-
-  // Company Info handlers
-  const loadCompanyInfo = async () => {
-    setLoadingCompanyInfo(true);
-    try {
-      const response = await fetch('/api/company-info');
-      const data = await response.json();
-      if (data.companyInfo) {
-        const info = {
-          phone: data.companyInfo.phone || '',
-          email: data.companyInfo.email || '',
-          address: data.companyInfo.address || '',
-          facebookUrl: data.companyInfo.facebookUrl || '',
-          instagramUrl: data.companyInfo.instagramUrl || '',
-          youtubeUrl: data.companyInfo.youtubeUrl || '',
-          linkedinUrl: data.companyInfo.linkedinUrl || '',
-          tiktokUrl: data.companyInfo.tiktokUrl || '',
-          googlePlayUrl: data.companyInfo.googlePlayUrl || '',
-          appStoreUrl: data.companyInfo.appStoreUrl || '',
-        };
-
-        // Set current values
-        setPhone(info.phone);
-        setEmail(info.email);
-        setAddress(info.address);
-        setFacebookUrl(info.facebookUrl);
-        setInstagramUrl(info.instagramUrl);
-        setYoutubeUrl(info.youtubeUrl);
-        setLinkedinUrl(info.linkedinUrl);
-        setTiktokUrl(info.tiktokUrl);
-        setGooglePlayUrl(info.googlePlayUrl);
-        setAppStoreUrl(info.appStoreUrl);
-        setCompanyCV(data.companyInfo.companyCV || '');
-
-        // Store original values for comparison
-        setOriginalCompanyInfo(info);
-
-        // Clear any validation errors
-        setCompanyInfoErrors({
-          phone: '',
-          email: '',
-          address: '',
-        });
-      }
-    } catch (error) {
-      console.error('Error loading company info:', error);
-    } finally {
-      setLoadingCompanyInfo(false);
-    }
-  };
-
-  const loadSettings = async () => {
-    setLoadingSettings(true);
-    try {
-      const response = await fetch('/api/website-manager');
-      const data = await response.json();
-      if (data.settings) {
-        const settings = {
-          websiteTitle: data.settings.websiteTitle || '',
-          metaDescription: data.settings.metaDescription || '',
-          metaKeywords: data.settings.metaKeywords || '',
-        };
-
-        // Set current values
-        setWebsiteTitle(settings.websiteTitle);
-        setMetaDescription(settings.metaDescription);
-        setMetaKeywords(settings.metaKeywords);
-
-        // Store original values for comparison
-        setOriginalSettings(settings);
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      setLoadingSettings(false);
-    }
+    wm.deletePartnerLogo(id);
   };
 
   const handleSaveSettings = async () => {
-    setLoadingSettings(true);
-    try {
-      const response = await fetch('/api/website-manager', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          websiteTitle,
-          metaDescription,
-          metaKeywords,
-        }),
-      });
-
-      if (response.ok) {
-        // Update original settings after successful save
-        setOriginalSettings({
-          websiteTitle,
-          metaDescription,
-          metaKeywords,
-        });
-        alert(t('websiteManager.settingsSaved'));
-      } else {
-        const error = await response.json();
-        alert(error.error || t('websiteManager.settingsFailed'));
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      alert(t('websiteManager.settingsFailedRetry'));
-    } finally {
-      setLoadingSettings(false);
+    const result = await wm.saveSettings({ websiteTitle, metaDescription, metaKeywords });
+    if (saveSettings.fulfilled.match(result as any)) {
+      setOriginalSettings({ websiteTitle, metaDescription, metaKeywords });
+      alert(t('websiteManager.settingsSaved'));
+    } else {
+      alert(t('websiteManager.settingsFailed'));
     }
   };
 
   const handleResetSettings = () => {
     if (confirm(t('websiteManager.resetSettings'))) {
       setWebsiteTitle('IzoGrup - Leading Construction Materials Provider');
-      setMetaDescription('IzoGrup is Albania\'s leading provider of waterproofing and construction materials. Quality products and professional services for residential and commercial projects.');
+      setMetaDescription("IzoGrup is Albania's leading provider of waterproofing and construction materials. Quality products and professional services for residential and commercial projects.");
       setMetaKeywords('waterproofing, construction materials, Albania, roofing, insulation');
     }
   };
 
   const handleSaveCompanyInfo = async () => {
-    // Validate before saving
-    if (!validateCompanyInfo()) {
-      return;
-    }
-
-    setLoadingCompanyInfo(true);
-    try {
-      const response = await fetch('/api/company-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          email,
-          address,
-          facebookUrl,
-          instagramUrl,
-          youtubeUrl,
-          linkedinUrl,
-          tiktokUrl,
-          googlePlayUrl,
-          appStoreUrl,
-          companyCV,
-        }),
-      });
-
-      if (response.ok) {
-        // Update original values after successful save
-        setOriginalCompanyInfo({
-          phone,
-          email,
-          address,
-          facebookUrl,
-          instagramUrl,
-          youtubeUrl,
-          linkedinUrl,
-          tiktokUrl,
-          googlePlayUrl,
-          appStoreUrl,
-        });
-        alert(t('websiteManager.companyInfoSaved'));
-      } else {
-        throw new Error('Failed to save');
-      }
-    } catch (error) {
-      console.error('Error saving company info:', error);
+    if (!validateCompanyInfo()) return;
+    const result = await wm.saveCompanyInfo({
+      phone, email, address, facebookUrl, instagramUrl, youtubeUrl,
+      linkedinUrl, tiktokUrl, googlePlayUrl, appStoreUrl, companyCV,
+    });
+    if (saveCompanyInfo.fulfilled.match(result as any)) {
+      setOriginalCompanyInfo({ phone, email, address, facebookUrl, instagramUrl, youtubeUrl, linkedinUrl, tiktokUrl, googlePlayUrl, appStoreUrl });
+      alert(t('websiteManager.companyInfoSaved'));
+    } else {
       alert(t('websiteManager.companyInfoFailed'));
-    } finally {
-      setLoadingCompanyInfo(false);
     }
   };
 
   const handleCVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-
-    // Validate file type (PDF only)
     if (file.type !== 'application/pdf') {
       alert(t('websiteManager.uploadPDF'));
-      e.target.value = ''; // Reset input
+      e.target.value = '';
       return;
     }
-
-
-
-
     setUploadingCV(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
-      // Upload via our API route (which now uses S3)
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
       if (response.ok) {
         const data = await response.json();
-        const cvUrl = data.url || data.secure_url; // Handle both S3 and legacy responses
+        const cvUrl = data.url || data.secure_url;
         setCompanyCV(cvUrl);
-        
-        // Auto-save to database
-        const saveResponse = await fetch('/api/company-info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone,
-            email,
-            address,
-            facebookUrl,
-            instagramUrl,
-            youtubeUrl,
-            linkedinUrl,
-            tiktokUrl,
-            googlePlayUrl,
-            appStoreUrl,
-            companyCV: cvUrl,
-          }),
+        const result = await wm.saveCompanyInfo({
+          phone, email, address, facebookUrl, instagramUrl, youtubeUrl,
+          linkedinUrl, tiktokUrl, googlePlayUrl, appStoreUrl, companyCV: cvUrl,
         });
-
-        if (saveResponse.ok) {
-          alert(t('websiteManager.cvUploadedSaved'));
-        } else {
-          alert(t('websiteManager.cvUploadFailedDb'));
-        }
-        
-        e.target.value = ''; // Reset input for next upload
+        alert(saveCompanyInfo.fulfilled.match(result as any)
+          ? t('websiteManager.cvUploadedSaved')
+          : t('websiteManager.cvUploadFailedDb'));
+        e.target.value = '';
       } else {
         const errorData = await response.json();
-        console.error('Upload error:', errorData);
         throw new Error(errorData.error || 'Upload failed');
       }
     } catch (error) {
-      console.error('Error uploading CV:', error);
       alert(t('websiteManager.cvUploadFailedWithMessage', { message: error instanceof Error ? error.message : t('websiteManager.pleaseTryAgain') }));
-      e.target.value = ''; // Reset input
+      e.target.value = '';
     } finally {
       setUploadingCV(false);
     }
@@ -1332,8 +708,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             <h1 className="text-white mb-2">{t('websiteManager.title')}</h1>
             <p className="text-white/90">{t('websiteManager.subtitle')}</p>
           </div>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             className="bg-white text-brand-500 hover:bg-white/90"
             onClick={() => window.open('https://izo-group.vercel.app/', '_blank')}
           >
@@ -1444,7 +820,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </Button>
               )}
             </div>
-            
+
             {loadingSliders ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loadingSliders')}</div>
             ) : sliders.length === 0 ? (
@@ -1458,13 +834,13 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                     <div className="flex flex-col md:flex-row gap-4">
                       {/* Image Preview */}
                       <div className="md:w-1/3">
-                        <img 
-                          src={slider.imageUrl} 
+                        <img
+                          src={slider.imageUrl}
                           alt={slider.title}
                           className="w-full h-48 object-cover"
                         />
                       </div>
-                      
+
                       {/* Content */}
                       <div className="flex-1 p-4">
                         <div className="flex items-start justify-between mb-2">
@@ -1485,18 +861,18 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                               )}
                             </div>
                           </div>
-                          
+
                           {canEdit && (
                             <div className="flex gap-2">
-                              <Button 
-                                size="icon" 
+                              <Button
+                                size="icon"
                                 variant="ghost"
                                 onClick={() => openSliderForm(slider)}
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                size="icon" 
+                              <Button
+                                size="icon"
                                 variant="ghost"
                                 onClick={() => handleDeleteSlider(slider.id)}
                               >
@@ -1522,7 +898,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               </div>
               <Badge variant="outline">{homepageServices.filter(s => s.isActive).length} {t('websiteManager.active')}</Badge>
             </div>
-            
+
             {loadingHomepageItems ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loading')}</div>
             ) : homepageServices.length === 0 ? (
@@ -1579,7 +955,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               </div>
               <Badge variant="outline">{homepageProducts.filter(p => p.isActive).length} {t('websiteManager.active')}</Badge>
             </div>
-            
+
             {loadingHomepageItems ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loading')}</div>
             ) : homepageProducts.length === 0 ? (
@@ -1636,7 +1012,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               </div>
               <Badge variant="outline">{homepageProjects.filter(p => p.isActive).length} {t('websiteManager.active')}</Badge>
             </div>
-            
+
             {loadingHomepageItems ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loading')}</div>
             ) : homepageProjects.length === 0 ? (
@@ -1690,7 +1066,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               </div>
               <Badge variant="outline">{homepageBlogs.filter(b => b.isActive).length} {t('websiteManager.active')}</Badge>
             </div>
-            
+
             {loadingHomepageItems ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loading')}</div>
             ) : homepageBlogs.length === 0 ? (
@@ -1747,7 +1123,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               </div>
               <Badge variant="outline">{homepageVideos.filter(v => v.isActive).length} {t('websiteManager.active')}</Badge>
             </div>
-            
+
             {loadingHomepageItems ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loading')}</div>
             ) : homepageVideos.length === 0 ? (
@@ -1764,9 +1140,9 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                         <p className="text-sm text-gray-900">{item.video.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">{t('websiteManager.order')}: {item.displayOrder}</Badge>
-                          <a 
-                            href={item.video.youtubeUrl} 
-                            target="_blank" 
+                          <a
+                            href={item.video.youtubeUrl}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-brand-500 hover:underline flex items-center gap-1"
                           >
@@ -1801,9 +1177,9 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
           </Card>
 
           {/* Video Tutorial Section */}
-       
 
-       
+
+
 
           {/* We Work With (Partner Logos) Section */}
           <Card className="p-6">
@@ -1819,7 +1195,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </Button>
               )}
             </div>
-            
+
             {loadingPartnerLogos ? (
               <div className="text-center py-8 text-gray-500">{t('websiteManager.loadingPartnerLogos')}</div>
             ) : partnerLogos.length === 0 ? (
@@ -1833,25 +1209,25 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 {partnerLogos.map((partnerLogo) => (
                   <div key={partnerLogo.id} className="relative group">
                     <div className="aspect-square bg-white rounded-lg flex items-center justify-center p-4 border hover:shadow-md transition-shadow">
-                      <img 
-                        src={partnerLogo.logoUrl} 
+                      <img
+                        src={partnerLogo.logoUrl}
                         alt="Partner logo"
                         className="max-w-full max-h-full object-contain"
                       />
                     </div>
                     {canEdit && (
                       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button 
-                          size="icon" 
-                          variant="secondary" 
+                        <Button
+                          size="icon"
+                          variant="secondary"
                           className="h-6 w-6"
                           onClick={() => openPartnerLogoForm(partnerLogo)}
                         >
                           <Edit className="w-3 h-3" />
                         </Button>
-                        <Button 
-                          size="icon" 
-                          variant="destructive" 
+                        <Button
+                          size="icon"
+                          variant="destructive"
                           className="h-6 w-6"
                           onClick={() => handleDeletePartnerLogo(partnerLogo.id)}
                         >
@@ -1860,10 +1236,10 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                       </div>
                     )}
                     {partnerLogo.websiteUrl && (
-                
-                      <a 
+
+                      <a
                         href={partnerLogo.websiteUrl.startsWith('http://') || partnerLogo.websiteUrl.startsWith('https://') ? partnerLogo.websiteUrl : `https://${partnerLogo.websiteUrl}`}
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-center mt-2 text-brand-500 hover:underline flex items-center justify-center gap-1"
                       >
@@ -1907,190 +1283,190 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                   )}
                 </div>
 
-            {/* Search and Filter */}
-            <div className="flex gap-4 mb-6 flex-wrap items-center">
-              <div className="flex-1 min-w-64 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input 
-                  placeholder={t('websiteManager.searchServices')} 
-                  className="pl-10"
-                  value={servicesSearchQuery}
-                  onChange={(e) => setServicesSearchQuery(e.target.value)}
-                />
-              </div>
-              <Select value={selectedServiceCategory} onValueChange={setSelectedServiceCategory}>
-                <SelectTrigger className="min-w-48 max-w-xs overflow-hidden">
-                  <SelectValue className="truncate" />
-                </SelectTrigger>
-                <SelectContent className="max-w-sm">
-                  <SelectItem value="all">{t('websiteManager.allCategories')}</SelectItem>
-                  {serviceCategories.map(category => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(servicesSearchQuery || selectedServiceCategory !== 'all') && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setServicesSearchQuery('');
-                    setSelectedServiceCategory('all');
-                  }}
-                  className="whitespace-nowrap"
-                >
-                  {t('websiteManager.clearFilters')}
-                </Button>
-              )}
-            </div>
-
-            {/* Filter Status */}
-            {(servicesSearchQuery || selectedServiceCategory !== 'all') && (
-              <div className="mb-4 text-sm text-gray-600">
-                {t('websiteManager.showingServices', { count: filteredServices.length, total: services.length })}
-                {servicesSearchQuery && ` ${t('websiteManager.matchingSearch', { query: servicesSearchQuery })}`}
-                {selectedServiceCategory !== 'all' && ` ${t('websiteManager.inCategory', { category: selectedServiceCategory })}`}
-              </div>
-            )}
-
-            {/* Services Table */}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('websiteManager.title')}</TableHead>
-                    <TableHead>{t('websiteManager.category')}</TableHead>
-                    <TableHead>{t('websiteManager.subcategory')}</TableHead>
-                    <TableHead>{t('websiteManager.price')}</TableHead>
-                    <TableHead>{t('websiteManager.status')}</TableHead>
-                    <TableHead>{t('websiteManager.onlineSales')}</TableHead>
-                    <TableHead>{t('websiteManager.published')}</TableHead>
-                    <TableHead>{t('websiteManager.media')}</TableHead>
-                    <TableHead>{t('websiteManager.created')}</TableHead>
-                    <TableHead>{t('websiteManager.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingServices ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                        {t('websiteManager.loadingServices')}
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredServices.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                        {services.length === 0 
-                          ? t('websiteManager.noServicesFound')
-                          : t('websiteManager.noServicesMatch')
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredServices.map((service) => (
-                      <TableRow key={service.id}>
-                        <TableCell className="text-gray-900">{service.title}</TableCell>
-                        <TableCell>
-                          {(service.category ?? service.subcategory?.category) ? (
-                            <Badge variant="outline">{(service.category ?? service.subcategory?.category)?.name}</Badge>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-gray-600">
-                            {service.subcategory?.name || '-'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {service.price ? (
-                            <span className="text-gray-900">${service.price}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Select 
-                            value={service.status || 'active'} 
-                            onValueChange={(value) => handleServiceStatusChange(service.id, value)}
-                            disabled={!canEdit}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">{t('websiteManager.active')}</SelectItem>
-                              <SelectItem value="inactive">{t('websiteManager.inactive')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={service.enableOnlineSales ? 'default' : 'secondary'}>
-                            {service.enableOnlineSales ? t('websiteManager.yes') : t('websiteManager.no')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch 
-                              checked={service.publishOnWebsite} 
-                              onCheckedChange={() => handleToggleServicePublished(service.id, service.publishOnWebsite)}
-                              disabled={!canEdit || service.status === 'inactive' || togglingServiceIds.has(service.id)} 
-                            />
-                            {togglingServiceIds.has(service.id) && (
-                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {t('websiteManager.imagesCount', { count: service.images?.length || 0 })}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs text-gray-500">
-                            {new Date(service.createdAt).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={() => openServiceView(service)}
-                              title="View details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {canEdit && (
-                              <>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost"
-                                  onClick={() => openServiceForm(service)}
-                                  title="Edit"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost"
-                                  onClick={() => handleDeleteService(service.id)}
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                {/* Search and Filter */}
+                <div className="flex gap-4 mb-6 flex-wrap items-center">
+                  <div className="flex-1 min-w-64 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder={t('websiteManager.searchServices')}
+                      className="pl-10"
+                      value={servicesSearchQuery}
+                      onChange={(e) => setServicesSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select value={selectedServiceCategory} onValueChange={setSelectedServiceCategory}>
+                    <SelectTrigger className="min-w-48 max-w-xs overflow-hidden">
+                      <SelectValue className="truncate" />
+                    </SelectTrigger>
+                    <SelectContent className="max-w-sm">
+                      <SelectItem value="all">{t('websiteManager.allCategories')}</SelectItem>
+                      {serviceCategories.map(category => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(servicesSearchQuery || selectedServiceCategory !== 'all') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setServicesSearchQuery('');
+                        setSelectedServiceCategory('all');
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      {t('websiteManager.clearFilters')}
+                    </Button>
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                </div>
+
+                {/* Filter Status */}
+                {(servicesSearchQuery || selectedServiceCategory !== 'all') && (
+                  <div className="mb-4 text-sm text-gray-600">
+                    {t('websiteManager.showingServices', { count: filteredServices.length, total: services.length })}
+                    {servicesSearchQuery && ` ${t('websiteManager.matchingSearch', { query: servicesSearchQuery })}`}
+                    {selectedServiceCategory !== 'all' && ` ${t('websiteManager.inCategory', { category: selectedServiceCategory })}`}
+                  </div>
+                )}
+
+                {/* Services Table */}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('websiteManager.title')}</TableHead>
+                        <TableHead>{t('websiteManager.category')}</TableHead>
+                        <TableHead>{t('websiteManager.subcategory')}</TableHead>
+                        <TableHead>{t('websiteManager.price')}</TableHead>
+                        <TableHead>{t('websiteManager.status')}</TableHead>
+                        <TableHead>{t('websiteManager.onlineSales')}</TableHead>
+                        <TableHead>{t('websiteManager.published')}</TableHead>
+                        <TableHead>{t('websiteManager.media')}</TableHead>
+                        <TableHead>{t('websiteManager.created')}</TableHead>
+                        <TableHead>{t('websiteManager.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingServices ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                            {t('websiteManager.loadingServices')}
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredServices.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                            {services.length === 0
+                              ? t('websiteManager.noServicesFound')
+                              : t('websiteManager.noServicesMatch')
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredServices.map((service) => (
+                          <TableRow key={service.id}>
+                            <TableCell className="text-gray-900">{service.title}</TableCell>
+                            <TableCell>
+                              {(service.category ?? service.subcategory?.category) ? (
+                                <Badge variant="outline">{(service.category ?? service.subcategory?.category)?.name}</Badge>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-gray-600">
+                                {service.subcategory?.name || '-'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {service.price ? (
+                                <span className="text-gray-900">${service.price}</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={service.status || 'active'}
+                                onValueChange={(value) => handleServiceStatusChange(service.id, value)}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">{t('websiteManager.active')}</SelectItem>
+                                  <SelectItem value="inactive">{t('websiteManager.inactive')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={service.enableOnlineSales ? 'default' : 'secondary'}>
+                                {service.enableOnlineSales ? t('websiteManager.yes') : t('websiteManager.no')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={service.publishOnWebsite}
+                                  onCheckedChange={() => handleToggleServicePublished(service.id, service.publishOnWebsite)}
+                                  disabled={!canEdit || service.status === 'inactive' || togglingServiceIds.includes(service.id)}
+                                />
+                                {togglingServiceIds.includes(service.id) && (
+                                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {t('websiteManager.imagesCount', { count: service.images?.length || 0 })}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-gray-500">
+                                {new Date(service.createdAt).toLocaleDateString()}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => openServiceView(service)}
+                                  title="View details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                {canEdit && (
+                                  <>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => openServiceForm(service)}
+                                      title="Edit"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteService(service.id)}
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
             </TabsContent>
 
             <TabsContent value="categories">
@@ -2115,175 +1491,175 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
             <TabsContent value="products-list">
               <Card className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-gray-900">{t('websiteManager.productsManagement')}</h3>
-                <p className="text-sm text-gray-500 mt-1">{t('websiteManager.productsManagementDesc')}</p>
-              </div>
-              {canEdit && (
-                <Button onClick={() => openProductForm()}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('websiteManager.addProduct')}
-                </Button>
-              )}
-            </div>
-
-            {/* Search and Filter */}
-            <div className="flex gap-4 mb-6">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input 
-                  placeholder={t('websiteManager.searchProducts')} 
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Select defaultValue="all">
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('websiteManager.allCategories')}</SelectItem>
-                  <SelectItem value="waterproofing">Waterproofing</SelectItem>
-                  <SelectItem value="primers">Primers</SelectItem>
-                  <SelectItem value="protection">Protection</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Products Table */}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('websiteManager.productTitle')}</TableHead>
-                      <TableHead>{t('websiteManager.category')}</TableHead>
-                      <TableHead>{t('websiteManager.subcategory')}</TableHead>
-                      <TableHead>{t('websiteManager.sku')}</TableHead>
-                      <TableHead>{t('websiteManager.price')}</TableHead>
-                      <TableHead>{t('websiteManager.stock')}</TableHead>
-                      <TableHead>{t('websiteManager.status')}</TableHead>
-                      <TableHead>{t('websiteManager.onlineSales')}</TableHead>
-                      <TableHead>{t('websiteManager.published')}</TableHead>
-                      <TableHead>{t('websiteManager.actions')}</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingProducts ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-gray-500">
-                        {t('websiteManager.loadingProducts')}
-                      </TableCell>
-                    </TableRow>
-                  ) : products.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-gray-500">
-                        {t('websiteManager.noProductsFound')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="text-gray-900">{product.title}</TableCell>
-                        <TableCell>
-                          {product.subcategory?.category ? (
-                            <Badge variant="outline">{product.subcategory.category.name}</Badge>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {product.subcategory ? (
-                            <Badge variant="outline" className="text-xs">{product.subcategory.name}</Badge>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-gray-600">{product.sku || '-'}</span>
-                        </TableCell>
-                        <TableCell>
-                          {product.price ? (
-                            <span className="text-gray-900">${product.price}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-gray-600">{product.stock || 0}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Select 
-                            value={product.status} 
-                            onValueChange={(value) => handleProductStatusChange(product.id, value)}
-                            disabled={!canEdit}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">{t('websiteManager.active')}</SelectItem>
-                              <SelectItem value="inactive">{t('websiteManager.inactive')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={product.enableOnlineSales ? 'default' : 'secondary'}>
-                            {product.enableOnlineSales ? t('websiteManager.yes') : t('websiteManager.no')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch 
-                              checked={product.publishOnWebsite} 
-                              onCheckedChange={() => handleToggleProductPublished(product.id, product.publishOnWebsite)}
-                              disabled={!canEdit || product.status === 'inactive' || togglingProductIds.has(product.id)} 
-                            />
-                            {togglingProductIds.has(product.id) && (
-                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={() => openProductView(product)}
-                              title="View details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {canEdit && (
-                              <>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost"
-                                  onClick={() => openProductForm(product)}
-                                  title="Edit"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost"
-                                  onClick={() => handleDeleteProduct(product.id)}
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-gray-900">{t('websiteManager.productsManagement')}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{t('websiteManager.productsManagementDesc')}</p>
+                  </div>
+                  {canEdit && (
+                    <Button onClick={() => openProductForm()}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t('websiteManager.addProduct')}
+                    </Button>
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                </div>
+
+                {/* Search and Filter */}
+                <div className="flex gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder={t('websiteManager.searchProducts')}
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select defaultValue="all">
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('websiteManager.allCategories')}</SelectItem>
+                      <SelectItem value="waterproofing">Waterproofing</SelectItem>
+                      <SelectItem value="primers">Primers</SelectItem>
+                      <SelectItem value="protection">Protection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Products Table */}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('websiteManager.productTitle')}</TableHead>
+                        <TableHead>{t('websiteManager.category')}</TableHead>
+                        <TableHead>{t('websiteManager.subcategory')}</TableHead>
+                        <TableHead>{t('websiteManager.sku')}</TableHead>
+                        <TableHead>{t('websiteManager.price')}</TableHead>
+                        <TableHead>{t('websiteManager.stock')}</TableHead>
+                        <TableHead>{t('websiteManager.status')}</TableHead>
+                        <TableHead>{t('websiteManager.onlineSales')}</TableHead>
+                        <TableHead>{t('websiteManager.published')}</TableHead>
+                        <TableHead>{t('websiteManager.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingProducts ? (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                            {t('websiteManager.loadingProducts')}
+                          </TableCell>
+                        </TableRow>
+                      ) : products.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                            {t('websiteManager.noProductsFound')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        products.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell className="text-gray-900">{product.title}</TableCell>
+                            <TableCell>
+                              {product.subcategory?.category ? (
+                                <Badge variant="outline">{product.subcategory.category.name}</Badge>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {product.subcategory ? (
+                                <Badge variant="outline" className="text-xs">{product.subcategory.name}</Badge>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-gray-600">{product.sku || '-'}</span>
+                            </TableCell>
+                            <TableCell>
+                              {product.price ? (
+                                <span className="text-gray-900">${product.price}</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-gray-600">{product.stock || 0}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={product.status}
+                                onValueChange={(value) => handleProductStatusChange(product.id, value)}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">{t('websiteManager.active')}</SelectItem>
+                                  <SelectItem value="inactive">{t('websiteManager.inactive')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={product.enableOnlineSales ? 'default' : 'secondary'}>
+                                {product.enableOnlineSales ? t('websiteManager.yes') : t('websiteManager.no')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={product.publishOnWebsite}
+                                  onCheckedChange={() => handleToggleProductPublished(product.id, product.publishOnWebsite)}
+                                  disabled={!canEdit || product.status === 'inactive' || togglingProductIds.includes(product.id)}
+                                />
+                                {togglingProductIds.includes(product.id) && (
+                                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => openProductView(product)}
+                                  title="View details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                {canEdit && (
+                                  <>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => openProductForm(product)}
+                                      title="Edit"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteProduct(product.id)}
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
             </TabsContent>
 
             <TabsContent value="categories">
@@ -2312,8 +1688,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             <div className="flex gap-4 mb-6">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input 
-                  placeholder={t('websiteManager.searchProjects')} 
+                <Input
+                  placeholder={t('websiteManager.searchProjects')}
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -2336,8 +1712,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                     {/* Image Section - Fixed Height */}
                     <div className="h-48 bg-gray-100 flex items-center justify-center relative">
                       {project.images && project.images.length > 0 ? (
-                        <img 
-                          src={project.images[0]} 
+                        <img
+                          src={project.images[0]}
                           alt={project.title}
                           className="w-full h-full object-cover"
                         />
@@ -2350,7 +1726,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                         </Badge>
                       )}
                     </div>
-                    
+
                     {/* Content Section */}
                     <div className="p-4 pb-16">
                       {/* Title and Badges */}
@@ -2371,12 +1747,12 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Description */}
                       <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed mb-3">
                         {project.description || t('websiteManager.noDescription')}
                       </p>
-                      
+
                       {/* Location */}
                       {project.location && (
                         <div className="mb-3">
@@ -2387,13 +1763,13 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Action Buttons - Absolutely Positioned at Bottom */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t">
                       <div className="flex items-center gap-1.5">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="flex-1 h-8 text-xs font-normal"
                           onClick={() => openProjectView(project)}
                         >
@@ -2402,8 +1778,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                         </Button>
                         {canEdit && (
                           <div className="flex gap-1.5">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="w-8 h-8 p-0 flex items-center justify-center"
                               onClick={() => openProjectForm(project)}
@@ -2411,8 +1787,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="w-8 h-8 p-0 flex items-center justify-center hover:bg-red-50 hover:border-red-300 hover:text-red-600"
                               onClick={() => handleDeleteProject(project.id)}
@@ -2505,8 +1881,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghost"
                                   onClick={() => openBlogView(blog)}
                                 >
@@ -2514,15 +1890,15 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                                 </Button>
                                 {canEdit && (
                                   <>
-                                    <Button 
-                                      size="icon" 
+                                    <Button
+                                      size="icon"
                                       variant="ghost"
                                       onClick={() => openBlogForm(blog)}
                                     >
                                       <Edit className="w-4 h-4" />
                                     </Button>
-                                    <Button 
-                                      size="icon" 
+                                    <Button
+                                      size="icon"
                                       variant="ghost"
                                       onClick={() => handleDeleteBlog(blog.id)}
                                     >
@@ -2581,8 +1957,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                             <TableCell className="text-gray-600">{t('websiteManager.blogsCount', { count: category._count?.blogs || 0 })}</TableCell>
                             <TableCell>
                               {canEdit && (
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghost"
                                   onClick={() => handleDeleteBlogCategory(category.id)}
                                 >
@@ -2641,9 +2017,9 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                       <TableRow key={video.id}>
                         <TableCell className="text-gray-900">{video.title}</TableCell>
                         <TableCell>
-                          <a 
-                            href={video.youtubeUrl} 
-                            target="_blank" 
+                          <a
+                            href={video.youtubeUrl}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-brand-500 hover:underline text-sm flex items-center gap-1"
                           >
@@ -2662,15 +2038,15 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                           <div className="flex gap-2">
                             {canEdit && (
                               <>
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghost"
                                   onClick={() => openVideoForm(video)}
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghost"
                                   onClick={() => handleDeleteVideo(video.id)}
                                 >
@@ -2734,18 +2110,18 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('websiteManager.orderNumber')}</TableHead>
-                      <TableHead>{t('websiteManager.customer')}</TableHead>
-                      <TableHead>{t('websiteManager.email')}</TableHead>
-                      <TableHead>{t('websiteManager.type')}</TableHead>
-                      <TableHead>{t('websiteManager.itemsCount')}</TableHead>
-                      <TableHead>{t('websiteManager.total')}</TableHead>
-                      <TableHead>{t('websiteManager.orderStatus')}</TableHead>
-                      <TableHead>{t('websiteManager.payment')}</TableHead>
-                      <TableHead>{t('websiteManager.date')}</TableHead>
-                      <TableHead>{t('websiteManager.actions')}</TableHead>
-                    </TableRow>
+                  <TableRow>
+                    <TableHead>{t('websiteManager.orderNumber')}</TableHead>
+                    <TableHead>{t('websiteManager.customer')}</TableHead>
+                    <TableHead>{t('websiteManager.email')}</TableHead>
+                    <TableHead>{t('websiteManager.type')}</TableHead>
+                    <TableHead>{t('websiteManager.itemsCount')}</TableHead>
+                    <TableHead>{t('websiteManager.total')}</TableHead>
+                    <TableHead>{t('websiteManager.orderStatus')}</TableHead>
+                    <TableHead>{t('websiteManager.payment')}</TableHead>
+                    <TableHead>{t('websiteManager.date')}</TableHead>
+                    <TableHead>{t('websiteManager.actions')}</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingWebsiteOrders ? (
@@ -2763,17 +2139,17 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                   ) : (
                     websiteOrders
                       .filter(order => {
-                        const matchesSearch = !websiteOrdersSearchQuery || 
+                        const matchesSearch = !websiteOrdersSearchQuery ||
                           order.orderNumber.toLowerCase().includes(websiteOrdersSearchQuery.toLowerCase()) ||
                           order.email.toLowerCase().includes(websiteOrdersSearchQuery.toLowerCase()) ||
                           order.fullName.toLowerCase().includes(websiteOrdersSearchQuery.toLowerCase());
-                        
-                        const matchesStatus = websiteOrdersStatusFilter === 'all' || 
+
+                        const matchesStatus = websiteOrdersStatusFilter === 'all' ||
                           order.orderStatus === websiteOrdersStatusFilter;
-                        
-                        const matchesType = websiteOrdersTypeFilter === 'all' || 
+
+                        const matchesType = websiteOrdersTypeFilter === 'all' ||
                           order.orderType === websiteOrdersTypeFilter;
-                        
+
                         return matchesSearch && matchesStatus && matchesType;
                       })
                       .map((order) => (
@@ -2800,8 +2176,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                             {order.currency.toUpperCase()} {order.totalAmount.toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <Select 
-                              value={order.orderStatus} 
+                            <Select
+                              value={order.orderStatus}
                               onValueChange={(value) => handleUpdateOrderStatus(order.id, value)}
                               disabled={!canEdit}
                             >
@@ -2819,7 +2195,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={order.paymentStatus === 'completed' ? 'default' : 'secondary'}
                               className="text-xs"
                             >
@@ -2831,8 +2207,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button 
-                                size="icon" 
+                              <Button
+                                size="icon"
                                 variant="ghost"
                                 className="h-8 w-8"
                                 onClick={() => {
@@ -2844,8 +2220,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {canEdit && (
-                                <Button 
-                                  size="icon" 
+                                <Button
+                                  size="icon"
                                   variant="ghost"
                                   className="h-8 w-8"
                                   onClick={async () => {
@@ -2853,7 +2229,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                                     try {
                                       const response = await fetch(`/api/website-orders/${order.id}`, { method: 'DELETE' });
                                       if (response.ok) {
-                                        loadWebsiteOrders();
+                                        wm.loadWebsiteOrders();
                                       }
                                     } catch (error) {
                                       console.error('Error deleting order:', error);
@@ -2952,8 +2328,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                     <div>
                       <p className="text-sm text-gray-600">Expected Delivery</p>
                       <p className="font-medium">
-                        {selectedOrder.expectedDeliveryDate 
-                          ? new Date(selectedOrder.expectedDeliveryDate).toLocaleDateString() 
+                        {selectedOrder.expectedDeliveryDate
+                          ? new Date(selectedOrder.expectedDeliveryDate).toLocaleDateString()
                           : '-'}
                       </p>
                     </div>
@@ -3063,7 +2439,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label>{t('websiteManager.phoneNumber')}</Label>
-                  <Input 
+                  <Input
                     type="tel"
                     value={phone}
                     onChange={(e) => handleCompanyInfoInputChange('phone', e.target.value)}
@@ -3084,7 +2460,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label>{t('websiteManager.emailAddress')}</Label>
-                  <Input 
+                  <Input
                     type="email"
                     value={email}
                     onChange={(e) => handleCompanyInfoInputChange('email', e.target.value)}
@@ -3105,7 +2481,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label>{t('websiteManager.address')} *</Label>
-                  <Textarea 
+                  <Textarea
                     value={address}
                     onChange={(e) => handleCompanyInfoInputChange('address', e.target.value)}
                     disabled={!canEdit}
@@ -3124,8 +2500,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             {canEdit && (
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 {/* <Button variant="outline" onClick={loadCompanyInfo}>Cancel</Button> */}
-                <Button 
-                  onClick={handleSaveCompanyInfo} 
+                <Button
+                  onClick={handleSaveCompanyInfo}
                   disabled={isContactInfoSaveDisabled}
                   className={!hasContactInfoChanges ? 'opacity-50' : ''}
                 >
@@ -3178,8 +2554,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                           </label>
                         </>
                       )}
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => {
                           // Open in new tab for viewing/downloading
@@ -3241,7 +2617,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label className="text-sm">Facebook</Label>
-                  <Input 
+                  <Input
                     value={facebookUrl}
                     onChange={(e) => handleCompanyInfoInputChange('facebookUrl', e.target.value)}
                     placeholder="https://facebook.com/izogrup"
@@ -3256,7 +2632,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label className="text-sm">Instagram</Label>
-                  <Input 
+                  <Input
                     value={instagramUrl}
                     onChange={(e) => handleCompanyInfoInputChange('instagramUrl', e.target.value)}
                     placeholder="https://instagram.com/izogrup"
@@ -3271,7 +2647,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label className="text-sm">YouTube</Label>
-                  <Input 
+                  <Input
                     value={youtubeUrl}
                     onChange={(e) => handleCompanyInfoInputChange('youtubeUrl', e.target.value)}
                     placeholder="https://youtube.com/@izogrup"
@@ -3286,7 +2662,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                 </div>
                 <div className="flex-1">
                   <Label className="text-sm">LinkedIn</Label>
-                  <Input 
+                  <Input
                     value={linkedinUrl}
                     onChange={(e) => handleCompanyInfoInputChange('linkedinUrl', e.target.value)}
                     placeholder="https://linkedin.com/company/izogrup"
@@ -3294,7 +2670,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
                   />
                 </div>
               </div>
-{/* 
+              {/* 
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                   <Share2 className="w-5 h-5 text-gray-600" />
@@ -3314,8 +2690,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             {canEdit && (
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 {/* <Button variant="outline" onClick={loadCompanyInfo}>Cancel</Button> */}
-                <Button 
-                  onClick={handleSaveCompanyInfo} 
+                <Button
+                  onClick={handleSaveCompanyInfo}
                   disabled={!hasSocialMediaChanges || loadingCompanyInfo}
                   className={!hasSocialMediaChanges ? 'opacity-50' : ''}
                 >
@@ -3334,20 +2710,20 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             <div className="space-y-4">
               <div>
                 <Label>Google Play Store</Label>
-                <Input 
+                <Input
                   value={googlePlayUrl}
                   onChange={(e) => handleCompanyInfoInputChange('googlePlayUrl', e.target.value)}
-                  placeholder="https://play.google.com/store/apps/details?id=..." 
+                  placeholder="https://play.google.com/store/apps/details?id=..."
                   disabled={!canEdit}
                 />
               </div>
 
               <div>
                 <Label>Apple App Store</Label>
-                <Input 
+                <Input
                   value={appStoreUrl}
                   onChange={(e) => handleCompanyInfoInputChange('appStoreUrl', e.target.value)}
-                  placeholder="https://apps.apple.com/app/..." 
+                  placeholder="https://apps.apple.com/app/..."
                   disabled={!canEdit}
                 />
               </div>
@@ -3356,8 +2732,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             {canEdit && (
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 {/* <Button variant="outline" onClick={loadCompanyInfo}>Cancel</Button> */}
-                <Button 
-                  onClick={handleSaveCompanyInfo} 
+                <Button
+                  onClick={handleSaveCompanyInfo}
                   disabled={!hasAppStoreChanges || loadingCompanyInfo}
                   className={!hasAppStoreChanges ? 'opacity-50' : ''}
                 >
@@ -3375,20 +2751,20 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             <div className="space-y-6">
               <div>
                 <Label>{t('websiteManager.websiteTitle')}</Label>
-                <Input 
+                <Input
                   value={websiteTitle}
                   onChange={(e) => setWebsiteTitle(e.target.value)}
                   disabled={!canEdit || loadingSettings}
                   placeholder={t('websiteManager.websiteTitlePlaceholder')}
                 />
               </div>
-              
+
               <div>
                 <Label>{t('websiteManager.metaDescriptionSEO')}</Label>
-                <Textarea 
+                <Textarea
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
-                  rows={3} 
+                  rows={3}
                   disabled={!canEdit || loadingSettings}
                   placeholder={t('websiteManager.metaDescriptionPlaceholder')}
                 />
@@ -3396,7 +2772,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
               <div>
                 <Label>{t('websiteManager.metaKeywords')} (SEO)</Label>
-                <Input 
+                <Input
                   value={metaKeywords}
                   onChange={(e) => setMetaKeywords(e.target.value)}
                   disabled={!canEdit || loadingSettings}
@@ -3407,14 +2783,14 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
               {canEdit && (
                 <div className="flex justify-end gap-2 pt-6 border-t">
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={handleResetSettings}
                     disabled={loadingSettings}
                   >
                     {t('websiteManager.resetToDefaults')}
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleSaveSettings}
                     disabled={loadingSettings || (
                       websiteTitle === originalSettings.websiteTitle &&
@@ -3428,7 +2804,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               )}
             </div>
           </Card>
-  
+
 
         </TabsContent>
       </Tabs>
@@ -3492,7 +2868,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
               {dialogType === 'video' && 'Add Video Tutorial'}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <Label>Title/Name</Label>
@@ -3584,7 +2960,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
         type="product"
         isOpen={isAddProductDialogOpen}
         onClose={() => setIsAddProductDialogOpen(false)}
-        onSuccess={loadHomepageItems}
+        onSuccess={() => wm.loadHomepageItems()}
       />
 
       {/* Add Services to Homepage Dialog */}
@@ -3592,7 +2968,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
         type="service"
         isOpen={isAddServiceDialogOpen}
         onClose={() => setIsAddServiceDialogOpen(false)}
-        onSuccess={loadHomepageItems}
+        onSuccess={() => wm.loadHomepageItems()}
       />
 
       {/* Add Projects to Homepage Dialog */}
@@ -3600,7 +2976,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
         type="project"
         isOpen={isAddProjectDialogOpen}
         onClose={() => setIsAddProjectDialogOpen(false)}
-        onSuccess={loadHomepageItems}
+        onSuccess={() => wm.loadHomepageItems()}
       />
 
       {/* Add Blogs to Homepage Dialog */}
@@ -3608,7 +2984,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
         type="blog"
         isOpen={isAddBlogDialogOpen}
         onClose={() => setIsAddBlogDialogOpen(false)}
-        onSuccess={loadHomepageItems}
+        onSuccess={() => wm.loadHomepageItems()}
       />
 
       {/* Add Videos to Homepage Dialog */}
@@ -3616,7 +2992,7 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
         type="video"
         isOpen={isAddVideoDialogOpen}
         onClose={() => setIsAddVideoDialogOpen(false)}
-        onSuccess={loadHomepageItems}
+        onSuccess={() => wm.loadHomepageItems()}
       />
 
       {/* Video Form Dialog */}
@@ -3707,8 +3083,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setIsBlogCategoryDialogOpen(false);
                 setNewBlogCategoryName('');

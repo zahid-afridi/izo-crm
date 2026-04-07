@@ -10,6 +10,7 @@ import clientsReducer from './slices/clientsSlice';
 import workerProfileReducer from './slices/workerProfileSlice';
 import offersReducer from './slices/offersSlice';
 import ordersReducer from './slices/ordersSlice';
+import websiteManagerReducer from './slices/websiteManagerSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     workerProfile: workerProfileReducer,
     offers: offersReducer,
     orders: ordersReducer,
+    websiteManager: websiteManagerReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
