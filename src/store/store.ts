@@ -7,6 +7,7 @@ import carsReducer from './slices/carsSlice';
 import teamsReducer from './slices/teamsSlice';
 import assignmentsReducer from './slices/assignmentsSlice';
 import clientsReducer from './slices/clientsSlice';
+import workerProfileReducer from './slices/workerProfileSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     teams: teamsReducer,
     assignments: assignmentsReducer,
     clients: clientsReducer,
+    workerProfile: workerProfileReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
