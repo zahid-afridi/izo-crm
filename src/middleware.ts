@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { extractToken } from '@/lib/auth'
-import { verifyTokenEdge } from '@/lib/jwt-edge'
+import { extractToken, verifyTokenEdge } from '@/lib/jwt-edge'
 
 /**
  * Public pages

@@ -3,6 +3,14 @@ import { JWTPayload } from './auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Extract token from Authorization header (Edge-safe, no Node.js deps)
+export function extractToken(authHeader: string | null): string | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.substring(7);
+}
+
 // Simple JWT verification for Edge Runtime
 export async function verifyTokenEdge(token: string): Promise<JWTPayload | null> {
   try {
