@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { format } from 'date-fns';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,6 +37,24 @@ export interface Assignment {
     color: string;
     model: string;
   } | null;
+}
+
+export interface AssignmentWithTeam extends Assignment {
+  teamMembers: Array<{ id: string; fullName: string; phone?: string | null }>;
+  allowFullProgram?: boolean;
+  fullProgram?: Array<{
+    site: { id: string; name: string; address: string };
+    car: { id: string; name: string; number: string; color: string } | null;
+    workers: Array<{ id: string; fullName: string }>;
+  }>;
+  isFinalized?: boolean;
+}
+
+export interface WorkdaySummary {
+  monthWorkDays: number;
+  totalWorkDays: number;
+  summaryMonth: string;
+  monthlyBreakdown: Record<string, number>;
 }
 
 export interface Attendance {
@@ -91,12 +109,12 @@ export interface WorkerProfileStats {
 export interface WorkerProfileState {
   profile: WorkerProfile | null;
   todayAssignments: Assignment[];
-  pastAssignments: Assignment[];
+  upcomingAssignments: AssignmentWithTeam[];
+  pastAssignments: AssignmentWithTeam[];
+  workdaySummary: WorkdaySummary | null;
   stats: WorkerProfileStats;
   teams: Team[];
-  // attendance keyed by assignmentId
   attendanceMap: Record<string, Attendance>;
-  // attendance history keyed by assignmentId
   attendanceHistoryMap: Record<string, AttendanceHistory>;
   isLoading: boolean;
   isInitialized: boolean;
@@ -110,7 +128,9 @@ export interface WorkerProfileState {
 const initialState: WorkerProfileState = {
   profile: null,
   todayAssignments: [],
+  upcomingAssignments: [],
   pastAssignments: [],
+  workdaySummary: null,
   stats: { totalAssignments: 0, thisMonthDays: 0, teamsCount: 0 },
   teams: [],
   attendanceMap: {},
@@ -128,9 +148,10 @@ export const fetchWorkerProfile = createAsyncThunk(
   'workerProfile/fetchProfile',
   async (_, { rejectWithValue }) => {
     try {
-      const [profileRes, attendanceRes] = await Promise.all([
+      const [profileRes, attendanceRes, assignmentsRes] = await Promise.all([
         fetch('/api/workers/profile', { credentials: 'include' }),
         fetch(`/api/attendance?date=${format(new Date(), 'yyyy-MM-dd')}`, { credentials: 'include' }),
+        fetch('/api/worker/assignments', { credentials: 'include' }),
       ]);
 
       if (!profileRes.ok) return rejectWithValue('Failed to fetch worker profile');
@@ -155,7 +176,16 @@ export const fetchWorkerProfile = createAsyncThunk(
         }
       }
 
-      return { profileData: JSON.parse(JSON.stringify(profileData)), attendanceMap };
+      let assignmentsData: { upcoming: AssignmentWithTeam[]; past: AssignmentWithTeam[]; summary: WorkdaySummary } | null = null;
+      if (assignmentsRes.ok) {
+        assignmentsData = await assignmentsRes.json();
+      }
+
+      return {
+        profileData: JSON.parse(JSON.stringify(profileData)),
+        attendanceMap,
+        assignmentsData: assignmentsData ? JSON.parse(JSON.stringify(assignmentsData)) : null,
+      };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch profile');
     }
@@ -259,17 +289,18 @@ const workerProfileSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // fetchWorkerProfile
     builder
       .addCase(fetchWorkerProfile.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchWorkerProfile.fulfilled, (state, action) => {
-        const { profileData, attendanceMap } = action.payload;
+        const { profileData, attendanceMap, assignmentsData } = action.payload;
         state.profile = profileData.profile ?? null;
         state.todayAssignments = profileData.todayAssignments ?? [];
-        state.pastAssignments = profileData.pastAssignments ?? [];
+        state.pastAssignments = assignmentsData?.past ?? profileData.pastAssignments ?? [];
+        state.upcomingAssignments = assignmentsData?.upcoming ?? [];
+        state.workdaySummary = assignmentsData?.summary ?? null;
         state.stats = profileData.stats ?? initialState.stats;
         state.teams = profileData.teams ?? [];
         state.attendanceMap = attendanceMap;
@@ -281,14 +312,11 @@ const workerProfileSlice = createSlice({
         state.error = action.payload as string;
       });
 
-    // fetchAttendanceHistory
-    builder
-      .addCase(fetchAttendanceHistory.fulfilled, (state, action) => {
-        const { assignmentId, data } = action.payload as { assignmentId: string; data: AttendanceHistory };
-        state.attendanceHistoryMap[assignmentId] = data;
-      });
+    builder.addCase(fetchAttendanceHistory.fulfilled, (state, action) => {
+      const { assignmentId, data } = action.payload as { assignmentId: string; data: AttendanceHistory };
+      state.attendanceHistoryMap[assignmentId] = data;
+    });
 
-    // checkIn
     builder
       .addCase(checkIn.pending, (state, action) => {
         state.checkingIn = action.meta.arg.assignmentId;
@@ -304,7 +332,6 @@ const workerProfileSlice = createSlice({
         state.error = action.payload as string;
       });
 
-    // checkOut
     builder
       .addCase(checkOut.pending, (state, action) => {
         state.checkingOut = action.meta.arg.assignmentId;

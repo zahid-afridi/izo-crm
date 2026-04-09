@@ -23,6 +23,9 @@ import {
   selectWorkerProfileStats,
   selectWorkerProfileTeams,
   selectTodayAssignments,
+  selectUpcomingAssignments,
+  selectPastAssignments,
+  selectWorkdaySummary,
   selectAttendanceMap,
   selectAttendanceHistoryMap,
   selectWorkerProfileIsLoading,
@@ -40,6 +43,9 @@ export function WorkerProfilePage() {
   const stats = useAppSelector(selectWorkerProfileStats);
   const teams = useAppSelector(selectWorkerProfileTeams);
   const todayAssignments = useAppSelector(selectTodayAssignments);
+  const upcomingAssignments = useAppSelector(selectUpcomingAssignments);
+  const pastAssignments = useAppSelector(selectPastAssignments);
+  const workdaySummary = useAppSelector(selectWorkdaySummary);
   const attendanceMap = useAppSelector(selectAttendanceMap);
   const attendanceHistoryMap = useAppSelector(selectAttendanceHistoryMap);
   const loading = useAppSelector(selectWorkerProfileIsLoading);
@@ -50,7 +56,7 @@ export function WorkerProfilePage() {
 
   // Local UI state only
   const [showHistory, setShowHistory] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'assignments' | 'teams'>('assignments');
+  const [activeTab, setActiveTab] = useState<'assignments' | 'upcoming' | 'history' | 'teams'>('assignments');
   const [siteWorkersDialog, setSiteWorkersDialog] = useState<{
     open: boolean; siteId: string; siteName: string; date: string;
   } | null>(null);
@@ -215,24 +221,43 @@ export function WorkerProfilePage() {
       {/* Content */}
       <div className="p-6 space-y-6">
         {/* Tabs */}
-        <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+        <div className="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto">
           <button
             onClick={() => setActiveTab('assignments')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${activeTab === 'assignments' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === 'assignments' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-1">
               <MapPin className="w-4 h-4" />
-              <span>Assignments</span>
+              <span className="text-sm">Today</span>
               <Badge variant="secondary" className="ml-1">{todayAssignments.length}</Badge>
             </div>
           </button>
           <button
-            onClick={() => setActiveTab('teams')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${activeTab === 'teams' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            onClick={() => setActiveTab('upcoming')}
+            className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === 'upcoming' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-1">
+              <Calendar className="w-4 h-4" />
+              <span className="text-sm">Upcoming</span>
+              {upcomingAssignments.length > 0 && <Badge variant="secondary" className="ml-1">{upcomingAssignments.length}</Badge>}
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            <div className="flex items-center justify-center gap-1">
+              <History className="w-4 h-4" />
+              <span className="text-sm">History</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('teams')}
+            className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all whitespace-nowrap ${activeTab === 'teams' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            <div className="flex items-center justify-center gap-1">
               <Users className="w-4 h-4" />
-              <span>My Teams</span>
+              <span className="text-sm">Teams</span>
               <Badge variant="secondary" className="ml-1">{teams.length}</Badge>
             </div>
           </button>
@@ -420,6 +445,154 @@ export function WorkerProfilePage() {
               <Card className="p-6 shadow-sm border-0 bg-white">
                 <p className="text-center text-slate-600">No assignments for today</p>
               </Card>
+            )}
+          </>
+        )}
+
+        {/* Upcoming Tab */}
+        {activeTab === 'upcoming' && (
+          <>
+            <div className="mb-4 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+              <h2 className="text-xl font-bold text-slate-900 mb-2">
+                Upcoming Assignments ({upcomingAssignments.length})
+              </h2>
+              <p className="text-sm text-slate-600">Your scheduled assignments for the next 60 days</p>
+            </div>
+
+            {upcomingAssignments.length === 0 ? (
+              <Card className="p-6 shadow-sm border-0 bg-white">
+                <p className="text-center text-slate-600">No upcoming assignments scheduled</p>
+              </Card>
+            ) : (
+              upcomingAssignments.map((assignment) => (
+                <Card key={assignment.id} className="p-5 shadow-sm border-0 bg-white mb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-slate-900">{assignment.site.name}</h3>
+                        <Badge variant="outline" className="text-xs ml-2">
+                          {new Date(assignment.assignedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">{assignment.site.address}</p>
+                      {assignment.site.city && <p className="text-xs text-slate-500">{assignment.site.city}</p>}
+
+                      {assignment.car && (
+                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
+                          <Car className="w-4 h-4" />
+                          <span>{assignment.car.name} • {assignment.car.number}</span>
+                        </div>
+                      )}
+
+                      {assignment.teamMembers && assignment.teamMembers.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            Team ({assignment.teamMembers.length + 1} members)
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {assignment.teamMembers.map((m) => (
+                              <span key={m.id} className="text-xs bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
+                                {m.fullName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {assignment.notes && (
+                        <p className="text-xs text-slate-500 mt-2 italic">{assignment.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </>
+        )}
+
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <>
+            {/* Workday Summary */}
+            {workdaySummary && (
+              <Card className="p-5 shadow-sm border-0 bg-white mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <h2 className="text-lg font-bold text-slate-900">Work Summary</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-green-50 rounded-xl p-3 text-center">
+                    <p className="text-2xl font-bold text-green-700">{workdaySummary.monthWorkDays}</p>
+                    <p className="text-xs text-slate-600 mt-1">This Month</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-3 text-center">
+                    <p className="text-2xl font-bold text-blue-700">{workdaySummary.totalWorkDays}</p>
+                    <p className="text-xs text-slate-600 mt-1">Total Days</p>
+                  </div>
+                </div>
+                {Object.keys(workdaySummary.monthlyBreakdown).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Monthly Breakdown</p>
+                    <div className="space-y-2">
+                      {Object.entries(workdaySummary.monthlyBreakdown)
+                        .sort(([a], [b]) => b.localeCompare(a))
+                        .map(([month, count]) => (
+                          <div key={month} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded-lg">
+                            <span className="text-slate-700">
+                              {new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </span>
+                            <Badge variant="secondary">{count} days</Badge>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Past Assignments */}
+            <div className="mb-4 p-4 bg-slate-50 rounded-xl border-2 border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900 mb-1">Past Assignments ({pastAssignments.length})</h2>
+              <p className="text-sm text-slate-600">Last 90 days</p>
+            </div>
+
+            {pastAssignments.length === 0 ? (
+              <Card className="p-6 shadow-sm border-0 bg-white">
+                <p className="text-center text-slate-600">No past assignments found</p>
+              </Card>
+            ) : (
+              pastAssignments.map((assignment) => (
+                <Card key={assignment.id} className="p-4 shadow-sm border-0 bg-white mb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-slate-500" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-slate-900">{assignment.site.name}</h3>
+                        <span className="text-xs text-slate-500 ml-2">
+                          {new Date(assignment.assignedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-0.5">{assignment.site.address}</p>
+
+                      {assignment.teamMembers && assignment.teamMembers.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {assignment.teamMembers.map((m) => (
+                            <span key={m.id} className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+                              {m.fullName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))
             )}
           </>
         )}
