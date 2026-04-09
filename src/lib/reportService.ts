@@ -223,7 +223,11 @@ export async function getPayrollReport(month: string): Promise<import('@/types/a
         },
       });
 
-      const dailySalary = worker.dailySalary ? Number(worker.dailySalary) : null;
+      const dailySalary = worker.hourlyRate
+        ? Number(worker.hourlyRate) * 8
+        : worker.monthlyRate
+        ? Number(worker.monthlyRate) / 30
+        : null;
       const totalEarnings = dailySalary !== null ? workDays * dailySalary : null;
       const paidAmount = 0;
       const dueAmount = totalEarnings;
