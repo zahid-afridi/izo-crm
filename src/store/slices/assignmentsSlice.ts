@@ -218,6 +218,52 @@ const assignmentsSlice = createSlice({
       state.allCars = state.allCars.map(c => c.id === carId ? { ...c, isLocked } : c);
     },
 
+    /** Remove a single assignment from state (after delete) */
+    removeAssignment(state, action: PayloadAction<string>) {
+      const id = action.payload;
+      const removed = state.assignments.find(a => a.id === id);
+      state.assignments = state.assignments.filter(a => a.id !== id);
+      // If worker was locked, unlock them in state
+      if (removed?.worker?.isLocked) {
+        const w = state.allWorkers.find(w => w.id === removed.workerId);
+        if (w) {
+          w.isLocked = false;
+          if (!state.availableWorkers.find(aw => aw.id === w.id)) {
+            state.availableWorkers.push({ ...w, isLocked: false });
+          }
+        }
+      }
+    },
+
+    /** Remove multiple assignments from state (after bulk delete) */
+    removeAssignments(state, action: PayloadAction<string[]>) {
+      const ids = new Set(action.payload);
+      const removed = state.assignments.filter(a => ids.has(a.id));
+      state.assignments = state.assignments.filter(a => !ids.has(a.id));
+      // Unlock any locked workers whose assignments were removed
+      removed.forEach(a => {
+        if (a.worker?.isLocked) {
+          const w = state.allWorkers.find(w => w.id === a.workerId);
+          if (w) {
+            w.isLocked = false;
+            if (!state.availableWorkers.find(aw => aw.id === w.id)) {
+              state.availableWorkers.push({ ...w, isLocked: false });
+            }
+          }
+        }
+      });
+    },
+
+    /** Add new assignments to state (after create) */
+    addAssignments(state, action: PayloadAction<Assignment[]>) {
+      const incoming = action.payload;
+      incoming.forEach(a => {
+        if (!state.assignments.find(ex => ex.id === a.id)) {
+          state.assignments.push(a);
+        }
+      });
+    },
+
     /** Optimistic day-off toggle */
     setWorkerDayOff(state, action: PayloadAction<{ workerId: string; isOnDayOff: boolean }>) {
       const { workerId, isOnDayOff } = action.payload;
@@ -268,6 +314,9 @@ export const {
   setBulkWorkersLocked,
   setCarLocked,
   setWorkerDayOff,
+  removeAssignment,
+  removeAssignments,
+  addAssignments,
   clearError,
 } = assignmentsSlice.actions;
 

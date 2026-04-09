@@ -144,8 +144,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Note: Workers can be assigned to multiple sites on the same date
-    // No restriction on duplicate assignments - this is allowed by business logic
+    // Enforce: a worker cannot be assigned to 2 sites on the same date
+    const assignmentDateStart = new Date(assignedDate);
+    assignmentDateStart.setHours(0, 0, 0, 0);
+    const assignmentDateEnd = new Date(assignmentDateStart.getTime() + 24 * 60 * 60 * 1000);
+
+    const existingOnDate = await prisma.assignment.findMany({
+      where: {
+        workerId: { in: validWorkerIds },
+        status: 'active',
+        assignedDate: { gte: assignmentDateStart, lt: assignmentDateEnd },
+        siteId: { not: siteId }, // different site = conflict
+      },
+      include: {
+        worker: { select: { id: true, fullName: true } },
+        site: { select: { name: true } },
+      },
+    });
+
+    if (existingOnDate.length > 0) {
+      const conflicts = existingOnDate.map(
+        (a) => `${a.worker.fullName} is already assigned to "${a.site.name}" on this date`
+      );
+      return NextResponse.json(
+        { error: `Cannot assign workers to multiple sites on the same date: ${conflicts.join('; ')}` },
+        { status: 400 }
+      );
+    }
 
     // If carId provided, verify car exists and is not locked
     let car = null;

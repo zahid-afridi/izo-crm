@@ -4,7 +4,9 @@ export const selectWorkerProfile = (state: RootState) => state.workerProfile.pro
 export const selectWorkerProfileStats = (state: RootState) => state.workerProfile.stats;
 export const selectWorkerProfileTeams = (state: RootState) => state.workerProfile.teams;
 export const selectTodayAssignments = (state: RootState) => state.workerProfile.todayAssignments;
+export const selectUpcomingAssignments = (state: RootState) => state.workerProfile.upcomingAssignments;
 export const selectPastAssignments = (state: RootState) => state.workerProfile.pastAssignments;
+export const selectWorkdaySummary = (state: RootState) => state.workerProfile.workdaySummary;
 export const selectAttendanceMap = (state: RootState) => state.workerProfile.attendanceMap;
 export const selectAttendanceHistoryMap = (state: RootState) => state.workerProfile.attendanceHistoryMap;
 export const selectWorkerProfileIsLoading = (state: RootState) => state.workerProfile.isLoading;
