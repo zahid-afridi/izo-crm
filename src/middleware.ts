@@ -37,9 +37,9 @@ const ROLE_ACCESS: Record<string, { pages: string[]; apis: string[]; home: strin
     home:"/products"
   },
     site_manager:{
-    pages:['/sites','/assignments','/workers','/cars','/teams','/chat'],
+    pages:['/sites','/assignments','/cars','/teams','/chat'],
     apis:["*"],
-    home:"/assignments"
+    home:"/sites"
   },
   offer_manager:{
     pages:['/offers','/service-packages','/clients','/products','/chat'],
