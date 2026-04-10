@@ -37,7 +37,7 @@ const ROLE_MENU_ACCESS: Record<string, string[]> = {
   worker: ['/workers', '/chat'],
   admin: ['*'],           // Admin sees everything
   product_manager: ['/products', '/chat'],
-  site_manager: ['/sites', '/assignments', '/workers', '/cars', '/teams'],
+  site_manager: ['/sites', '/assignments', '/cars', '/teams'],
   offer_manager: ['/offers', '/service-packages', '/clients', '/products', '/chat'],
   order_manager: ['/orders', '/clients', '/products', '/chat', '/team-management', '/order-management'],
   sales_agent: ['/clients', '/orders', '/products', '/chat'],
