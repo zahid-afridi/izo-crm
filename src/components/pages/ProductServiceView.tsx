@@ -13,7 +13,8 @@ import {
   FileText,
   Calendar,
   ExternalLink,
-  X
+  X,
+  User
 } from 'lucide-react';
 
 interface ProductServiceViewProps {
@@ -91,35 +92,49 @@ export function ProductServiceView({ type, data, isOpen, onClose }: ProductServi
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-4">
-                {data.price && (
+                {type === 'product' ? (
                   <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                       <DollarSign className="w-5 h-5" />
                       <span className="text-sm font-medium">Price</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">
-                      {data.documents?.currency || 'EUR'} {data.price}
+                      {data.price != null && data.price !== ''
+                        ? `${data.documents?.currency || 'EUR'} ${data.price}`
+                        : '—'}
                     </p>
                   </div>
+                ) : (
+                  (data.price != null && data.price !== '') && (
+                    <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-2 text-gray-500 mb-2">
+                        <DollarSign className="w-5 h-5" />
+                        <span className="text-sm font-medium">Price</span>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {data.documents?.currency || 'EUR'} {data.price}
+                      </p>
+                    </div>
+                  )
                 )}
 
-                {type === 'product' && data.sku && (
+                {type === 'product' && (
                   <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                       <Tag className="w-5 h-5" />
                       <span className="text-sm font-medium">SKU</span>
                     </div>
-                    <p className="text-lg font-semibold text-gray-900">{data.sku}</p>
+                    <p className="text-lg font-semibold text-gray-900">{data.sku?.trim() ? data.sku : '—'}</p>
                   </div>
                 )}
 
-                {type === 'product' && data.documents?.upc && (
+                {type === 'product' && (
                   <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                       <Package className="w-5 h-5" />
                       <span className="text-sm font-medium">UPC</span>
                     </div>
-                    <p className="text-lg font-semibold text-gray-900">{data.documents.upc}</p>
+                    <p className="text-lg font-semibold text-gray-900">{data.documents?.upc?.trim() ? data.documents.upc : '—'}</p>
                   </div>
                 )}
 
@@ -133,13 +148,13 @@ export function ProductServiceView({ type, data, isOpen, onClose }: ProductServi
                   </div>
                 )}
 
-                {type === 'product' && data.stock !== undefined && (
+                {type === 'product' && (
                   <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
                       <BarChart3 className="w-5 h-5" />
                       <span className="text-sm font-medium">Stock</span>
                     </div>
-                    <p className="text-lg font-semibold text-gray-900">{data.stock}</p>
+                    <p className="text-lg font-semibold text-gray-900">{data.stock != null ? String(data.stock) : '—'}</p>
                   </div>
                 )}
 
@@ -162,6 +177,19 @@ export function ProductServiceView({ type, data, isOpen, onClose }: ProductServi
                     {new Date(data.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
+
+                {type === 'product' && data.creator && (
+                  <div className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors md:col-span-2">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <User className="w-5 h-5" />
+                      <span className="text-sm font-medium">Created by</span>
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900">{data.creator.fullName}</p>
+                    {data.creator.role && (
+                      <p className="text-xs text-gray-500 mt-1 capitalize">{data.creator.role.replace(/_/g, ' ')}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* SEO Information */}

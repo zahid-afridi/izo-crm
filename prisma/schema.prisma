@@ -54,6 +54,7 @@ model Users {
   chatMessages ChatMessage[]
   createdProducts Product[]  @relation("ProductCreator")
   websiteOrders   WebsiteOrder[] @relation("WebsiteOrders")
+  attendances     Attendance[]
 
   @@index([username])
   @@index([email])
@@ -465,11 +466,14 @@ model Assignment {
   status                String   @default("active")
   notes                 String?
   showAssignmentHistory Boolean  @default(false)
+  workerLocked          Boolean  @default(false)
+  carLocked             Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   worker                Users    @relation(fields: [workerId], references: [id], onDelete: Cascade)
   car                   Car?     @relation(fields: [carId], references: [id], onDelete: SetNull)
+  attendances           Attendance[]
 
   @@index([siteId])
   @@index([workerId])
@@ -682,6 +686,8 @@ model Attendance {
   checkOutLng  Float?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  worker       Users      @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId])
   @@index([assignmentId])
