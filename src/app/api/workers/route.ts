@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       where.role = role;
     }
 
-    // Optional status filter for worker records
-    if (status && status !== 'all') {
+    // Optional status filter for worker records ('all' / omitted → status is null)
+    if (status) {
       where.worker = {
         removeStatus: status,
       };
