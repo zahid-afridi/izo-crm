@@ -912,28 +912,26 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
         </Card>
       </div>
 
-      {/* Workers Table */}
-      <div className="relative w-full overflow-hidden">
-        <Card className="p-0 sm:p-0">
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="inline-block min-w-full px-4 sm:px-0">
-              <Table className="w-full text-xs sm:text-sm">
+      {/* Workers Table — hourly/monthly rate columns removed; layout sized to reduce horizontal scroll */}
+      <div className="relative w-full min-w-0 overflow-hidden">
+        <Card className="p-0 sm:p-0 min-w-0">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 overscroll-x-contain">
+            <div className="w-full min-w-0 px-4 sm:px-0">
+              <Table className="w-full min-w-0 table-fixed text-xs sm:text-sm md:table-auto">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm">{t('workers.name')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm">{t('workers.role')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm">{t('workers.contact')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm">{t('workers.status')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell">{t('workers.employeeType')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">{t('workers.hourlyRate')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm hidden md:table-cell">{t('workers.monthlyRate')}</TableHead>
-                    <TableHead className="text-xs sm:text-sm">{t('workers.actions')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm w-[18%] min-w-[7rem]">{t('workers.name')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm w-[14%] min-w-[5.5rem]">{t('workers.role')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm min-w-0 max-w-[10rem] sm:max-w-none">{t('workers.contact')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm w-[11%] min-w-[5.5rem]">{t('workers.status')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm hidden sm:table-cell w-[14%] min-w-[6rem]">{t('workers.employeeType')}</TableHead>
+                    <TableHead className="text-xs sm:text-sm w-12 text-right sm:text-left">{t('workers.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading && !isInitialized ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 sm:py-12">
+                      <TableCell colSpan={6} className="text-center py-8 sm:py-12">
                         <div className="flex items-center justify-center gap-2">
                           <Loader className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-gray-400" />
                           <span className="text-xs sm:text-sm text-gray-500">{t('workers.loadingWorkers')}</span>
@@ -942,7 +940,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                     </TableRow>
                   ) : filteredWorkers_local.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
                         {t('workers.noWorkersFound')}
                       </TableCell>
                     </TableRow>
@@ -953,17 +951,17 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                         <TableCell className="whitespace-nowrap">
                           <Badge variant="outline" className="text-xs">{getRoleLabel(worker.role)}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs">
-                          <div className="space-y-0.5">
+                        <TableCell className="text-xs min-w-0 max-w-[10rem] sm:max-w-none">
+                          <div className="space-y-0.5 min-w-0">
                             {worker.phone && (
-                              <div className="flex items-center gap-1 text-gray-600 whitespace-nowrap">
+                              <div className="flex items-center gap-1 text-gray-600 min-w-0">
                                 <Phone className="w-3 h-3 flex-shrink-0" />
-                                <span className="hidden sm:inline">{worker.phone}</span>
+                                <span className="hidden sm:inline truncate">{worker.phone}</span>
                               </div>
                             )}
-                            <div className="flex items-center gap-1 text-gray-600 truncate">
+                            <div className="flex items-center gap-1 text-gray-600 min-w-0">
                               <Mail className="w-3 h-3 flex-shrink-0" />
-                              <span className="truncate">{worker.email}</span>
+                              <span className="truncate min-w-0" title={worker.email}>{worker.email}</span>
                             </div>
                           </div>
                         </TableCell>
@@ -996,7 +994,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-gray-600 hidden sm:table-cell whitespace-nowrap text-xs">
+                        <TableCell className="text-gray-600 hidden sm:table-cell whitespace-nowrap text-xs max-w-[8rem] truncate">
                           {worker.worker?.employeeType ? (
                             worker.worker.employeeType === 'full-time' ? t('workers.employeeTypeFullTime') :
                               worker.worker.employeeType === 'part-time' ? t('workers.employeeTypePartTime') :
@@ -1004,13 +1002,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                                   worker.worker.employeeType
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="text-gray-900 hidden md:table-cell whitespace-nowrap text-xs">
-                          {worker.worker?.hourlyRate ? `€${worker.worker.hourlyRate.toFixed(2)}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-gray-900 hidden md:table-cell whitespace-nowrap text-xs">
-                          {worker.worker?.monthlyRate ? `€${worker.worker.monthlyRate.toFixed(2)}` : '-'}
-                        </TableCell>
-                        <TableCell className="relative whitespace-nowrap">
+                        <TableCell className="relative whitespace-nowrap w-12 text-right sm:text-left">
                           <Button
                             variant="ghost"
                             size="icon"

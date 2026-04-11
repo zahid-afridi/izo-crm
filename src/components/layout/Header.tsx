@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
-import { Menu, Bell, Search, Globe, LogOut } from 'lucide-react';
+import { Menu, Bell, Search, Globe, LogOut, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -14,7 +14,7 @@ import { useGlobalSearch } from '@/hooks/useKeyboardShortcuts';
 interface HeaderProps {
   toggleSidebar: () => void;
   onLogout: () => void;
-  currentUser: { username: string; name?: string };
+  currentUser: { username: string; fullName?: string; name?: string; role?: string; profile?: string | null };
   currentPage?: string;
   userRole?: string;
   onExportUI?: () => void;
@@ -35,10 +35,28 @@ interface Notification {
 export function Header({ toggleSidebar, onLogout, currentUser, currentPage, userRole, onExportUI, onNavigate }: HeaderProps) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+
+  const rawRole = (userRole || currentUser?.role || '').trim();
+  const roleLabel = rawRole
+    ? (() => {
+        const key = `roles.${rawRole}`;
+        const translated = t(key);
+        return translated !== key ? translated : rawRole.replace(/_/g, ' ');
+      })()
+    : '';
+
+  const displayName = (
+    (currentUser.fullName || currentUser.name || currentUser.username || '') as string
+  ).trim() || 'User';
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [profileImageError, setProfileImageError] = useState(false);
+
+  useEffect(() => {
+    setProfileImageError(false);
+  }, [currentUser?.profile]);
 
   const handleSearchClick = () => {
     setSearchOpen(true);
@@ -113,6 +131,7 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
     'cars-management': 'nav.cars', 'workers-management': 'nav.workers', 'create-assignment': 'nav.assignments',
     'site-reports': 'nav.reports', 'worker-location-tracking': 'nav.workers', 'worker-dashboard': 'nav.dashboard',
     'worker-chat': 'nav.chat',
+    profile: 'nav.profile',
   };
   const pageTitle = currentPage && pageTitleKey[currentPage] ? t(pageTitleKey[currentPage]) : (currentPage ? currentPage : t('header.izoCrm'));
 
@@ -233,22 +252,50 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
               {currentUser && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-brand-gradient rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold shadow-md flex-shrink-0">
-                        {currentUser.name?.charAt(0) || currentUser.username?.charAt(0) || 'U'}
+                    <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-3 max-w-[min(100vw-8rem,18rem)] sm:max-w-none">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-brand-gradient rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold shadow-md flex-shrink-0 overflow-hidden">
+                        {currentUser.profile && !profileImageError ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- external S3 URL
+                          <img
+                            src={currentUser.profile}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={() => setProfileImageError(true)}
+                          />
+                        ) : (
+                          displayName.charAt(0).toUpperCase()
+                        )}
                       </div>
-                      <div className="hidden md:block text-left min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-900 truncate">{currentUser.name || currentUser.username}</p>
-                        <p className="text-xs text-gray-500 truncate">@{currentUser.username}</p>
+                      <div className="hidden sm:block text-left min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate leading-tight" title={displayName}>
+                          {displayName}
+                        </p>
+                        {roleLabel ? (
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate leading-tight mt-0.5" title={roleLabel}>
+                            {roleLabel}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate leading-tight mt-0.5">@{currentUser.username}</p>
+                        )}
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 sm:w-56">
-                    <div className="p-2">
-                      <p className="text-xs sm:text-sm text-gray-900 truncate">{currentUser.name || currentUser.username}</p>
+                  <DropdownMenuContent align="end" className="w-52 sm:w-60">
+                    <div className="p-2 space-y-0.5">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                      {roleLabel ? (
+                        <p className="text-xs text-gray-600 truncate">{roleLabel}</p>
+                      ) : null}
                       <p className="text-xs text-gray-500 truncate">@{currentUser.username}</p>
                     </div>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer text-xs sm:text-sm"
+                      onClick={() => router.push('/profile')}
+                    >
+                      <User className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
+                      {t('nav.profile')}
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={onLogout} className="cursor-pointer text-xs sm:text-sm">
                       <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
                       {t('common.logout')}

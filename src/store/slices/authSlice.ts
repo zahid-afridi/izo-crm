@@ -3,9 +3,31 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 export interface User {
   id: string;
   username: string;
-  name: string;
+  /** Matches Users.fullName from the database */
+  fullName: string;
   email: string;
   role: string;
+  /** Profile image URL (S3) */
+  profile?: string | null;
+}
+
+/** Map `/api/auth/me` or `/api/auth/profile` user JSON to the session shape (no extra DB fields in Redux). */
+export function userFromApiResponse(u: {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  role: string;
+  profile?: string | null;
+}): User {
+  return {
+    id: u.id,
+    username: u.username,
+    fullName: u.fullName,
+    email: u.email,
+    role: String(u.role),
+    profile: u.profile ?? null,
+  };
 }
 
 export interface AuthState {
@@ -90,15 +112,21 @@ export const login = createAsyncThunk(
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || 'Login failed');
+        let code = 'LOGIN_FAILED';
+        try {
+          const body = await response.json();
+          if (body?.error && typeof body.error === 'string') code = body.error;
+        } catch {
+          /* ignore */
+        }
+        return rejectWithValue(code);
       }
 
       const data = await response.json();
       return data.user;
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Login failed'
+        error instanceof Error ? error.message : 'LOGIN_FAILED'
       );
     }
   }
@@ -137,6 +165,12 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    /** Apply server user payload without calling `/api/auth/me` (e.g. after profile PATCH). */
+    setSessionUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+      state.isAuthenticated = true;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -156,7 +190,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
       })
       .addCase(login.pending, (state) => {
-        state.isLoading = true;
+        // Do not set isLoading — login page uses local button state; global isLoading would swap the form for "Checking authentication..."
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action: PayloadAction<User>) => {
@@ -187,5 +221,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, setSessionUser } = authSlice.actions;
 export default authSlice.reducer;

@@ -58,7 +58,31 @@
     "reports": "Reports",
     "settings": "Settings",
     "managementSystem": "Management System",
-    "crmSystem": "CRM System"
+    "crmSystem": "CRM System",
+    "profile": "Profile"
+  },
+  "profile": {
+    "title": "My profile",
+    "subtitle": "Update your profile photo and password.",
+    "photoSection": "Profile photo",
+    "photoHint": "Upload a square image for best results. Max 5 MB.",
+    "choosePhoto": "Choose photo",
+    "savePhoto": "Save photo",
+    "pickImageFirst": "Choose an image first.",
+    "imageTypeError": "Please select an image file.",
+    "imageSizeError": "Image must be 5 MB or smaller.",
+    "imageUpdated": "Profile photo updated.",
+    "passwordSection": "Password",
+    "passwordHint": "Use a strong password you do not use elsewhere.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "updatePassword": "Update password",
+    "passwordFieldsRequired": "Fill in all password fields.",
+    "passwordTooShort": "New password must be at least 6 characters.",
+    "passwordMismatch": "New password and confirmation do not match.",
+    "passwordUpdated": "Password updated successfully.",
+    "updateFailed": "Could not update profile."
   },
   "languages": {
     "en": "English",
@@ -72,7 +96,21 @@
     "password": "Password",
     "enterEmail": "Enter email",
     "enterPassword": "Enter password",
-    "loginFailed": "Login failed"
+    "loginFailed": "Login failed. Please try again.",
+    "invalidEmail": "Please enter a valid email address.",
+    "passwordRequired": "Please enter your password.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "checkingSession": "Checking session…",
+    "redirecting": "Redirecting…",
+    "errors": {
+      "USER_NOT_FOUND": "No account found for this email address.",
+      "INVALID_PASSWORD": "Incorrect password. Please try again.",
+      "ACCOUNT_DISABLED": "This account is disabled. Please contact an administrator.",
+      "WORKER_REMOVED": "This account is disabled. Please contact an administrator.",
+      "VALIDATION_REQUIRED": "Email and password are required.",
+      "LOGIN_FAILED": "Login failed. Please try again."
+    }
   },
   "dashboard": {
     "title": "Dashboard",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { login, logout } from '@/store/slices/authSlice';
+import { clearError, login, logout } from '@/store/slices/authSlice';
 import {
   selectAuthUser,
   selectAuthIsAuthenticated,
@@ -18,6 +18,7 @@ export function useAuthRedux() {
   const error = useAppSelector(selectAuthError);
 
   const handleLogin = async (email: string, password: string) => {
+    dispatch(clearError());
     const result = await dispatch(login({ email, password }));
 
     if (login.fulfilled.match(result)) {
@@ -35,7 +36,12 @@ export function useAuthRedux() {
       };
 
       window.location.href = roleRedirects[role] || '/dashboard';
+      return;
     }
+
+    const code =
+      typeof result.payload === 'string' ? result.payload : 'LOGIN_FAILED';
+    throw new Error(code);
   };
 
   const handleLogout = async () => {

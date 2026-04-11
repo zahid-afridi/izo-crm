@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'VALIDATION_REQUIRED' }, { status: 400 });
     }
 
     // Find user by email (include worker for removeStatus check)
@@ -24,36 +21,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'USER_NOT_FOUND' }, { status: 401 });
     }
 
     // Check if user is disabled
     if (user.status === 'disabled') {
-      return NextResponse.json(
-        { error: 'Account is disabled. Please contact administrator.' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'ACCOUNT_DISABLED' }, { status: 403 });
     }
 
     // Check if user (worker) status is removed
     if (user.worker?.removeStatus === 'removed') {
-      return NextResponse.json(
-        { error: 'Account is disabled. Please contact administrator.' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'WORKER_REMOVED' }, { status: 403 });
     }
 
     // Verify password
     const isPasswordValid = await verifyPassword(password, user.password);
 
     if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'INVALID_PASSWORD' }, { status: 401 });
     }
 
     // Update last login

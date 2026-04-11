@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import Image from 'next/image';
 import { Plus, Search, Filter, MoreVertical, Eye, Edit, Trash2, Download, Image as ImageIcon, FileText, Video, Loader, ChevronUp, ChevronDown } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { ProductServiceForm } from './ProductServiceForm';
 import { ProductServiceView } from './ProductServiceView';
 import { CategoryManagement } from './CategoryManagement';
@@ -82,7 +82,13 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  
+  const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
+  const [productMenuPosition, setProductMenuPosition] = useState<{
+    top: number;
+    right: number;
+    openUpward: boolean;
+  } | null>(null);
+
   // Sorting state
   const [sortField, setSortField] = useState<keyof Product | 'category' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -111,14 +117,13 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
     }
   };
 
-  // Sort icon component
-  const SortIcon = ({ field }: { field: keyof Product | 'category' }) => {
-    if (sortField !== field) {
-      return <div className="w-4 h-4" />; // Empty space when not sorted
-    }
-    return sortDirection === 'asc' ? 
-      <ChevronUp className="w-4 h-4" /> : 
-      <ChevronDown className="w-4 h-4" />;
+  const SortChevron = ({ field }: { field: keyof Product | 'category' }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? (
+      <ChevronUp className="h-3 w-3 shrink-0 text-gray-500" aria-hidden />
+    ) : (
+      <ChevronDown className="h-3 w-3 shrink-0 text-gray-500" aria-hidden />
+    );
   };
 
   // Load products on mount
@@ -227,10 +232,97 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
     setIsProductFormOpen(true);
   };
 
-  const openProductView = (product: Product) => {
-    setViewingProduct(product);
-    setIsProductViewOpen(true);
+  const openProductView = async (product: Product) => {
+    try {
+      const response = await fetch(`/api/products/${product.id}`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.error || t('products.failedToLoad'));
+        return;
+      }
+      const data = await response.json();
+      setViewingProduct(data.product);
+      setIsProductViewOpen(true);
+    } catch (error) {
+      console.error('Error loading product:', error);
+      toast.error(t('products.failedToLoad'));
+    }
   };
+
+  const closeProductMenu = () => {
+    setOpenProductMenuId(null);
+    setProductMenuPosition(null);
+  };
+
+  const handleProductMenuToggle = (productId: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (openProductMenuId === productId) {
+      closeProductMenu();
+    } else {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const dropdownHeight = 140;
+      const dropdownWidth = 160;
+      const padding = 8;
+
+      const spaceBelow = viewportHeight - rect.bottom - padding;
+      const spaceAbove = rect.top - padding;
+      const shouldOpenUpward = spaceBelow < dropdownHeight && spaceAbove >= dropdownHeight;
+
+      let top = shouldOpenUpward ? rect.top - dropdownHeight : rect.bottom;
+      if (top < padding) {
+        top = padding;
+      } else if (top + dropdownHeight > viewportHeight - padding) {
+        top = viewportHeight - dropdownHeight - padding;
+      }
+
+      let right = viewportWidth - rect.right;
+      if (right < padding) {
+        right = viewportWidth - rect.left - dropdownWidth;
+        if (right < padding) {
+          right = padding;
+        }
+      }
+
+      setProductMenuPosition({
+        top,
+        right: Math.max(padding, right),
+        openUpward: shouldOpenUpward,
+      });
+      setOpenProductMenuId(productId);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (openProductMenuId) closeProductMenu();
+    };
+    const handleScroll = () => {
+      if (openProductMenuId) closeProductMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && openProductMenuId) closeProductMenu();
+    };
+    const handleResize = () => {
+      if (openProductMenuId) closeProductMenu();
+    };
+
+    if (openProductMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('scroll', handleScroll, true);
+      document.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('resize', handleResize);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('scroll', handleScroll, true);
+        document.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, [openProductMenuId]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch =
@@ -299,11 +391,20 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
     return 0;
   });
 
-  // Truncate long text for display - prevents layout disruption from very long titles
+  // Truncate long text for badges / secondary fields
   const MAX_TITLE_LENGTH = 30;
   const truncateDisplay = (text: string | undefined, maxLen: number = MAX_TITLE_LENGTH): string => {
     if (!text || typeof text !== 'string') return '';
     return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
+  };
+
+  /** Keeps the product name column stable: only first N words, then an ellipsis. */
+  const truncateTitleWords = (text: string | undefined, maxWords = 5): string => {
+    if (!text || typeof text !== 'string') return '';
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    if (words.length <= maxWords) return words.join(' ');
+    return `${words.slice(0, maxWords).join(' ')}…`;
   };
 
   // Get unique categories (from direct category or subcategory)
@@ -440,299 +541,258 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
                 </Button>
               )}
 
-              {/* Quick Filter for Out of Stock */}
-              <Button
-                variant={statusFilter === 'out_of_stock' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  if (statusFilter === 'out_of_stock') {
-                    setStatusFilter('all');
-                  } else {
-                    setStatusFilter('out_of_stock');
-                  }
-                }}
-                className={statusFilter === 'out_of_stock' ? 'bg-red-600 hover:bg-red-700' : ''}
-              >
-                {statusFilter === 'out_of_stock' ? 'Show All' : 'Out of Stock Only'}
-              </Button>
             </div>
           </div>
 
           {/* Stats Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <Card className="p-3 sm:p-4 min-w-0">
               <p className="text-sm text-gray-500 mb-1 truncate">Total Products</p>
-              <p className="text-gray-900">{filteredProducts.length}</p>
+              <p className="text-gray-900 text-lg font-medium tabular-nums">{filteredProducts.length}</p>
               {filteredProducts.length !== products.length && (
                 <p className="text-xs text-gray-400">of {products.length} total</p>
               )}
             </Card>
             <Card className="p-3 sm:p-4 min-w-0">
               <p className="text-sm text-gray-500 mb-1 truncate">Published on Website</p>
-              <p className="text-gray-900">{filteredProducts.filter(p => p.publishOnWebsite).length}</p>
+              <p className="text-gray-900 text-lg font-medium tabular-nums">{filteredProducts.filter(p => p.publishOnWebsite).length}</p>
             </Card>
             <Card className="p-3 sm:p-4 min-w-0">
               <p className="text-sm text-gray-500 mb-1 truncate">Sellable Online</p>
-              <p className="text-gray-900">{filteredProducts.filter(p => p.enableOnlineSales).length}</p>
-            </Card>
-            <Card className="p-3 sm:p-4 min-w-0">
-              <p className="text-sm text-gray-500 mb-1 truncate">Out of Stock (0)</p>
-              <p className="text-red-700 font-semibold">{filteredProducts.filter(p => (p.stock || 0) === 0).length}</p>
+              <p className="text-gray-900 text-lg font-medium tabular-nums">{filteredProducts.filter(p => p.enableOnlineSales).length}</p>
             </Card>
           </div>
 
-          {/* Products Table */}
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table className="table-fixed w-full min-w-[800px]" style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: 200, minWidth: 200, maxWidth: 200 }} />
-                  <col style={{ width: 140 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 70 }} />
-                  <col style={{ width: 90 }} />
-                  {userRole !== 'offer_manager' && <col style={{ width: 90 }} />}
-                  {userRole !== 'offer_manager' && <col style={{ width: 90 }} />}
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 120 }} />
-                </colgroup>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none w-[200px] min-w-[140px] max-w-[200px]"
-                      onClick={() => handleSort('title')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Product Name</span>
-                        <SortIcon field="title" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none w-[140px] min-w-[100px] max-w-[140px]"
-                      onClick={() => handleSort('category')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Category</span>
-                        <SortIcon field="category" />
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-[100px] min-w-[80px] max-w-[100px]">Subcategory</TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('sku')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>SKU</span>
-                        <SortIcon field="sku" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('upc')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>UPC</span>
-                        <SortIcon field="upc" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('price')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Price</span>
-                        <SortIcon field="price" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('stock')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Stock</span>
-                        <SortIcon field="stock" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Status</span>
-                        <SortIcon field="status" />
-                      </div>
-                    </TableHead>
-                    {userRole !== 'offer_manager' && <TableHead>Online Sales</TableHead>}
-                    {userRole !== 'offer_manager' && <TableHead>Published</TableHead>}
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50 select-none"
-                      onClick={() => handleSort('createdAt')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Created</span>
-                        <SortIcon field="createdAt" />
-                      </div>
-                    </TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={userRole === 'offer_manager' ? 10 : 12} className="text-center py-8">
-                        <div className="flex items-center justify-center gap-2">
-                          <Loader className="w-4 h-4 animate-spin" />
-                          <span className="text-gray-500">Loading products...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={userRole === 'offer_manager' ? 10 : 12} className="text-center py-8 text-gray-500">
-                        {products.length === 0 ? t('products.noProductsFound') : t('products.noProductsMatch')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredProducts.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell
-                          className="text-gray-900"
-                          style={{ width: 200, maxWidth: 200, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}
-                          title={product.title}
+          {/* Products table — layout matches Workers page; row menu uses fixed positioning (not clipped by overflow) */}
+          <div className="relative w-full overflow-hidden">
+            <Card className="p-0 sm:p-0">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full px-4 sm:px-0">
+                  <Table className="w-full text-xs sm:text-sm">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm w-12">
+                          {t('products.thumbnail', { defaultValue: 'Thumbnail' })}
+                        </TableHead>
+                        <TableHead
+                          className="text-xs sm:text-sm cursor-pointer select-none max-w-[14rem]"
+                          onClick={() => handleSort('title')}
                         >
-                          {truncateDisplay(product.title)}
-                        </TableCell>
-                        <TableCell className="max-w-[140px] min-w-[100px] w-[140px] overflow-hidden whitespace-nowrap">
-                          {(product.category ?? product.subcategory?.category) ? (
-                            <Badge variant="outline" className="max-w-full truncate block" title={(product.category ?? product.subcategory?.category)?.name}>
-                              {truncateDisplay((product.category ?? product.subcategory?.category)?.name, 25)}
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="max-w-[100px] min-w-[80px] w-[100px] overflow-hidden whitespace-nowrap">
-                          <span className="text-sm text-gray-600 truncate block" title={product.subcategory?.name || ''}>
-                            {product.subcategory?.name && product.subcategory.name.toLowerCase() !== 'general'
-                              ? truncateDisplay(product.subcategory.name, 20)
-                              : '-'}
+                          <span className="inline-flex items-center gap-1">
+                            {t('orders.productName')}
+                            <SortChevron field="title" />
                           </span>
-                        </TableCell>
-                        <TableCell className="max-w-[100px]">
-                          <span className="text-sm text-gray-600 truncate block" title={product.sku || ''}>
-                            {product.sku || '-'}
+                        </TableHead>
+                        <TableHead
+                          className="text-xs sm:text-sm cursor-pointer select-none"
+                          onClick={() => handleSort('category')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {t('products.category')}
+                            <SortChevron field="category" />
                           </span>
-                        </TableCell>
-                        <TableCell className="max-w-[100px]">
-                          <span className="text-sm text-gray-600 truncate block" title={product.documents?.upc || ''}>
-                            {product.documents?.upc || '-'}
+                        </TableHead>
+                        <TableHead
+                          className="text-xs sm:text-sm cursor-pointer select-none whitespace-nowrap"
+                          onClick={() => handleSort('price')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {t('products.price')}
+                            <SortChevron field="price" />
                           </span>
-                        </TableCell>
-                        <TableCell className="min-w-[90px] overflow-hidden">
-                          {product.price ? (
-                            <span className="text-gray-900 whitespace-nowrap truncate block" title={`${product.documents?.currency || 'EUR'} ${product.price}`}>
-                              {product.documents?.currency || 'EUR'} {product.price}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-[90px] max-w-[120px] overflow-hidden">
-                          <span className={`text-sm font-medium whitespace-nowrap truncate block ${
-                            (product.stock || 0) === 0 
-                              ? 'text-red-700' 
-                              : (product.stock || 0) <= 5 
-                                ? 'text-red-600' 
-                                : (product.stock || 0) <= 10 
-                                  ? 'text-orange-600' 
-                                  : 'text-gray-600'
-                          }`} title={`${product.stock ?? 0}${(product.stock || 0) === 0 ? ' (Out of Stock)' : (product.stock || 0) <= 5 ? ' (Low)' : ''}`}>
-                            {product.stock ?? 0}
-                            {(product.stock || 0) === 0 && (
-                              <span className="ml-1 text-xs font-semibold">(Out)</span>
-                            )}
-                            {(product.stock || 0) > 0 && (product.stock || 0) <= 5 && (
-                              <span className="ml-1 text-xs">(Low)</span>
-                            )}
+                        </TableHead>
+                        <TableHead
+                          className="text-xs sm:text-sm cursor-pointer select-none"
+                          onClick={() => handleSort('status')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {t('common.status')}
+                            <SortChevron field="status" />
                           </span>
-                        </TableCell>
-                        <TableCell className="min-w-[90px] overflow-hidden">
-                          <Badge
-                            variant={product.status === 'active' ? 'default' : 'secondary'}
-                            className="text-xs truncate max-w-full capitalize"
-                            title={product.status}
-                          >
-                            {product.status.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
+                        </TableHead>
                         {userRole !== 'offer_manager' && (
-                          <TableCell className="min-w-[70px]">
-                            <Badge variant={product.enableOnlineSales ? 'default' : 'secondary'} className="text-xs">
-                              {product.enableOnlineSales ? 'Yes' : 'No'}
-                            </Badge>
-                          </TableCell>
+                          <TableHead className="text-xs sm:text-sm whitespace-nowrap">
+                            {t('products.onlineSales')}
+                          </TableHead>
                         )}
                         {userRole !== 'offer_manager' && (
-                          <TableCell className="min-w-[60px]">
-                            <Switch
-                              checked={product.publishOnWebsite}
-                              onCheckedChange={() => handlePublishToggle(product.id, product.publishOnWebsite)}
-                              disabled={!canEdit}
-                            />
-                          </TableCell>
+                          <TableHead className="text-xs sm:text-sm whitespace-nowrap">
+                            {t('products.published')}
+                          </TableHead>
                         )}
-                        <TableCell className="min-w-[90px] overflow-hidden">
-                          <span className="text-sm text-gray-500 whitespace-nowrap truncate block" title={new Date(product.createdAt).toLocaleDateString()}>
-                            {new Date(product.createdAt).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="min-w-[100px]">
-                          <div className="flex gap-1 flex-wrap">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="shrink-0 h-8 w-8"
-                              onClick={() => openProductView(product)}
-                              title="View details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {canEdit && (
-                              <>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="shrink-0 h-8 w-8"
-                                  onClick={() => openProductForm(product)}
-                                  title="Edit"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                {canDeleteProduct(product) && (
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="shrink-0 h-8 w-8"
-                                    onClick={() => handleDeleteProduct(product.id)}
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-600" />
-                                  </Button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
+                        <TableHead className="text-xs sm:text-sm">{t('workers.actions')}</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={userRole === 'offer_manager' ? 6 : 8} className="text-center py-8 sm:py-12">
+                            <div className="flex items-center justify-center gap-2">
+                              <Loader className="w-4 h-4 animate-spin" />
+                              <span className="text-gray-500">{t('common.loading')}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredProducts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={userRole === 'offer_manager' ? 6 : 8} className="text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500">
+                            {products.length === 0 ? t('products.noProductsFound') : t('products.noProductsMatch')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredProducts.map((product) => {
+                          const thumbUrl = product.images?.[0];
+                          return (
+                            <TableRow key={product.id} className="text-xs sm:text-sm">
+                              <TableCell className="w-12 align-middle">
+                                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-50">
+                                  {thumbUrl ? (
+                                    <Image
+                                      src={thumbUrl}
+                                      alt={truncateDisplay(product.title, 80)}
+                                      width={36}
+                                      height={36}
+                                      className="h-9 w-9 object-cover"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-gray-300" aria-hidden="true">
+                                      <ImageIcon className="h-4 w-4" />
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-gray-900 font-medium max-w-[14rem]" title={product.title}>
+                                <span className="block truncate">{truncateTitleWords(product.title, 5)}</span>
+                              </TableCell>
+                              <TableCell className="align-middle">
+                                {(product.category ?? product.subcategory?.category) ? (
+                                  <Badge variant="outline" className="text-xs" title={(product.category ?? product.subcategory?.category)?.name}>
+                                    {truncateDisplay((product.category ?? product.subcategory?.category)?.name, 18)}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-xs sm:text-sm">
+                                {product.price != null ? (
+                                  <span className="text-gray-900 tabular-nums">
+                                    {product.documents?.currency || 'EUR'} {product.price}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <Badge
+                                  variant={product.status === 'active' ? 'default' : 'secondary'}
+                                  className="text-xs capitalize"
+                                  title={product.status}
+                                >
+                                  {product.status.replace(/_/g, ' ')}
+                                </Badge>
+                              </TableCell>
+                              {userRole !== 'offer_manager' && (
+                                <TableCell className="whitespace-nowrap">
+                                  <Badge variant={product.enableOnlineSales ? 'default' : 'secondary'} className="text-xs">
+                                    {product.enableOnlineSales ? 'Yes' : 'No'}
+                                  </Badge>
+                                </TableCell>
+                              )}
+                              {userRole !== 'offer_manager' && (
+                                <TableCell className="align-middle">
+                                  <Switch
+                                    checked={product.publishOnWebsite}
+                                    onCheckedChange={() => handlePublishToggle(product.id, product.publishOnWebsite)}
+                                    disabled={!canEdit}
+                                  />
+                                </TableCell>
+                              )}
+                              <TableCell className="relative whitespace-nowrap">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => handleProductMenuToggle(product.id, e)}
+                                  className="h-7 w-7 hover:bg-gray-100 transition-colors duration-150"
+                                  aria-label={t('workers.actions')}
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {openProductMenuId &&
+            productMenuPosition &&
+            (() => {
+              const menuProduct = filteredProducts.find((p) => p.id === openProductMenuId);
+              return (
+                <>
+                  <div className="fixed inset-0 z-[9998]" onClick={closeProductMenu} aria-hidden />
+                  <div
+                    className={`fixed z-[9999] min-w-[160px] bg-white border border-gray-200 rounded-md shadow-lg py-1 transition-all duration-150 ease-out ${
+                      productMenuPosition.openUpward
+                        ? 'animate-in slide-in-from-bottom-1 fade-in-0'
+                        : 'animate-in slide-in-from-top-1 fade-in-0'
+                    }`}
+                    style={{
+                      top: `${productMenuPosition.top}px`,
+                      right: `${productMenuPosition.right}px`,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center transition-colors duration-150"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (menuProduct) void openProductView(menuProduct);
+                        closeProductMenu();
+                      }}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      {t('workers.viewDetails')}
+                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center transition-colors duration-150"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (menuProduct) openProductForm(menuProduct);
+                          closeProductMenu();
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        {t('common.edit')}
+                      </button>
+                    )}
+                    {canEdit && menuProduct && canDeleteProduct(menuProduct) && (
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center text-red-600 transition-colors duration-150"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProduct(menuProduct.id);
+                          closeProductMenu();
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {t('common.delete')}
+                      </button>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
 
           {/* Product Form Dialog */}
           <Dialog open={isProductFormOpen} onOpenChange={setIsProductFormOpen}>
@@ -763,7 +823,10 @@ export function ProductsPage({ userRole }: ProductsPageProps) {
               type="product"
               data={viewingProduct}
               isOpen={isProductViewOpen}
-              onClose={() => setIsProductViewOpen(false)}
+              onClose={() => {
+                setIsProductViewOpen(false);
+                setViewingProduct(null);
+              }}
             />
           )}
 

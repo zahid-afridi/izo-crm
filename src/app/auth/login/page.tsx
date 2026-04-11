@@ -5,8 +5,10 @@ import { useAuthRedux } from '@/hooks/useAuthRedux';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function LoginRoute() {
+  const { t } = useTranslation();
   const { login, isAuthenticated, isLoading, user } = useAuthRedux();
   const router = useRouter();
 
@@ -33,25 +35,24 @@ export default function LoginRoute() {
     }
   }, [isAuthenticated, isLoading, user, router]);
 
-  // Show loading while checking auth status
+  // Initial session check only (checkAuth) — not login submit; login uses button spinner on LoginPage
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-white flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <Loader className="w-5 h-5 animate-spin" />
-          <span>Checking authentication...</span>
+        <div className="flex items-center gap-3 text-gray-700">
+          <Loader className="w-5 h-5 animate-spin shrink-0" aria-hidden />
+          <span>{t('auth.checkingSession')}</span>
         </div>
       </div>
     );
   }
 
-  // Don't render login form if user is authenticated
   if (isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-white flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <Loader className="w-5 h-5 animate-spin" />
-          <span>Redirecting...</span>
+        <div className="flex items-center gap-3 text-gray-700">
+          <Loader className="w-5 h-5 animate-spin shrink-0" aria-hidden />
+          <span>{t('auth.redirecting')}</span>
         </div>
       </div>
     );

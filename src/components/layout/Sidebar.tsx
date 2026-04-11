@@ -70,7 +70,7 @@ function filterMenuByRole(items: typeof menuItems, role: string | null): typeof 
 const menuItems = [
   { path: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { path: '/products', labelKey: 'nav.products', icon: Package },
-  { path: '/services', labelKey: 'nav.services', icon: Wrench },
+  // { path: '/services', labelKey: 'nav.services', icon: Wrench },
   { path: '/sites', labelKey: 'nav.sites', icon: Building2 },
   { path: '/workers', labelKey: 'nav.workers', icon: Users },
   { path: '/assignments', labelKey: 'nav.assignments', icon: Calendar },
