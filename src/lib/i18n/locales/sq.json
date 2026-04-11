@@ -1614,9 +1614,87 @@
     "typeVideo": "videon"
   },
   "settings": {
-    "title": "Cilësimet",
+    "title": "Cilësimet e sistemit",
+    "subtitle": "Konfiguroni markën, email-in dhe të dhënat e kompanisë. Kjo faqe është e dukshme vetëm për administratorët.",
+    "adminOnly": "Vetëm administratori",
     "general": "Të përgjithshme",
-    "profile": "Profili"
+    "profile": "Profili",
+    "tabs": {
+      "branding": "Marka",
+      "email": "Email & SMTP",
+      "company": "Profili i kompanisë",
+      "system": "Sistemi"
+    },
+    "branding": {
+      "title": "Marka",
+      "description": "Logo dhe emri që shfaqen në aplikacion dhe në email-et dalëse.",
+      "colorsTitle": "Ngjyrat e markës",
+      "colorsDescription": "Vendosni tre pikat e gradientit për headerë, butona dhe thekse. Ruajtja në temë do të jetë e mundur kur të lidhet API.",
+      "colorStart": "Fillimi i gradientit",
+      "colorMid": "Mes i gradientit",
+      "colorEnd": "Fundi i gradientit",
+      "gradientPreview": "Parapamje gradienti",
+      "colorsPreviewHint": "Kjo parapamje pasqyron drejtimin e gradientit të markës në CSS (135°).",
+      "companyDisplayName": "Emri i shfaqur i kompanisë",
+      "tagline": "Slogan",
+      "logo": "Logo e kompanisë",
+      "logoHint": "PNG ose SVG. Maks. 2 MB. Lartësia rreth 48px përshtatet mirë.",
+      "logoPreview": "Parapamje",
+      "chooseFile": "Zgjidh skedar",
+      "removeLogo": "Hiq logon"
+    },
+    "email": {
+      "title": "Email & SMTP",
+      "description": "Serveri për postën dalëse. Kredencialet ruhen kur lidhet API.",
+      "smtpHost": "Host SMTP",
+      "smtpPort": "Porta SMTP",
+      "encryption": "Enkriptimi",
+      "encryptionNone": "Asnjë",
+      "smtpUser": "Përdoruesi SMTP",
+      "smtpPassword": "Fjalëkalimi SMTP",
+      "fromName": "Emri \"Nga\"",
+      "fromEmail": "Email \"Nga\"",
+      "testConnection": "Provo lidhjen"
+    },
+    "company": {
+      "title": "Profili i kompanisë",
+      "description": "Të dhëna ligjore dhe kontakti për dokumente dhe CRM.",
+      "legalName": "Emri ligjor",
+      "taxId": "NIPT / TVSH",
+      "address": "Adresa",
+      "phone": "Telefoni",
+      "email": "Email",
+      "website": "Faqja e internetit"
+    },
+    "system": {
+      "title": "Sistemi",
+      "description": "Opsione të përgjithshme (parapamje deri në lidhjen me serverin).",
+      "maintenanceMode": "Modaliteti mirëmbajtje",
+      "maintenanceHint": "Kur është aktiv, vetëm administratorët hyjnë (kërkon mbështetje në backend).",
+      "sessionTimeout": "Kohëzgjatja e sesionit",
+      "sessionTimeoutHint": "Koha pa veprim para se të kërkohet hyrja përsëri.",
+      "minutes": "minuta"
+    },
+    "placeholders": {
+      "companyName": "p.sh. Izo Grup",
+      "tagline": "Rresht i shkurtër nën emrin e kompanisë",
+      "smtpHost": "smtp.example.com",
+      "smtpUser": "user@example.com",
+      "fromName": "Izo CRM",
+      "fromEmail": "noreply@example.com",
+      "legalName": "Emri i regjistruar ligjor",
+      "taxId": "Numri i identifikimit tatimor",
+      "address": "Rruga, qyteti, kodi postar",
+      "phone": "+355 …",
+      "companyEmail": "contact@example.com"
+    },
+    "actions": {
+      "save": "Ruaj",
+      "discard": "Anulo"
+    },
+    "messages": {
+      "uiOnly": "Kjo është parapamje. Ruajtja dhe testet e email-it do të funksionojnë kur të lidhet API."
+    }
   },
   "form": {
     "required": "E detyrueshme",

@@ -118,7 +118,7 @@ export default function ClientApp() {
       case "activity-log":
         return <ActivityLogPage userRole={currentUserRole} />;
       case "settings":
-        return <SettingsPage userRole={currentUserRole} />;
+        return <SettingsPage />;
       // Site Manager Pages
       case "site-manager-dashboard":
         return <SiteManagerDashboard userRole={currentUserRole} />;

@@ -1620,9 +1620,87 @@
     "typeVideo": "video"
   },
   "settings": {
-    "title": "Settings",
+    "title": "System settings",
+    "subtitle": "Configure branding, email delivery, and company details for this organization. This page is visible only to administrators.",
+    "adminOnly": "Administrator only",
     "general": "General",
-    "profile": "Profile"
+    "profile": "Profile",
+    "tabs": {
+      "branding": "Branding",
+      "email": "Email & SMTP",
+      "company": "Company profile",
+      "system": "System"
+    },
+    "branding": {
+      "title": "Branding",
+      "description": "Logo and name shown in the app and in outgoing emails.",
+      "colorsTitle": "Brand colors",
+      "colorsDescription": "Set the three gradient stops used for headers, buttons, and accents. Saving to the app theme will be available when the API is connected.",
+      "colorStart": "Gradient start",
+      "colorMid": "Gradient middle",
+      "colorEnd": "Gradient end",
+      "gradientPreview": "Gradient preview",
+      "colorsPreviewHint": "This preview mirrors the current CSS brand gradient direction (135°).",
+      "companyDisplayName": "Company display name",
+      "tagline": "Tagline",
+      "logo": "Company logo",
+      "logoHint": "PNG or SVG recommended. Max 2 MB. Height around 48px works well in the header.",
+      "logoPreview": "Preview",
+      "chooseFile": "Choose file",
+      "removeLogo": "Remove logo"
+    },
+    "email": {
+      "title": "Email & SMTP",
+      "description": "Outgoing mail server used for notifications and system emails. Credentials are not saved until you connect the backend.",
+      "smtpHost": "SMTP host",
+      "smtpPort": "SMTP port",
+      "encryption": "Encryption",
+      "encryptionNone": "None",
+      "smtpUser": "SMTP username",
+      "smtpPassword": "SMTP password",
+      "fromName": "From name",
+      "fromEmail": "From email",
+      "testConnection": "Test connection"
+    },
+    "company": {
+      "title": "Company profile",
+      "description": "Legal and contact details used on documents and in the CRM.",
+      "legalName": "Legal name",
+      "taxId": "Tax / VAT ID",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "website": "Website"
+    },
+    "system": {
+      "title": "System",
+      "description": "High-level options (preview only until wired to the server).",
+      "maintenanceMode": "Maintenance mode",
+      "maintenanceHint": "When enabled, only administrators can sign in (requires backend support).",
+      "sessionTimeout": "Session timeout",
+      "sessionTimeoutHint": "Idle time before users must sign in again.",
+      "minutes": "minutes"
+    },
+    "placeholders": {
+      "companyName": "e.g. Izo Grup",
+      "tagline": "Short line under your company name",
+      "smtpHost": "smtp.example.com",
+      "smtpUser": "user@example.com",
+      "fromName": "Izo CRM",
+      "fromEmail": "noreply@example.com",
+      "legalName": "Registered legal entity name",
+      "taxId": "Tax identification number",
+      "address": "Street, city, postal code",
+      "phone": "+355 …",
+      "companyEmail": "contact@example.com"
+    },
+    "actions": {
+      "save": "Save",
+      "discard": "Discard"
+    },
+    "messages": {
+      "uiOnly": "This screen is a preview. Saving and email tests will work once the API is connected."
+    }
   },
   "form": {
     "required": "Required",

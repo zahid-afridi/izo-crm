@@ -188,6 +188,14 @@ export async function middleware(req: NextRequest) {
   }
 
   // ─────────────────────────────────
+  // 5b️⃣ Settings page — administrators only
+  // ─────────────────────────────────
+  if (!isApi && pathname.startsWith('/settings') && role && role !== 'admin') {
+    const home = ROLE_ACCESS[role]?.home ?? '/dashboard'
+    return NextResponse.redirect(new URL(home, req.url))
+  }
+
+  // ─────────────────────────────────
   // 6️⃣ Invalid role
   // ─────────────────────────────────
   if (!role || !ROLE_ACCESS[role]) {

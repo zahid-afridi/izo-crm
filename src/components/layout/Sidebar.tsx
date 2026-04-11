@@ -17,6 +17,7 @@ import {
   Car,
   History,
   CheckCircle,
+  Settings,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -86,6 +87,7 @@ const menuItems = [
   { path: '/chat', labelKey: 'nav.chat', icon: MessageSquare },
   { path: '/activity-log', labelKey: 'nav.activityLog', icon: History },
   { path: '/reports', labelKey: 'nav.reports', icon: BarChart3 },
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings },
 ];
 
 export function Sidebar({ isOpen, setIsOpen, onNavigate, currentPage, setCurrentPage }: SidebarProps) {
