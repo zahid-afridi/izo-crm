@@ -35,7 +35,7 @@ export function WorkerExportDialog({ isOpen, onClose, workers }: WorkerExportDia
   const getTranslatedStatus = (status: string) => {
     if (status === 'active') return t('workers.statusActive');
     if (status === 'on_leave') return t('workers.statusOnLeave');
-    if (status === 'removed') return t('workers.statusRemoved');
+    if (status === 'disabled') return t('workers.statusRemoved');
     return status;
   };
   const getTranslatedEmployeeType = (type: string) => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sanitizeActivityDescription } from '@/lib/activityDescription';
 
 function getTimeAgo(date: Date): string {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -159,9 +160,9 @@ export async function GET(request: NextRequest) {
           id: a.id,
           action: a.action,
           module: a.module,
-          description: a.description,
-          user: a.username || a.full_name || 'System',
-          userRole: a.role || 'system',
+          description: sanitizeActivityDescription(a.description),
+          user: (a.full_name && a.full_name.trim()) || a.username || 'System',
+          userRole: a.role ? String(a.role) : '',
           timestamp: a.timestamp.toISOString(),
           timeAgo: getTimeAgo(a.timestamp),
         })),

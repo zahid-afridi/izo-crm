@@ -8,12 +8,12 @@ export async function GET(request: NextRequest) {
       where: {
         role: 'site_manager',
         status: 'active',
-        // Exclude managers whose worker employment status is marked as "removed"
+        // Exclude managers whose worker employment status is disabled
         OR: [
           {
             worker: {
               removeStatus: {
-                not: 'removed',
+                not: 'disabled',
               },
             },
           },

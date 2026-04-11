@@ -571,7 +571,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
               <SelectItem value="all">{t('workers.allStatus')}</SelectItem>
               <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
               <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
-              <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
+              <SelectItem value="disabled">{t('workers.statusRemoved')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -762,7 +762,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                             <SelectContent>
                               <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
                               <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
-                              <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
+                              <SelectItem value="disabled">{t('workers.statusRemoved')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -907,7 +907,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
         <Card className="p-3 sm:p-4">
           <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">{t('workers.removed')}</p>
           <p className="text-xl sm:text-2xl font-semibold text-gray-900">
-            {filteredWorkers_local.filter(w => w.worker?.removeStatus === 'removed').length}
+            {filteredWorkers_local.filter(w => w.worker?.removeStatus === 'disabled').length}
           </p>
         </Card>
       </div>
@@ -979,7 +979,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                                 <SelectContent>
                                   <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
                                   <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
-                                  <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
+                                  <SelectItem value="disabled">{t('workers.statusRemoved')}</SelectItem>
                                 </SelectContent>
                               </Select>
                               {isUpdatingField === `${worker.id}-removeStatus` && (
@@ -1226,7 +1226,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                       <SelectContent>
                         <SelectItem value="active">{t('workers.statusActive')}</SelectItem>
                         <SelectItem value="on_leave">{t('workers.statusOnLeave')}</SelectItem>
-                        <SelectItem value="removed">{t('workers.statusRemoved')}</SelectItem>
+                        <SelectItem value="disabled">{t('workers.statusRemoved')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

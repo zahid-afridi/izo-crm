@@ -55,7 +55,7 @@ export const selectWorkerStats = (state: RootState) => {
     total: workers.length,
     active: workers.filter(w => w.worker?.removeStatus === 'active').length,
     onLeave: workers.filter(w => w.worker?.removeStatus === 'on_leave').length,
-    removed: workers.filter(w => w.worker?.removeStatus === 'removed').length,
+    disabled: workers.filter(w => w.worker?.removeStatus === 'disabled').length,
   };
 };
 

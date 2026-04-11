@@ -401,24 +401,45 @@ export function Dashboard({ userRole }: DashboardProps) {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.recentActivity')}</h3>
           <div className="space-y-3">
             {dashboardData.recentActivity.length > 0 ? (
-              dashboardData.recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className={`w-2 h-2 rounded-full ${activity.action === 'create' ? 'bg-green-500' :
+              dashboardData.recentActivity.map((activity) => {
+                const roleKey = (activity.userRole || '').trim();
+                let roleLabel = '';
+                if (roleKey) {
+                  const rk = `roles.${roleKey}`;
+                  const tr = t(rk);
+                  roleLabel = tr !== rk ? tr : roleKey.replace(/_/g, ' ');
+                }
+                const moduleKey = `activityLog.modules.${activity.module}`;
+                const moduleLabel =
+                  t(moduleKey) !== moduleKey ? t(moduleKey) : activity.module;
+
+                return (
+                <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className={`mt-1.5 w-2 h-2 shrink-0 rounded-full ${activity.action === 'create' ? 'bg-green-500' :
                     activity.action === 'update' ? 'bg-blue-500' :
                       activity.action === 'delete' ? 'bg-red-500' :
                         'bg-orange-500'
-                    }`}></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-500">
-                      by {activity.user} • {activity.timeAgo}
+                    }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 leading-snug">{activity.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span className="text-gray-700">{activity.user}</span>
+                      {roleLabel ? (
+                        <>
+                          <span className="text-gray-300" aria-hidden>·</span>
+                          <span>{roleLabel}</span>
+                        </>
+                      ) : null}
+                      <span className="text-gray-300" aria-hidden>·</span>
+                      <span>{activity.timeAgo}</span>
                     </p>
                   </div>
-                  <div className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
-                    {activity.module}
+                  <div className="shrink-0 text-xs text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md max-w-[40%] truncate" title={moduleLabel}>
+                    {moduleLabel}
                   </div>
                 </div>
-              ))
+              );
+              })
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <p>{t('dashboard.noRecentActivity')}</p>

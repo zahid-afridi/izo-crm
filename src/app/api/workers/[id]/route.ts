@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { encryptPassword, decryptPassword } from '@/lib/password-utils';
+import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
 // GET worker by ID
 export async function GET(
@@ -74,9 +75,12 @@ export async function PATCH(
 
     const {
       role,
-      removeStatus,
+      removeStatus: removeStatusRaw,
       updatedByUserId,
     } = body;
+    const removeStatus = removeStatusRaw
+      ? normalizeWorkerRemoveStatus(removeStatusRaw)
+      : undefined;
 
     // Check if worker exists
     const existingWorker = await prisma.users.findUnique({
@@ -205,13 +209,16 @@ export async function PUT(
       address,
       role,
       employeeType,
-      removeStatus,
+      removeStatus: removeStatusPutRaw,
       hourlyRate,
       monthlyRate,
       password,
       isLocked,
       updatedByUserId,
     } = body;
+    const removeStatus = removeStatusPutRaw
+      ? normalizeWorkerRemoveStatus(removeStatusPutRaw)
+      : undefined;
 
     // Check if worker exists
     const existingWorker = await prisma.users.findUnique({
@@ -286,7 +293,7 @@ export async function PUT(
             data: {
               userId: id,
               employeeType: employeeType || 'full-time',
-              removeStatus: removeStatus || 'active',
+              removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
               hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
               monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
             },

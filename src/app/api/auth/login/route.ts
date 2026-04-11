@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ACCOUNT_DISABLED' }, { status: 403 });
     }
 
-    // Check if user (worker) status is removed
-    if (user.worker?.removeStatus === 'removed') {
+    // Check if user (worker) employment status is disabled
+    if (user.worker?.removeStatus === 'disabled') {
       return NextResponse.json({ error: 'WORKER_REMOVED' }, { status: 403 });
     }
 
