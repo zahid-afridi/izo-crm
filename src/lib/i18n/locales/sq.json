@@ -58,7 +58,31 @@
     "reports": "Raportet",
     "settings": "Cilësimet",
     "managementSystem": "Sistemi i Menaxhimit",
-    "crmSystem": "Sistemi CRM"
+    "crmSystem": "Sistemi CRM",
+    "profile": "Profili"
+  },
+  "profile": {
+    "title": "Profili im",
+    "subtitle": "Përditësoni foton dhe fjalëkalimin.",
+    "photoSection": "Foto profili",
+    "photoHint": "Ngarkoni një foto katrore për rezultat më të mirë. Maks. 5 MB.",
+    "choosePhoto": "Zgjidh foto",
+    "savePhoto": "Ruaj foton",
+    "pickImageFirst": "Zgjidhni fillimisht një imazh.",
+    "imageTypeError": "Ju lutem zgjidhni një skedar figure.",
+    "imageSizeError": "Imazhi duhet të jetë 5 MB ose më i vogël.",
+    "imageUpdated": "Foto e profilit u përditësua.",
+    "passwordSection": "Fjalëkalimi",
+    "passwordHint": "Përdorni një fjalëkalim të fortë.",
+    "currentPassword": "Fjalëkalimi aktual",
+    "newPassword": "Fjalëkalim i ri",
+    "confirmPassword": "Konfirmo fjalëkalimin",
+    "updatePassword": "Përditëso fjalëkalimin",
+    "passwordFieldsRequired": "Plotësoni të gjitha fushat e fjalëkalimit.",
+    "passwordTooShort": "Fjalëkalimi i ri duhet të ketë të paktën 6 karaktere.",
+    "passwordMismatch": "Fjalëkalimet e reja nuk përputhen.",
+    "passwordUpdated": "Fjalëkalimi u përditësua.",
+    "updateFailed": "Përditësimi dështoi."
   },
   "languages": {
     "en": "Anglisht",
@@ -72,7 +96,21 @@
     "password": "Fjalëkalimi",
     "enterEmail": "Vendosni email",
     "enterPassword": "Vendosni fjalëkalimin",
-    "loginFailed": "Hyrja dështoi"
+    "loginFailed": "Hyrja dështoi. Provoni përsëri.",
+    "invalidEmail": "Ju lutem vendosni një adresë email të vlefshme.",
+    "passwordRequired": "Ju lutem vendosni fjalëkalimin.",
+    "showPassword": "Shfaq fjalëkalimin",
+    "hidePassword": "Fshih fjalëkalimin",
+    "checkingSession": "Duke kontrolluar sesionin…",
+    "redirecting": "Duke ridrejtuar…",
+    "errors": {
+      "USER_NOT_FOUND": "Nuk u gjet llogari për këtë email.",
+      "INVALID_PASSWORD": "Fjalëkalimi është i pasaktë. Provoni përsëri.",
+      "ACCOUNT_DISABLED": "Kjo llogari është çaktivizuar. Kontaktoni administratorin.",
+      "WORKER_REMOVED": "Kjo llogari është çaktivizuar. Kontaktoni administratorin.",
+      "VALIDATION_REQUIRED": "Kërkohen email dhe fjalëkalim.",
+      "LOGIN_FAILED": "Hyrja dështoi. Provoni përsëri."
+    }
   },
   "dashboard": {
     "title": "Paneli",

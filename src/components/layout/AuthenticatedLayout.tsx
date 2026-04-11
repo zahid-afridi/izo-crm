@@ -23,7 +23,7 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
     '/service-packages': 'service-packages', '/clients': 'clients', '/orders': 'orders',
     '/order-management': 'order-management', '/team-management': 'team-management',
     '/website-manager': 'website-manager', '/chat': 'Messages', '/activity-log': 'activity-log',
-    '/reports': 'reports', '/settings': 'settings',
+    '/reports': 'reports', '/settings': 'settings', '/profile': 'profile',
   };
   const currentPage = isChatPage ? 'Messages' : (pathToPage[pathname] ?? (pathname.replace('/', '').split('/')[0] || undefined));
 

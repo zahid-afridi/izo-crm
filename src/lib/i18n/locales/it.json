@@ -58,7 +58,31 @@
     "reports": "Rapporti",
     "settings": "Impostazioni",
     "managementSystem": "Sistema di Gestione",
-    "crmSystem": "Sistema CRM"
+    "crmSystem": "Sistema CRM",
+    "profile": "Profilo"
+  },
+  "profile": {
+    "title": "Il mio profilo",
+    "subtitle": "Aggiorna foto profilo e password.",
+    "photoSection": "Foto profilo",
+    "photoHint": "Carica un'immagine quadrata per un risultato migliore. Max 5 MB.",
+    "choosePhoto": "Scegli foto",
+    "savePhoto": "Salva foto",
+    "pickImageFirst": "Scegli prima un'immagine.",
+    "imageTypeError": "Seleziona un file immagine.",
+    "imageSizeError": "L'immagine deve essere di massimo 5 MB.",
+    "imageUpdated": "Foto profilo aggiornata.",
+    "passwordSection": "Password",
+    "passwordHint": "Usa una password forte e unica.",
+    "currentPassword": "Password attuale",
+    "newPassword": "Nuova password",
+    "confirmPassword": "Conferma nuova password",
+    "updatePassword": "Aggiorna password",
+    "passwordFieldsRequired": "Compila tutti i campi della password.",
+    "passwordTooShort": "La nuova password deve avere almeno 6 caratteri.",
+    "passwordMismatch": "La nuova password e la conferma non coincidono.",
+    "passwordUpdated": "Password aggiornata.",
+    "updateFailed": "Impossibile aggiornare il profilo."
   },
   "languages": {
     "en": "Inglese",
@@ -72,7 +96,21 @@
     "password": "Password",
     "enterEmail": "Inserisci email",
     "enterPassword": "Inserisci password",
-    "loginFailed": "Accesso fallito"
+    "loginFailed": "Accesso non riuscito. Riprova.",
+    "invalidEmail": "Inserisci un indirizzo email valido.",
+    "passwordRequired": "Inserisci la password.",
+    "showPassword": "Mostra password",
+    "hidePassword": "Nascondi password",
+    "checkingSession": "Verifica sessione…",
+    "redirecting": "Reindirizzamento…",
+    "errors": {
+      "USER_NOT_FOUND": "Nessun account trovato per questo indirizzo email.",
+      "INVALID_PASSWORD": "Password errata. Riprova.",
+      "ACCOUNT_DISABLED": "Questo account è disabilitato. Contatta un amministratore.",
+      "WORKER_REMOVED": "Questo account è disabilitato. Contatta un amministratore.",
+      "VALIDATION_REQUIRED": "Email e password sono obbligatori.",
+      "LOGIN_FAILED": "Accesso non riuscito. Riprova."
+    }
   },
   "dashboard": {
     "title": "Pannello",

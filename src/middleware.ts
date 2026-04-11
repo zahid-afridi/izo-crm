@@ -210,6 +210,11 @@ export async function middleware(req: NextRequest) {
 
   const { pages, apis, home } = ROLE_ACCESS[role]
 
+  // Profile page — any authenticated non-admin role (admin already passes above)
+  if (!isApi && pathname.startsWith('/profile')) {
+    return NextResponse.next()
+  }
+
   // ─────────────────────────────────
   // 7️⃣ API access
   // ─────────────────────────────────
