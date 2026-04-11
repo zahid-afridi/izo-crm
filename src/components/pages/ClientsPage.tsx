@@ -28,6 +28,62 @@ interface ClientsPageProps { userRole: string; }
 
 const EMPTY_FORM = { fullName: '', email: '', phone: '', dateOfBirth: '', idNumber: '', address: '', status: 'active' };
 
+type ClientFormState = typeof EMPTY_FORM;
+
+/** Must be declared outside ClientsPage — inner components remount every keystroke and inputs lose focus. */
+function ClientFormFields({
+  formData,
+  onInputChange,
+  onStatusChange,
+  t,
+}: {
+  formData: ClientFormState;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onStatusChange: (value: string) => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Label>{t('clients.fullName')} *</Label>
+          <Input name="fullName" placeholder={t('formPlaceholders.enterFullName')} value={formData.fullName} onChange={onInputChange} />
+        </div>
+        <div>
+          <Label>{t('clients.email')} *</Label>
+          <Input name="email" type="email" placeholder={t('formPlaceholders.enterEmail')} value={formData.email} onChange={onInputChange} />
+        </div>
+        <div>
+          <Label>{t('clients.phone')} *</Label>
+          <Input name="phone" placeholder={t('formPlaceholders.enterPhone')} value={formData.phone} onChange={onInputChange} />
+        </div>
+        <div>
+          <Label>{t('clients.dateOfBirth')}</Label>
+          <Input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={onInputChange} />
+        </div>
+        <div>
+          <Label>{t('clients.idNumber')}</Label>
+          <Input name="idNumber" placeholder={t('formPlaceholders.enterIdNumber')} value={formData.idNumber} onChange={onInputChange} />
+        </div>
+        <div className="col-span-2">
+          <Label>{t('clients.address')} *</Label>
+          <Input name="address" placeholder={t('formPlaceholders.fullAddress')} value={formData.address} onChange={onInputChange} />
+        </div>
+        <div>
+          <Label>{t('clients.status')}</Label>
+          <Select value={formData.status} onValueChange={onStatusChange}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{t('clients.active')}</SelectItem>
+              <SelectItem value="inactive">{t('clients.inactive')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ClientsPage({ userRole }: ClientsPageProps) {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
@@ -87,6 +143,10 @@ export function ClientsPage({ userRole }: ClientsPageProps) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, [name]: value }));
+  };
+
+  const handleStatusChange = (value: string) => {
+    setFormData((p) => ({ ...p, status: value }));
   };
 
   const handleDropdownToggle = (clientId: string, e: React.MouseEvent) => {
@@ -166,47 +226,6 @@ export function ClientsPage({ userRole }: ClientsPageProps) {
     setIsEditDialogOpen(true);
   };
 
-  const ClientForm = () => (
-    <div className="space-y-4 mt-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <Label>{t('clients.fullName')} *</Label>
-          <Input name="fullName" placeholder={t('formPlaceholders.enterFullName')} value={formData.fullName} onChange={handleInputChange} />
-        </div>
-        <div>
-          <Label>{t('clients.email')} *</Label>
-          <Input name="email" type="email" placeholder={t('formPlaceholders.enterEmail')} value={formData.email} onChange={handleInputChange} />
-        </div>
-        <div>
-          <Label>{t('clients.phone')} *</Label>
-          <Input name="phone" placeholder={t('formPlaceholders.enterPhone')} value={formData.phone} onChange={handleInputChange} />
-        </div>
-        <div>
-          <Label>{t('clients.dateOfBirth')}</Label>
-          <Input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleInputChange} />
-        </div>
-        <div>
-          <Label>{t('clients.idNumber')}</Label>
-          <Input name="idNumber" placeholder={t('formPlaceholders.enterIdNumber')} value={formData.idNumber} onChange={handleInputChange} />
-        </div>
-        <div className="col-span-2">
-          <Label>{t('clients.address')} *</Label>
-          <Input name="address" placeholder={t('formPlaceholders.fullAddress')} value={formData.address} onChange={handleInputChange} />
-        </div>
-        <div>
-          <Label>{t('clients.status')}</Label>
-          <Select value={formData.status} onValueChange={(v) => setFormData((p) => ({ ...p, status: v }))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{t('clients.active')}</SelectItem>
-              <SelectItem value="inactive">{t('clients.inactive')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6 relative">
       {/* Header Actions */}
@@ -237,7 +256,7 @@ export function ClientsPage({ userRole }: ClientsPageProps) {
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>{t('clients.addNewClient')}</DialogTitle></DialogHeader>
                 {formError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{formError}</AlertDescription></Alert>}
-                <ClientForm />
+                <ClientFormFields formData={formData} onInputChange={handleInputChange} onStatusChange={handleStatusChange} t={t} />
                 <div className="flex justify-end gap-2 pt-4">
                   <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); resetForm(); }} disabled={submitting}>{t('common.cancel')}</Button>
                   <Button onClick={handleCreateClient} disabled={submitting}>{submitting ? t('common.loading') : t('clients.addClient')}</Button>
@@ -340,7 +359,7 @@ export function ClientsPage({ userRole }: ClientsPageProps) {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('clients.editClient')}</DialogTitle></DialogHeader>
           {formError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{formError}</AlertDescription></Alert>}
-          <ClientForm />
+          <ClientFormFields formData={formData} onInputChange={handleInputChange} onStatusChange={handleStatusChange} t={t} />
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); resetForm(); setSelectedClient(null); }} disabled={submitting}>{t('common.cancel')}</Button>
             <Button onClick={handleUpdateClient} disabled={submitting}>{submitting ? t('clients.updating') : t('clients.updateClient')}</Button>

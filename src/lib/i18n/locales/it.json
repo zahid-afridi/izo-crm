@@ -1614,9 +1614,87 @@
     "typeVideo": "video"
   },
   "settings": {
-    "title": "Impostazioni",
+    "title": "Impostazioni di sistema",
+    "subtitle": "Configura marchio, posta elettronica e dati aziendali. Questa pagina è visibile solo agli amministratori.",
+    "adminOnly": "Solo amministratore",
     "general": "Generale",
-    "profile": "Profilo"
+    "profile": "Profilo",
+    "tabs": {
+      "branding": "Marchio",
+      "email": "Email e SMTP",
+      "company": "Profilo azienda",
+      "system": "Sistema"
+    },
+    "branding": {
+      "title": "Marchio",
+      "description": "Logo e nome mostrati nell'app e nelle email in uscita.",
+      "colorsTitle": "Colori del marchio",
+      "colorsDescription": "Imposta le tre tappe del gradiente per intestazioni, pulsanti e accenti. Il salvataggio sul tema sarà disponibile con l'API.",
+      "colorStart": "Inizio gradiente",
+      "colorMid": "Centro gradiente",
+      "colorEnd": "Fine gradiente",
+      "gradientPreview": "Anteprima gradiente",
+      "colorsPreviewHint": "Questa anteprima riflette lo stesso angolo del gradiente del marchio in CSS (135°).",
+      "companyDisplayName": "Nome visualizzato",
+      "tagline": "Tagline",
+      "logo": "Logo aziendale",
+      "logoHint": "PNG o SVG consigliati. Max 2 MB. Altezza circa 48px.",
+      "logoPreview": "Anteprima",
+      "chooseFile": "Scegli file",
+      "removeLogo": "Rimuovi logo"
+    },
+    "email": {
+      "title": "Email e SMTP",
+      "description": "Server di posta in uscita. Le credenziali verranno salvate quando sarà collegato il backend.",
+      "smtpHost": "Host SMTP",
+      "smtpPort": "Porta SMTP",
+      "encryption": "Crittografia",
+      "encryptionNone": "Nessuna",
+      "smtpUser": "Utente SMTP",
+      "smtpPassword": "Password SMTP",
+      "fromName": "Nome mittente",
+      "fromEmail": "Email mittente",
+      "testConnection": "Prova connessione"
+    },
+    "company": {
+      "title": "Profilo azienda",
+      "description": "Dati legali e di contatto per documenti e CRM.",
+      "legalName": "Ragione sociale",
+      "taxId": "P. IVA / Codice fiscale",
+      "address": "Indirizzo",
+      "phone": "Telefono",
+      "email": "Email",
+      "website": "Sito web"
+    },
+    "system": {
+      "title": "Sistema",
+      "description": "Opzioni generali (anteprima fino al collegamento al server).",
+      "maintenanceMode": "Modalità manutenzione",
+      "maintenanceHint": "Se attiva, solo gli amministratori possono accedere (richiede supporto backend).",
+      "sessionTimeout": "Timeout sessione",
+      "sessionTimeoutHint": "Tempo di inattività prima di richiedere un nuovo accesso.",
+      "minutes": "minuti"
+    },
+    "placeholders": {
+      "companyName": "es. Izo Grup",
+      "tagline": "Breve riga sotto il nome aziendale",
+      "smtpHost": "smtp.example.com",
+      "smtpUser": "user@example.com",
+      "fromName": "Izo CRM",
+      "fromEmail": "noreply@example.com",
+      "legalName": "Denominazione legale",
+      "taxId": "Partita IVA / codice fiscale",
+      "address": "Via, città, CAP",
+      "phone": "+39 …",
+      "companyEmail": "contact@example.com"
+    },
+    "actions": {
+      "save": "Salva",
+      "discard": "Annulla"
+    },
+    "messages": {
+      "uiOnly": "Questa schermata è un'anteprima. Salvataggio e test email saranno disponibili collegando l'API."
+    }
   },
   "form": {
     "required": "Obbligatorio",
