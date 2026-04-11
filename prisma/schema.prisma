@@ -415,6 +415,7 @@ model Worker {
   employeeType String
   hourlyRate   Float?
   monthlyRate  Float?
+  /// Employment status: active | on_leave | disabled (formerly "removed")
   removeStatus String   @default("active")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

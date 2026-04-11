@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { encryptPassword } from '@/lib/password-utils';
+import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
 // GET all users (display all users regardless of role)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
+    const rawStatus = searchParams.get('status');
+    const status =
+      rawStatus && rawStatus !== 'all'
+        ? normalizeWorkerRemoveStatus(rawStatus)
+        : null;
     const search = searchParams.get('search');
     const role = searchParams.get('role'); // Optional role filter
 
@@ -24,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Optional status filter for worker records
-    if (status) {
+    if (status && status !== 'all') {
       where.worker = {
         removeStatus: status,
       };
@@ -149,7 +154,7 @@ export async function POST(request: NextRequest) {
           employeeType: employeeType || 'full-time',
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
           monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
-          removeStatus: removeStatus || 'active',
+          removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
         },
       });
 

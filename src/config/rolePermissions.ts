@@ -270,7 +270,7 @@ export const getMenuItems = (userRole: string) => {
     { id: 'services', label: 'Services', icon: 'Wrench', path: 'services' },
     { id: 'service-packages', label: 'Service Packages', icon: 'Package', path: 'service-packages' },
     { id: 'sites', label: 'Construction Sites', icon: 'Building2', path: 'sites' },
-    { id: 'workers', label: 'Workers', icon: 'Users', path: 'workers' },
+    { id: 'workers', label: 'Employees', icon: 'Users', path: 'workers' },
     { id: 'assignments', label: 'Assignments', icon: 'Calendar', path: 'assignments' },
     { id: 'teams', label: 'Teams', icon: 'Users', path: 'teams' },
     { id: 'offers', label: 'Offers', icon: 'FileText', path: 'offers' },

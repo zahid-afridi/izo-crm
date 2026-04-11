@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUserFromHeaders, verifyToken, extractToken } from '@/lib/auth';
+import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
 // POST - Create worker record for existing user
 export async function POST(request: NextRequest) {
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
           employeeType: employeeType || 'full-time',
           hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
           monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
-          removeStatus: removeStatus || 'active',
+          removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
         },
       });
 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
               employeeType: employeeType || 'full-time',
               hourlyRate,
               monthlyRate,
-              removeStatus: removeStatus || 'active',
+              removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
             },
           },
         });

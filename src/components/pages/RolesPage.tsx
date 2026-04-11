@@ -85,7 +85,7 @@ const allPermissions = {
   'Dashboard': ['dashboard.view', 'dashboard.edit'],
   'Products': ['products.view', 'products.create', 'products.edit', 'products.delete', 'products.publish'],
   'Sites': ['sites.view', 'sites.create', 'sites.edit', 'sites.delete'],
-  'Workers': ['workers.view', 'workers.create', 'workers.manage', 'workers.delete'],
+  Employees: ['workers.view', 'workers.create', 'workers.manage', 'workers.delete'],
   'Offers': ['offers.view', 'offers.create', 'offers.edit', 'offers.delete', 'offers.send'],
   'Clients': ['clients.view', 'clients.create', 'clients.edit', 'clients.delete'],
   'Orders': ['orders.view', 'orders.create', 'orders.edit', 'orders.process', 'orders.delete'],
@@ -183,7 +183,7 @@ export function RolesPage({ userRole }: RolesPageProps) {
           <p className="text-gray-900">{mockRoles.find(r => r.name === 'Admin')?.userCount || 0}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">Field Workers</p>
+          <p className="text-sm text-gray-500 mb-1">Field Employees</p>
           <p className="text-gray-900">{mockRoles.find(r => r.name === 'Worker')?.userCount || 0}</p>
         </Card>
       </div>

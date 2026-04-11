@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
 // GET only users with 'worker' role (for assignments and other worker-specific operations)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
+    const rawStatus = searchParams.get('status');
+    const status = rawStatus ? normalizeWorkerRemoveStatus(rawStatus) : null;
     const search = searchParams.get('search');
     const includeAssigned = searchParams.get('includeAssigned') === 'true';
     const date = searchParams.get('date');
