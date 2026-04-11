@@ -3,7 +3,8 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 export interface User {
   id: string;
   username: string;
-  name: string;
+  /** Matches Users.fullName from the database */
+  fullName: string;
   email: string;
   role: string;
 }

@@ -46,7 +46,7 @@ import { MobileWorkerView } from "./mobile/MobileWorkerView";
 export default function ClientApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState("");
-  const [currentUser, setCurrentUser] = useState({ id: "", username: "", name: "" });
+  const [currentUser, setCurrentUser] = useState({ id: "", username: "", fullName: "" });
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -61,7 +61,7 @@ export default function ClientApp() {
     setCurrentUser({
       id: email, // Using email as ID for now
       username: email,
-      name: getRoleInfo(role)?.label || email
+      fullName: getRoleInfo(role)?.label || email
     });
 
     // Set default page to dashboard
@@ -71,7 +71,7 @@ export default function ClientApp() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUserRole("");
-    setCurrentUser({ id: "", username: "", name: "" });
+    setCurrentUser({ id: "", username: "", fullName: "" });
     setCurrentPage("dashboard");
   };
 
@@ -138,7 +138,7 @@ export default function ClientApp() {
       case "worker-dashboard":
         return <WorkerDashboard userRole={currentUserRole} />;
       case "worker-chat":
-        return <WorkerChat userRole={currentUserRole} userId={currentUser.id} userName={currentUser.name} />;
+        return <WorkerChat userRole={currentUserRole} userId={currentUser.id} userName={currentUser.fullName} />;
       default:
         return <Dashboard userRole={currentUserRole} />;
     }
@@ -170,7 +170,7 @@ export default function ClientApp() {
         <MobileApp
           userRole={currentUserRole}
           onLogout={handleLogout}
-          userName={currentUser.name}
+          userName={currentUser.fullName}
         />
       </div>
     );

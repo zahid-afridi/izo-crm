@@ -118,7 +118,7 @@ export function WorkerDashboard({ userRole }: WorkerDashboardProps) {
     <div className="space-y-6">
       {/* Welcome Header */}
       <div className="bg-brand-gradient rounded-lg p-6 text-white shadow-lg">
-        <h2 className="text-2xl mb-1">Welcome, {user?.name || 'Worker'}</h2>
+        <h2 className="text-2xl mb-1">Welcome, {user?.fullName || 'Worker'}</h2>
         <p className="text-white/90">
           {todayAssignment
             ? `You have ${data.today.length} assignment${data.today.length > 1 ? 's' : ''} today`

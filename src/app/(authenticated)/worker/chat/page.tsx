@@ -13,7 +13,7 @@ export default function WorkerChatRoute() {
       <WorkerChat
         userRole={user?.role || 'worker'}
         userId={user?.id || ''}
-        userName={user?.name || 'User'}
+        userName={user?.fullName || 'User'}
       />
     </AuthenticatedLayout>
   );

@@ -612,7 +612,7 @@ export function ChatPage({ userRole }: ChatPageProps) {
         createdAt: new Date().toISOString(),
         sender: {
           id: user.id,
-          fullName: user.name || 'You',
+          fullName: user.fullName || 'You',
           role: user.role || 'user'
         }
       };

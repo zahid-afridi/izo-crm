@@ -7,7 +7,7 @@ import { initAuthCleanup } from './auth-cleanup';
 interface User {
   id: string;
   username: string;
-  name: string;
+  fullName: string;
   email: string;
   role: string;
 }
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser({
             id: data.user.id,
             username: data.user.username,
-            name: data.user.name || data.user.username,
+            fullName: data.user.fullName || data.user.username,
             email: data.user.email,
             role: data.user.role,
           });
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({
       id: data.user.id,
       username: data.user.username,
-      name: data.user.name || data.user.username,
+      fullName: data.user.fullName || data.user.username,
       email: data.user.email,
       role: data.user.role,
     });
