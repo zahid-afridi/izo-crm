@@ -1644,16 +1644,10 @@
       "removeLogo": "Hiq logon"
     },
     "email": {
-      "title": "Email & SMTP",
-      "description": "Serveri për postën dalëse. Kredencialet ruhen kur lidhet API.",
-      "smtpHost": "Host SMTP",
-      "smtpPort": "Porta SMTP",
-      "encryption": "Enkriptimi",
-      "encryptionNone": "Asnjë",
-      "smtpUser": "Përdoruesi SMTP",
-      "smtpPassword": "Fjalëkalimi SMTP",
-      "fromName": "Emri \"Nga\"",
-      "fromEmail": "Email \"Nga\"",
+      "title": "Email",
+      "description": "Llogaria e email-it që përdoret nga Nodemailer për njoftime dhe emaile sistemi.",
+      "email": "Email",
+      "emailAppPassword": "Fjalëkalimi i aplikacionit të emailit",
       "testConnection": "Provo lidhjen"
     },
     "company": {
@@ -1678,10 +1672,8 @@
     "placeholders": {
       "companyName": "p.sh. Izo Grup",
       "tagline": "Rresht i shkurtër nën emrin e kompanisë",
-      "smtpHost": "smtp.example.com",
-      "smtpUser": "user@example.com",
-      "fromName": "Izo CRM",
-      "fromEmail": "noreply@example.com",
+      "mailerEmail": "user@example.com",
+      "mailerAppPassword": "••••••••••••••••",
       "legalName": "Emri i regjistruar ligjor",
       "taxId": "Numri i identifikimit tatimor",
       "address": "Rruga, qyteti, kodi postar",

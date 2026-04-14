@@ -1650,16 +1650,10 @@
       "removeLogo": "Remove logo"
     },
     "email": {
-      "title": "Email & SMTP",
-      "description": "Outgoing mail server used for notifications and system emails. Credentials are not saved until you connect the backend.",
-      "smtpHost": "SMTP host",
-      "smtpPort": "SMTP port",
-      "encryption": "Encryption",
-      "encryptionNone": "None",
-      "smtpUser": "SMTP username",
-      "smtpPassword": "SMTP password",
-      "fromName": "From name",
-      "fromEmail": "From email",
+      "title": "Email",
+      "description": "Email account used by Nodemailer to send notifications and system emails.",
+      "email": "Email",
+      "emailAppPassword": "Email app password",
       "testConnection": "Test connection"
     },
     "company": {
@@ -1684,10 +1678,8 @@
     "placeholders": {
       "companyName": "e.g. Izo Grup",
       "tagline": "Short line under your company name",
-      "smtpHost": "smtp.example.com",
-      "smtpUser": "user@example.com",
-      "fromName": "Izo CRM",
-      "fromEmail": "noreply@example.com",
+      "mailerEmail": "user@example.com",
+      "mailerAppPassword": "••••••••••••••••",
       "legalName": "Registered legal entity name",
       "taxId": "Tax identification number",
       "address": "Street, city, postal code",

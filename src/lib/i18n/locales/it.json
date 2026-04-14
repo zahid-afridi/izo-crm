@@ -1644,16 +1644,10 @@
       "removeLogo": "Rimuovi logo"
     },
     "email": {
-      "title": "Email e SMTP",
-      "description": "Server di posta in uscita. Le credenziali verranno salvate quando sarà collegato il backend.",
-      "smtpHost": "Host SMTP",
-      "smtpPort": "Porta SMTP",
-      "encryption": "Crittografia",
-      "encryptionNone": "Nessuna",
-      "smtpUser": "Utente SMTP",
-      "smtpPassword": "Password SMTP",
-      "fromName": "Nome mittente",
-      "fromEmail": "Email mittente",
+      "title": "Email",
+      "description": "Account email usato da Nodemailer per inviare notifiche ed email di sistema.",
+      "email": "Email",
+      "emailAppPassword": "Password app email",
       "testConnection": "Prova connessione"
     },
     "company": {
@@ -1678,10 +1672,8 @@
     "placeholders": {
       "companyName": "es. Izo Grup",
       "tagline": "Breve riga sotto il nome aziendale",
-      "smtpHost": "smtp.example.com",
-      "smtpUser": "user@example.com",
-      "fromName": "Izo CRM",
-      "fromEmail": "noreply@example.com",
+      "mailerEmail": "user@example.com",
+      "mailerAppPassword": "••••••••••••••••",
       "legalName": "Denominazione legale",
       "taxId": "Partita IVA / codice fiscale",
       "address": "Via, città, CAP",

@@ -365,6 +365,40 @@ model WebsiteSettings {
   updatedAt        DateTime @updatedAt
 }
 
+model CompanySetting {
+  id                 String   @id @default(uuid())
+  companyDisplayName String?
+  tagline            String?
+
+  // Brand gradient colors used in app theme
+  brandColorStart    String   @default("#9F001B")
+  brandColorMid      String   @default("#58143B")
+  brandColorEnd      String   @default("#1B2556")
+
+  logoUrl            String?
+
+  // Nodemailer account settings
+  mailerEmail        String?
+  mailerAppPassword  String?
+
+  // Company profile
+  legalName          String?
+  taxId              String?
+  address            String?
+  phone              String?
+  companyEmail       String?
+  website            String?
+
+  // System settings
+  maintenanceMode    Boolean  @default(false)
+  sessionTimeout     Int      @default(60)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("company_setting")
+}
+
 model Site {
   id                String       @id @default(uuid())
   name              String
