@@ -12,6 +12,9 @@ export type SystemMailerOptions = {
   host?: string;
   port?: number;
   secure?: boolean;
+  connectionTimeoutMs?: number;
+  greetingTimeoutMs?: number;
+  socketTimeoutMs?: number;
 };
 
 export type SystemMailInput = {
@@ -34,10 +37,25 @@ function parseEnvBoolean(value: string | undefined, fallback: boolean): boolean 
 
 function getDefaultSmtpConfig(): Required<SystemMailerOptions> {
   const envPort = Number(process.env.SMTP_PORT);
+  const envConnectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS);
+  const envGreetingTimeout = Number(process.env.SMTP_GREETING_TIMEOUT_MS);
+  const envSocketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS);
   return {
     host: process.env.SMTP_HOST?.trim() || 'smtp.gmail.com',
     port: Number.isFinite(envPort) && envPort > 0 ? Math.floor(envPort) : 587,
     secure: parseEnvBoolean(process.env.SMTP_SECURE, false),
+    connectionTimeoutMs:
+      Number.isFinite(envConnectionTimeout) && envConnectionTimeout > 0
+        ? Math.floor(envConnectionTimeout)
+        : 10000,
+    greetingTimeoutMs:
+      Number.isFinite(envGreetingTimeout) && envGreetingTimeout > 0
+        ? Math.floor(envGreetingTimeout)
+        : 10000,
+    socketTimeoutMs:
+      Number.isFinite(envSocketTimeout) && envSocketTimeout > 0
+        ? Math.floor(envSocketTimeout)
+        : 15000,
   };
 }
 
@@ -70,6 +88,9 @@ function buildTransporter(
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
+    connectionTimeout: smtp.connectionTimeoutMs,
+    greetingTimeout: smtp.greetingTimeoutMs,
+    socketTimeout: smtp.socketTimeoutMs,
     auth: {
       user: settings.mailerEmail,
       pass: settings.mailerAppPassword,
