@@ -44,9 +44,9 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         brand: {
-          start: "#9F001B",
-          mid: "#58143B",
-          end: "#1B2556",
+          start: "var(--brand-hex-start)",
+          mid: "var(--brand-hex-mid)",
+          end: "var(--brand-hex-end)",
           50: "#FFF5F7",
           100: "#FFE5EA",
           200: "#FFCCD5",
@@ -58,9 +58,12 @@ const config: Config = {
         },
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(135deg, #9F001B 0%, #58143B 50%, #1B2556 100%)',
-        'brand-gradient-horizontal': 'linear-gradient(90deg, #9F001B 0%, #58143B 50%, #1B2556 100%)',
-        'brand-gradient-vertical': 'linear-gradient(180deg, #9F001B 0%, #58143B 50%, #1B2556 100%)',
+        'brand-gradient':
+          'linear-gradient(135deg, var(--brand-hex-start) 0%, var(--brand-hex-mid) 50%, var(--brand-hex-end) 100%)',
+        'brand-gradient-horizontal':
+          'linear-gradient(90deg, var(--brand-hex-start) 0%, var(--brand-hex-mid) 50%, var(--brand-hex-end) 100%)',
+        'brand-gradient-vertical':
+          'linear-gradient(180deg, var(--brand-hex-start) 0%, var(--brand-hex-mid) 50%, var(--brand-hex-end) 100%)',
       },
       borderRadius: {
         lg: "var(--radius)",

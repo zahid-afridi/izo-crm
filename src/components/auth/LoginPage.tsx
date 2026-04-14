@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../ui/card';
@@ -7,6 +9,8 @@ import { Label } from '../ui/label';
 import { Lock, Mail, LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import Logo from '@/../public/logo.svg';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -24,6 +28,9 @@ function resolveLoginError(code: string, t: (key: string) => string): string {
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const { t } = useTranslation();
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || t('header.izoCrm');
+  const headline = shell.tagline?.trim() || t('header.constructionSystem');
   const [email, setEmail] = useState('admin@gmail.com');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
@@ -65,12 +72,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg p-2">
-              <Image src={Logo} width={64} height={64} alt="IzoGrup Logo" />
+            <div className="w-20 h-20 bg-brand-gradient rounded-2xl flex items-center justify-center shadow-lg p-2">
+              {shell.logoUrl?.trim() ? (
+                // eslint-disable-next-line @next/next/no-img-element -- dynamic S3 / CDN URL from settings
+                <img src={shell.logoUrl.trim()} alt="" className="h-16 w-16 object-contain" />
+              ) : (
+                <Image src={Logo} width={64} height={64} alt="" />
+              )}
             </div>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{t('header.izoCrm')}</h1>
-          <p className="text-gray-600 text-sm">{t('header.constructionSystem')}</p>
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{companyTitle}</h1>
+          <p className="text-gray-600 text-sm">{headline}</p>
         </div>
 
         {/* Login Form */}

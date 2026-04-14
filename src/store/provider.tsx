@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import { useAppDispatch } from './hooks';
 import { checkAuth } from './slices/authSlice';
+import { BrandThemeSync } from '@/components/BrandThemeSync';
 
 interface ReduxProviderProps {
     children: ReactNode;
@@ -31,6 +32,7 @@ function AuthInitializer({ children }: { children: ReactNode }) {
 export function ReduxProvider({ children }: ReduxProviderProps) {
     return (
         <Provider store={store}>
+            <BrandThemeSync />
             <AuthInitializer>{children}</AuthInitializer>
         </Provider>
     );

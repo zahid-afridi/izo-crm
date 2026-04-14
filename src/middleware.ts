@@ -18,6 +18,7 @@ const PUBLIC_APIS = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/me',
+  '/api/settings/branding',
   '/api/debug/auth', // Debug endpoint
   '/api/debug/token-test', // Token test endpoint
 ]

@@ -23,7 +23,9 @@ import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useAuthRedux } from '@/hooks/useAuthRedux';
 import Image from 'next/image';
-import Logo from '@/../public/logo.svg'
+import Logo from '@/../public/logo.svg';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -94,6 +96,10 @@ export function Sidebar({ isOpen, setIsOpen, onNavigate, currentPage, setCurrent
   const pathname = usePathname();
   const { t } = useTranslation();
   const { user } = useAuthRedux();
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || t('header.izoCrm');
+  const headline = shell.tagline?.trim() || t('nav.managementSystem');
+  const footerTagline = shell.tagline?.trim() || t('nav.crmSystem');
   const role = user?.role?.toLowerCase() || null;
 
   // Get filtered menu items based on user role
@@ -127,11 +133,16 @@ export function Sidebar({ isOpen, setIsOpen, onNavigate, currentPage, setCurrent
             }}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
-            <Image src={Logo} width={50} height={50} alt="IzoGrup Logo" />
+            {shell.logoUrl?.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic S3 / CDN URL from settings
+              <img src={shell.logoUrl.trim()} alt="" className="h-[50px] w-[50px] shrink-0 object-contain" />
+            ) : (
+              <Image src={Logo} width={50} height={50} alt="" />
+            )}
 
-            <div>
-              <h2 className="text-white font-semibold">IzoGrup</h2>
-              <p className="text-xs text-white/80">{t('nav.managementSystem')}</p>
+            <div className="min-w-0 text-left">
+              <h2 className="text-white font-semibold truncate">{companyTitle}</h2>
+              <p className="text-xs text-white/80 truncate">{headline}</p>
             </div>
           </button>
           <button
@@ -193,10 +204,15 @@ export function Sidebar({ isOpen, setIsOpen, onNavigate, currentPage, setCurrent
             }}
             className="w-full flex items-center gap-3 p-3 bg-brand-gradient rounded-lg shadow-md hover:opacity-90 transition-opacity"
           >
-            <Image src={Logo} width={40} height={40} alt="IzoGrup Logo" className="rounded-full" />
+            {shell.logoUrl?.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic S3 / CDN URL from settings
+              <img src={shell.logoUrl.trim()} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+            ) : (
+              <Image src={Logo} width={40} height={40} alt="" className="rounded-full" />
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-white font-medium truncate">IzoGrup</p>
-              <p className="text-xs text-white/80 truncate">{t('nav.crmSystem')}</p>
+              <p className="text-sm text-white font-medium truncate">{companyTitle}</p>
+              <p className="text-xs text-white/80 truncate">{footerTagline}</p>
             </div>
           </button>
         </div>
