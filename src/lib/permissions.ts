@@ -35,6 +35,11 @@ export const PERMISSIONS = {
     chat: ['create', 'read'],
   },
   
+  hr: {
+    workers: ['create', 'read', 'update', 'disable'],
+    chat: ['create', 'read'],
+  },
+
   site_manager: {
     sites: ['create', 'read', 'update', 'disable'],
     workers: ['create', 'read', 'update', 'disable'],
@@ -115,9 +120,14 @@ export function checkPermission(role: string, module: string, action: string) {
 export const CHAT_PERMISSIONS = {
   // Workers can always chat with team members and site manager
   worker: {
-    canChatWith: ['worker', 'site_manager', 'admin'],
+    canChatWith: ['worker', 'site_manager', 'admin', 'hr'],
     requiresApproval: true,
-    defaultApproved: ['site_manager', 'admin'],
+    defaultApproved: ['site_manager', 'admin', 'hr'],
+  },
+
+  hr: {
+    canChatWith: ['admin', 'site_manager', 'worker', 'office_employee', 'order_manager', 'sales_agent'],
+    requiresApproval: false,
   },
   
   sales_agent: {
@@ -132,7 +142,7 @@ export const CHAT_PERMISSIONS = {
   },
   
   site_manager: {
-    canChatWith: ['worker', 'admin'],
+    canChatWith: ['worker', 'admin', 'hr'],
     requiresApproval: false,
   },
   

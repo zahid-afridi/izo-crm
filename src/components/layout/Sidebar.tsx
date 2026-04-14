@@ -45,7 +45,8 @@ const ROLE_MENU_ACCESS: Record<string, string[]> = {
   order_manager: ['/orders', '/clients', '/products', '/chat', '/team-management', '/order-management'],
   sales_agent: ['/clients', '/orders', '/products', '/chat'],
   office_employee: ['/orders', '/chat'],
-  website_manager: ['/website-manager', '/chat']
+  website_manager: ['/website-manager', '/chat'],
+  hr: ['/workers', '/chat'],
 };
 
 // Filter menu items based on user role

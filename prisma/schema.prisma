@@ -17,6 +17,7 @@ enum UserRole {
   sales_agent
   office_employee
   worker
+  hr
   website_user
 }
 

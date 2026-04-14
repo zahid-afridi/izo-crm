@@ -1713,6 +1713,7 @@
     "order_manager": "Order Manager",
     "office_employee": "Office Employee",
     "website_manager": "Website Manager",
+    "hr": "HR",
     "website_user": "Website User"
   }
 }

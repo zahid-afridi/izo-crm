@@ -51,10 +51,10 @@ export function SettingsPage() {
             <Building2 className="w-4 h-4 shrink-0" />
             <span className="truncate">{t('settings.tabs.company')}</span>
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-2 data-[state=active]:bg-white">
+          {/* <TabsTrigger value="system" className="flex items-center gap-2 data-[state=active]:bg-white">
             <SlidersHorizontal className="w-4 h-4 shrink-0" />
             <span className="truncate">{t('settings.tabs.system')}</span>
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="branding" className="mt-4">

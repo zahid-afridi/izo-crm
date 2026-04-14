@@ -13,7 +13,6 @@ const PROTECTED_ROUTES: RouteConfig[] = [
   { path: '/products', allowedRoles: ['admin'] },
   { path: '/services', allowedRoles: ['admin'] },
   { path: '/sites', allowedRoles: ['admin'] },
-  { path: '/workers', allowedRoles: ['admin'] },
   { path: '/assignments', allowedRoles: ['admin'] },
   { path: '/teams', allowedRoles: ['admin'] },
   { path: '/cars', allowedRoles: ['admin'] },
@@ -31,7 +30,7 @@ const PROTECTED_ROUTES: RouteConfig[] = [
 
   // Site Manager
   { path: '/sites', allowedRoles: ['admin', 'site_manager'] },
-  { path: '/workers', allowedRoles: ['admin', 'site_manager'] },
+  { path: '/workers', allowedRoles: ['admin', 'site_manager', 'hr'] },
   { path: '/assignments', allowedRoles: ['admin', 'site_manager'] },
   { path: '/teams', allowedRoles: ['admin', 'site_manager'] },
   { path: '/cars', allowedRoles: ['admin', 'site_manager'] },

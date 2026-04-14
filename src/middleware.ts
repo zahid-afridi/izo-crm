@@ -26,48 +26,63 @@ const PUBLIC_APIS = [
 /**
  * Role-based access
  */
-const ROLE_ACCESS: Record<string, { pages: string[]; apis: string[]; home: string }> = {
+const ROLE_ACCESS: Record<
+  string,
+  { pages: string[]; apis: string[]; home: string }
+> = {
   worker: {
-  pages: ['/workers','/chat'],
+    pages: ["/workers", "/chat"],
     apis: ["*"],
+    home: "/workers",
+  },
+  product_manager: {
+    pages: ["/products", "/chat"],
+    apis: ["*"],
+    home: "/products",
+  },
+  site_manager: {
+    pages: ["/sites", "/assignments", "/cars", "/teams", "/chat"],
+    apis: ["*"],
+    home: "/sites",
+  },
+  offer_manager: {
+    pages: ["/offers", "/service-packages", "/clients", "/products", "/chat"],
+    apis: ["*"],
+    home: "/offers",
+  },
+  sales_agent: {
+    pages: ["/products", "/clients", "/orders", "/chat"],
+    apis: ["*"],
+    home: "/orders",
+  },
+  order_manager: {
+    pages: [
+      "/orders",
+      "/clients",
+      "/products",
+      "/chat",
+      "/team-management",
+      "/order-management",
+    ],
+    apis: ["*"],
+    home: "/orders",
+  },
+  office_employee: {
+    pages: ["/orders", "/chat"],
+    apis: ["*"],
+    home: "/orders",
+  },
+  website_manager: {
+    pages: ["/website-manager"],
+    apis: ["*"],
+    home: "/website-manager",
+  },
+  hr: {
+    pages: ['/workers', '/chat'],
+    apis: ['*'],
     home: '/workers',
   },
-  product_manager:{
-    pages:['/products',"/chat"],
-    apis:["*"],
-    home:"/products"
-  },
-    site_manager:{
-    pages:['/sites','/assignments','/cars','/teams','/chat'],
-    apis:["*"],
-    home:"/sites"
-  },
-  offer_manager:{
-    pages:['/offers','/service-packages','/clients','/products','/chat'],
-    apis:["*"],
-    home:"/offers"
-  },
-    sales_agent:{
-    pages:['/products','/clients','/orders','/chat'],
-    apis:["*"],
-    home:"/orders"
-  },
-      order_manager:{
-    pages:['/orders','/clients','/products','/chat','/team-management','/order-management'],
-    apis:["*"],
-    home:"/orders"
-  },
-  office_employee:{
-    pages:['/orders','/chat'],
-    apis:["*"],
-    home:"/orders"
-  },
-  website_manager:{
-    pages:['/website-manager'],
-    apis:["*"],
-    home:"/website-manager"
-  }
-}
+};
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

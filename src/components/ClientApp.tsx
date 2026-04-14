@@ -150,7 +150,7 @@ export default function ClientApp() {
   }
 
   // Show mobile app for managers on mobile devices
-  const isManager = ['admin', 'product_manager', 'site_manager', 'offer_manager', 'order_manager', 'website_manager'].includes(currentUserRole);
+  const isManager = ['admin', 'product_manager', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'hr'].includes(currentUserRole);
 
   // Workers always use mobile view
   if (currentUserRole === 'worker') {
