@@ -1709,10 +1709,11 @@
     "offer_manager": "Offer Manager",
     "product_manager": "Product Manager",
     "sales_agent": "Sales Agent",
-    "worker": "Employee",
+    "worker": "Worker",
     "order_manager": "Order Manager",
     "office_employee": "Office Employee",
     "website_manager": "Website Manager",
+    "hr": "HR",
     "website_user": "Website User"
   }
 }

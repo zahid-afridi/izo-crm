@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get attendance records for the month
-    const attendanceRecords = await prisma.attendance.findMany({
+    const attendanceRecords = await prisma.siteAttendance.findMany({
       where: {
         workerId,
         date: {

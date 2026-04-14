@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
     const ids = assignments.map((a) => a.id);
-    const attendance = await prisma.attendance.findMany({
+    const siteAttendances = await prisma.siteAttendance.findMany({
       where: { assignmentId: { in: ids } },
       include: {
         assignment: {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      rows: attendance.map((r) => ({
+      rows: siteAttendances.map((r) => ({
         id: r.id,
         workerName: r.assignment.worker.fullName,
         workerId: r.workerId,

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       where.assignmentId = assignmentId;
     }
 
-    const attendance = await prisma.attendance.findMany({
+    const siteAttendances = await prisma.siteAttendance.findMany({
       where,
       orderBy: [
         { date: 'desc' },
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    return NextResponse.json({ attendance }, { status: 200 });
+    return NextResponse.json({ siteAttendances }, { status: 200 });
   } catch (error) {
     console.error('Error fetching attendance:', error);
     return NextResponse.json(
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an active check-in (not checked out yet)
-    const activeCheckIn = await prisma.attendance.findFirst({
+    const activeCheckIn = await prisma.siteAttendance.findFirst({
       where: {
         workerId,
         assignmentId,
@@ -102,8 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new attendance record
-    const attendance = await prisma.attendance.create({
+    const siteAttendance = await prisma.siteAttendance.create({
       data: {
         workerId,
         assignmentId,
@@ -115,7 +114,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ attendance }, { status: 201 });
+    return NextResponse.json({ siteAttendance }, { status: 201 });
   } catch (error) {
     console.error('Error creating attendance:', error);
     return NextResponse.json(

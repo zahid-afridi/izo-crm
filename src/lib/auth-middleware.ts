@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export type UserRole = 
+export type UserRole =
   | 'admin'
   | 'product_manager'
   | 'site_manager'
@@ -9,7 +9,9 @@ export type UserRole =
   | 'website_manager'
   | 'sales_agent'
   | 'office_employee'
-  | 'worker';
+  | 'worker'
+  | 'hr'
+  | 'website_user';
 
 export interface AuthUser {
   userId: string;

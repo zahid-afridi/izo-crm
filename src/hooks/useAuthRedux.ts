@@ -33,6 +33,7 @@ export function useAuthRedux() {
         order_manager: '/orders',
         office_employee: '/orders',
         website_manager: '/website-manager',
+        hr: '/workers',
       };
 
       window.location.href = roleRedirects[role] || '/dashboard';

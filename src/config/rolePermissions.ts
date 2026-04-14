@@ -173,6 +173,19 @@ export const rolePermissions: Record<string, RolePermissions> = {
     },
   },
 
+  hr: {
+    role: 'hr',
+    label: 'HR',
+    allowedPages: ['dashboard', 'workers', 'chat'],
+    permissions: {
+      canCreate: ['workers'],
+      canEdit: ['workers'],
+      canDelete: [],
+      canExport: ['workers'],
+      canApprove: [],
+    },
+  },
+
   office_employee: {
     role: 'office_employee',
     label: 'Office Employee',
@@ -256,6 +269,7 @@ export const roleDescriptions: Record<string, string> = {
   website_manager: 'Control website content, product visibility, and SEO settings',
   sales_agent: 'Manage client relationships, create offers and orders. View-only access to products for order creation. Full control over sales pipeline and order management.',
   office_employee: 'Process orders received from Order Manager. Review invoices and order details. Update order status and payment status. Coordinate delivery and handle internal communication with Admin and Order Manager.',
+  hr: 'Manage employee records, roles, and HR-related user data. Access chat for internal coordination.',
   worker: 'View assigned tasks, daily schedule, and site information',
 };
 

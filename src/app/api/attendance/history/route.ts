@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all attendance records for this assignment
-    const history = await prisma.attendance.findMany({
+    const history = await prisma.siteAttendance.findMany({
       where,
       orderBy: {
         checkInTime: 'desc'
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     const remainingMinutes = totalMinutes % 60;
 
     return NextResponse.json({
-      history,
+      siteAttendances: history,
       summary: {
         totalRecords: history.length,
         totalHours,

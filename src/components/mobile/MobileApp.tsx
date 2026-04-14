@@ -41,28 +41,39 @@ interface MobileAppProps {
   userName: string;
 }
 
+type MobileMainView =
+  | 'home'
+  | 'products'
+  | 'sites'
+  | 'offers'
+  | 'orders'
+  | 'assignments'
+  | 'chat'
+  | 'menu'
+  | 'workers';
+
 export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
   // Set initial view based on role
-  const getInitialView = () => {
+  const getInitialView = (): MobileMainView => {
     if (userRole === 'product_manager') return 'products';
     return 'home';
   };
-  
-  const [currentView, setCurrentView] = useState<'home' | 'products' | 'sites' | 'offers' | 'orders' | 'assignments' | 'chat' | 'menu'>(getInitialView());
+
+  const [currentView, setCurrentView] = useState<MobileMainView>(getInitialView());
   const [showMenu, setShowMenu] = useState(false);
 
   // Role-based menu items
   const getMenuItems = () => {
     const baseItems = [
-      { id: 'home', label: 'Dashboard', icon: Home, roles: ['admin', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'sales_agent'] },
+      { id: 'home', label: 'Dashboard', icon: Home, roles: ['admin', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'sales_agent', 'hr'] },
       { id: 'products', label: 'Products', icon: Package, roles: ['admin', 'product_manager', 'sales_agent', 'order_manager'] },
       { id: 'sites', label: 'Sites', icon: Building2, roles: ['admin', 'site_manager'] },
       { id: 'assignments', label: 'Assignments', icon: Calendar, roles: ['admin', 'site_manager'] },
-      { id: 'workers', label: 'Team Management', icon: Users, roles: ['admin', 'site_manager'] },
+      { id: 'workers', label: 'Team Management', icon: Users, roles: ['admin', 'site_manager', 'hr'] },
       { id: 'clients', label: 'Clients', icon: Store, roles: ['admin', 'offer_manager', 'sales_agent', 'order_manager'] },
       { id: 'offers', label: 'Offers', icon: FileText, roles: ['admin', 'offer_manager', 'sales_agent'] },
       { id: 'orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'order_manager', 'sales_agent'] },
-      { id: 'chat', label: 'Messages', icon: MessageSquare, roles: ['admin', 'product_manager', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'sales_agent'] },
+      { id: 'chat', label: 'Messages', icon: MessageSquare, roles: ['admin', 'product_manager', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'sales_agent', 'hr'] },
     ];
 
     return baseItems.filter(item => item.roles.includes(userRole));
@@ -105,6 +116,7 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
       offer_manager: 'Offer Manager',
       order_manager: 'Order Manager',
       website_manager: 'Website Manager',
+      hr: 'HR',
     };
     return labels[userRole] || userRole;
   };
@@ -153,6 +165,13 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
           { label: 'Services', value: '24', icon: Wrench, color: 'bg-green-500', change: '+2' },
           { label: 'Packages', value: '18', icon: Package, color: 'bg-orange-500', change: '+1' },
           { label: 'Visitors', value: '2.4k', icon: TrendingUp, color: 'bg-brand-gradient', change: '+12%' },
+        ];
+      } else if (userRole === 'hr') {
+        return [
+          { label: 'Employees', value: '—', icon: Users, color: 'bg-brand-gradient', change: '' },
+          { label: 'Active', value: '—', icon: CheckCircle, color: 'bg-green-500', change: '' },
+          { label: 'On leave', value: '—', icon: Clock, color: 'bg-orange-500', change: '' },
+          { label: 'New hires', value: '—', icon: Plus, color: 'bg-blue-500', change: '' },
         ];
       }
       return [];
@@ -276,6 +295,11 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
         { label: 'Services', icon: Wrench, onClick: () => {} },
         { label: 'Analytics', icon: BarChart3, onClick: () => {} },
       ];
+    } else if (userRole === 'hr') {
+      return [
+        { label: 'Employees', icon: Users, onClick: () => setCurrentView('workers') },
+        { label: 'Messages', icon: MessageSquare, onClick: () => setCurrentView('chat') },
+      ];
     }
     return [];
   };
@@ -316,6 +340,11 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
         { title: 'Product published: New System', time: '30 min ago', icon: Globe, color: 'bg-blue-500' },
         { title: 'Content updated: Homepage', time: '1 hour ago', icon: Wrench, color: 'bg-orange-500' },
         { title: 'Service added: Installation', time: '2 hours ago', icon: Plus, color: 'bg-green-500' },
+      ];
+    } else if (userRole === 'hr') {
+      return [
+        { title: 'Employee record updated', time: '30 min ago', icon: Users, color: 'bg-brand-gradient' },
+        { title: 'New hire onboarding', time: '2 hours ago', icon: Plus, color: 'bg-green-500' },
       ];
     }
     return [];
@@ -439,6 +468,12 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
       )}
       {currentView === 'assignments' && (
         <MobileAssignmentsView userRole={userRole} />
+      )}
+      {currentView === 'workers' && (
+        <div className="p-4 pb-24">
+          <h2 className="text-xl text-gray-900 mb-4">Employees</h2>
+          <p className="text-gray-600">Open the desktop app for full employee management.</p>
+        </div>
       )}
       {currentView === 'offers' && (
         <div className="p-4 pb-24">

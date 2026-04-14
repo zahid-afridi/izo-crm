@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const dayStart = startOfLocalDay(assignment.assignedDate);
 
-    const open = await prisma.attendance.findFirst({
+    const open = await prisma.siteAttendance.findFirst({
       where: {
         assignmentId,
         workerId: auth.user.id,
@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
 
     if (open) {
       return NextResponse.json(
-        { error: 'Already checked in. Check out first.', attendanceId: open.id },
+        { error: 'Already checked in. Check out first.', siteAttendanceId: open.id },
         { status: 400 }
       );
     }
 
-    const created = await prisma.attendance.create({
+    const created = await prisma.siteAttendance.create({
       data: {
         workerId: auth.user.id,
         assignmentId,

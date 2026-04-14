@@ -93,7 +93,7 @@ export function WorkerAssignmentDetailsDialog({
             );
             if (!response.ok) throw new Error('Failed to fetch attendance history');
             const data = await response.json();
-            setAttendanceHistory(data.attendance || []);
+            setAttendanceHistory(data.siteAttendances ?? data.attendance ?? []);
         } catch (error) {
             console.error('Error fetching attendance:', error);
         } finally {

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get attendance records for this car's assignments to show actual usage times
-    const attendanceRecords = await prisma.attendance.findMany({
+    const attendanceRecords = await prisma.siteAttendance.findMany({
       where: {
         assignmentId: { in: assignments.map(a => a.id) },
         date: { gte: startDate, lte: endDate },
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
             startDate: assignment.site?.startDate ? new Date(assignment.site.startDate).toLocaleDateString() : 'N/A',
             estimatedEndDate: assignment.site?.estimatedEndDate ? new Date(assignment.site.estimatedEndDate).toLocaleDateString() : 'N/A',
           },
-          attendance: attendanceForAssignment.map(att => ({
+          siteAttendances: attendanceForAssignment.map(att => ({
             date: new Date(att.date).toLocaleDateString(),
             checkInTime: att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString() : 'N/A',
             checkOutTime: att.checkOutTime ? new Date(att.checkOutTime).toLocaleTimeString() : 'Not checked out',
@@ -366,11 +366,11 @@ function generatePDF(data: any, startDate: Date, endDate: Date): Buffer {
       }
       
       // Attendance details for this assignment
-      if (assignment.attendance.length > 0) {
+      if ((assignment.siteAttendances ?? []).length > 0) {
         addText(`Attendance Records:`, margin + 20, yPos, 8, true);
         yPos -= 10;
         
-        assignment.attendance.forEach((att: any) => {
+        assignment.siteAttendances.forEach((att: any) => {
           checkNewPage(30);
           addText(`  • ${att.date}: ${att.checkInTime} - ${att.checkOutTime} (${att.workingHours})`, margin + 30, yPos, 7, false);
           yPos -= 9;
@@ -474,8 +474,8 @@ function generateCSV(data: any, startDate: Date, endDate: Date): string {
     csv += 'ATTENDANCE RECORDS\n';
     csv += 'Assignment Date,Attendance Date,Check In Time,Check Out Time,Working Hours,Notes\n';
     data.assignments.forEach((assignment: any) => {
-      if (assignment.attendance && assignment.attendance.length > 0) {
-        assignment.attendance.forEach((att: any) => {
+      if (assignment.siteAttendances && assignment.siteAttendances.length > 0) {
+        assignment.siteAttendances.forEach((att: any) => {
           csv += `"${assignment.assignedDate}","${att.date}","${att.checkInTime}","${att.checkOutTime}","${att.workingHours}","${att.notes}"\n`;
         });
       }

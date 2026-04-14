@@ -81,7 +81,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
     password: '',
   });
 
-  const canEdit = ['admin', 'site_manager'].includes(userRole);
+  const canEdit = ['admin', 'site_manager', 'hr'].includes(userRole);
   const canDelete = userRole === 'admin';
 
   // Filter roles based on user permissions

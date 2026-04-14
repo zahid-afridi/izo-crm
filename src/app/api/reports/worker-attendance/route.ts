@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get attendance records
-    const attendanceRecords = await prisma.attendance.findMany({
+    const attendanceRecords = await prisma.siteAttendance.findMany({
       where: {
         ...workerFilter,
         ...(Object.keys(dateFilter).length > 0 && {

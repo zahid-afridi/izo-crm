@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     let attendanceRecords: any[] = [];
     try {
-      attendanceRecords = await prisma.attendance.findMany({
+      attendanceRecords = await prisma.siteAttendance.findMany({
         where: attendanceWhere,
         orderBy: { date: 'desc' },
       });
