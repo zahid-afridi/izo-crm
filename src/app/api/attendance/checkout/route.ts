@@ -14,52 +14,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { attendanceId, notes, latitude, longitude } = body;
+    const body = await request.json() as {
+      siteAttendanceId?: string;
+      attendanceId?: string;
+      notes?: string;
+      latitude?: number;
+      longitude?: number;
+    };
+    const siteAttendanceId = body.siteAttendanceId ?? body.attendanceId;
+    const { notes, latitude, longitude } = body;
 
-    if (!attendanceId) {
+    if (!siteAttendanceId) {
       return NextResponse.json(
-        { error: 'Attendance ID is required' },
+        { error: 'Site attendance ID is required' },
         { status: 400 }
       );
     }
 
     const workerId = authResult.user.id;
 
-    // Find the attendance record
-    const attendance = await prisma.attendance.findFirst({
+    const record = await prisma.siteAttendance.findFirst({
       where: {
-        id: attendanceId,
+        id: siteAttendanceId,
         workerId
       }
     });
 
-    if (!attendance) {
+    if (!record) {
       return NextResponse.json(
-        { error: 'Attendance record not found' },
+        { error: 'Site attendance record not found' },
         { status: 404 }
       );
     }
 
-    if (attendance.checkOutTime) {
+    if (record.checkOutTime) {
       return NextResponse.json(
         { error: 'Already checked out' },
         { status: 400 }
       );
     }
 
-    // Update with checkout time and location
-    const updated = await prisma.attendance.update({
-      where: { id: attendanceId },
+    const updated = await prisma.siteAttendance.update({
+      where: { id: siteAttendanceId },
       data: {
         checkOutTime: new Date(),
-        notes: notes || attendance.notes,
+        notes: notes || record.notes,
         checkOutLat: latitude || null,
         checkOutLng: longitude || null
       }
     });
 
-    return NextResponse.json({ attendance: updated }, { status: 200 });
+    return NextResponse.json({ siteAttendance: updated }, { status: 200 });
   } catch (error) {
     console.error('Error checking out:', error);
     return NextResponse.json(

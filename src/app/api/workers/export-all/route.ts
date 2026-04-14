@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get attendance records for the last 30 days
-    const attendanceRecords = await prisma.attendance.findMany({
+    const attendanceRecords = await prisma.siteAttendance.findMany({
       where: {
         date: { gte: thirtyDaysAgo },
         workerId: { in: workers.map(w => w.id) },

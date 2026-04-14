@@ -87,7 +87,7 @@ export const PERMISSIONS = {
   
   worker: {
     assignments: ['read'],
-    attendance: ['update'],
+    siteAttendance: ['update'],
     chat: ['create', 'read'],
   },
   

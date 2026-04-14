@@ -14,7 +14,7 @@ export async function GET() {
       { value: 'office_employee', label: 'Office Employee' },
       { value: 'hr', label: 'HR' },
       { value: 'worker', label: 'Worker' },
-      { value: 'website_user', label: 'Website User' },
+      // { value: 'website_user', label: 'Website User' },
     ];
 
     return NextResponse.json({ roles }, { status: 200 });

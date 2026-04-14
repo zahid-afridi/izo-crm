@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'assignmentId required' }, { status: 400 });
     }
 
-    const open = await prisma.attendance.findFirst({
+    const open = await prisma.siteAttendance.findFirst({
       where: {
         assignmentId,
         workerId: auth.user.id,
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No open check-in for this assignment' }, { status: 400 });
     }
 
-    const updated = await prisma.attendance.update({
+    const updated = await prisma.siteAttendance.update({
       where: { id: open.id },
       data: {
         checkOutTime: new Date(),

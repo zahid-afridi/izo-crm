@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch attendance records for the worker in the month (skip records without checkOutTime)
-    const attendanceRecords = await prisma.attendance.findMany({
+    const attendanceRecords = await prisma.siteAttendance.findMany({
       where: {
         workerId,
         date: {

@@ -57,7 +57,7 @@ export interface WorkdaySummary {
   monthlyBreakdown: Record<string, number>;
 }
 
-export interface Attendance {
+export interface SiteAttendance {
   id: string;
   assignmentId: string;
   checkInTime: string;
@@ -69,8 +69,8 @@ export interface Attendance {
   checkOutLng?: number;
 }
 
-export interface AttendanceHistory {
-  history: Attendance[];
+export interface SiteAttendanceHistory {
+  siteAttendances: SiteAttendance[];
   summary: {
     totalRecords: number;
     totalHours: number;
@@ -114,8 +114,8 @@ export interface WorkerProfileState {
   workdaySummary: WorkdaySummary | null;
   stats: WorkerProfileStats;
   teams: Team[];
-  attendanceMap: Record<string, Attendance>;
-  attendanceHistoryMap: Record<string, AttendanceHistory>;
+  attendanceMap: Record<string, SiteAttendance>;
+  attendanceHistoryMap: Record<string, SiteAttendanceHistory>;
   isLoading: boolean;
   isInitialized: boolean;
   checkingIn: string | null;
@@ -157,13 +157,14 @@ export const fetchWorkerProfile = createAsyncThunk(
       if (!profileRes.ok) return rejectWithValue('Failed to fetch worker profile');
 
       const profileData = await profileRes.json();
-      let attendanceMap: Record<string, Attendance> = {};
+      let attendanceMap: Record<string, SiteAttendance> = {};
 
       if (attendanceRes.ok) {
         const attData = await attendanceRes.json();
-        if (attData.attendance?.length > 0) {
-          const groups: Record<string, Attendance[]> = {};
-          attData.attendance.forEach((att: Attendance) => {
+        const list = attData.siteAttendances ?? attData.attendance;
+        if (list?.length > 0) {
+          const groups: Record<string, SiteAttendance[]> = {};
+          list.forEach((att: SiteAttendance) => {
             if (!groups[att.assignmentId]) groups[att.assignmentId] = [];
             groups[att.assignmentId].push(att);
           });
@@ -234,7 +235,8 @@ export const checkIn = createAsyncThunk(
 
       const data = await res.json();
       dispatch(fetchAttendanceHistory(assignmentId));
-      return { assignmentId, attendance: JSON.parse(JSON.stringify(data.attendance)) };
+      const record = data.siteAttendance ?? data.attendance;
+      return { assignmentId, siteAttendance: JSON.parse(JSON.stringify(record)) };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to check in');
     }
@@ -246,14 +248,14 @@ export const checkOut = createAsyncThunk(
   async (
     {
       assignmentId,
-      attendanceId,
+      siteAttendanceId,
       latitude,
       longitude,
-    }: { assignmentId: string; attendanceId: string; latitude?: number; longitude?: number },
+    }: { assignmentId: string; siteAttendanceId: string; latitude?: number; longitude?: number },
     { dispatch, rejectWithValue }
   ) => {
     try {
-      const body: Record<string, unknown> = { attendanceId };
+      const body: Record<string, unknown> = { siteAttendanceId };
       if (latitude !== undefined) body.latitude = latitude;
       if (longitude !== undefined) body.longitude = longitude;
 
@@ -271,7 +273,8 @@ export const checkOut = createAsyncThunk(
 
       const data = await res.json();
       dispatch(fetchAttendanceHistory(assignmentId));
-      return { assignmentId, attendance: JSON.parse(JSON.stringify(data.attendance)) };
+      const record = data.siteAttendance ?? data.attendance;
+      return { assignmentId, siteAttendance: JSON.parse(JSON.stringify(record)) };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to check out');
     }
@@ -313,8 +316,17 @@ const workerProfileSlice = createSlice({
       });
 
     builder.addCase(fetchAttendanceHistory.fulfilled, (state, action) => {
-      const { assignmentId, data } = action.payload as { assignmentId: string; data: AttendanceHistory };
-      state.attendanceHistoryMap[assignmentId] = data;
+      const { assignmentId, data } = action.payload as { assignmentId: string; data: SiteAttendanceHistory };
+      const normalized: SiteAttendanceHistory = {
+        siteAttendances: data.siteAttendances ?? (data as unknown as { history?: SiteAttendance[] }).history ?? [],
+        summary: data.summary ?? {
+          totalRecords: 0,
+          totalHours: 0,
+          totalMinutes: 0,
+          totalTimeFormatted: '0h 0m',
+        },
+      };
+      state.attendanceHistoryMap[assignmentId] = normalized;
     });
 
     builder
@@ -323,8 +335,11 @@ const workerProfileSlice = createSlice({
         state.error = null;
       })
       .addCase(checkIn.fulfilled, (state, action) => {
-        const { assignmentId, attendance } = action.payload;
-        state.attendanceMap[assignmentId] = attendance;
+        const { assignmentId, siteAttendance } = action.payload as {
+          assignmentId: string;
+          siteAttendance: SiteAttendance;
+        };
+        state.attendanceMap[assignmentId] = siteAttendance;
         state.checkingIn = null;
       })
       .addCase(checkIn.rejected, (state, action) => {
@@ -338,8 +353,11 @@ const workerProfileSlice = createSlice({
         state.error = null;
       })
       .addCase(checkOut.fulfilled, (state, action) => {
-        const { assignmentId, attendance } = action.payload;
-        state.attendanceMap[assignmentId] = attendance;
+        const { assignmentId, siteAttendance } = action.payload as {
+          assignmentId: string;
+          siteAttendance: SiteAttendance;
+        };
+        state.attendanceMap[assignmentId] = siteAttendance;
         state.checkingOut = null;
       })
       .addCase(checkOut.rejected, (state, action) => {

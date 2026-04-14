@@ -55,7 +55,7 @@ model Users {
   chatMessages ChatMessage[]
   createdProducts Product[]  @relation("ProductCreator")
   websiteOrders   WebsiteOrder[] @relation("WebsiteOrders")
-  attendances     Attendance[]
+  siteAttendances  SiteAttendance[]
 
   @@index([username])
   @@index([email])
@@ -509,7 +509,7 @@ model Assignment {
   site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   worker                Users    @relation(fields: [workerId], references: [id], onDelete: Cascade)
   car                   Car?     @relation(fields: [carId], references: [id], onDelete: SetNull)
-  attendances           Attendance[]
+  siteAttendances        SiteAttendance[]
 
   @@index([siteId])
   @@index([workerId])
@@ -708,13 +708,13 @@ model ChatMessage {
   @@index([senderId])
 }
 
-model Attendance {
+model SiteAttendance {
   id           String    @id @default(uuid())
   workerId     String
   assignmentId String
   checkInTime  DateTime
   checkOutTime DateTime?
-  date         DateTime  // Date of the attendance (for grouping)
+  date         DateTime // Date of the attendance (for grouping)
   notes        String?
   checkInLat   Float?
   checkInLng   Float?
@@ -729,6 +729,7 @@ model Attendance {
   @@index([assignmentId])
   @@index([date])
   @@index([workerId, assignmentId, date])
+  @@map("Attendance")
 }
 
 model DailyProgram {

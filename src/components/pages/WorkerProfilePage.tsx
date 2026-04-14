@@ -102,7 +102,7 @@ export function WorkerProfilePage() {
       longitude = pos.coords.longitude;
     } catch { /* continue without location */ }
 
-    const result = await dispatch(checkOut({ assignmentId, attendanceId: attendance.id, latitude, longitude }));
+    const result = await dispatch(checkOut({ assignmentId, siteAttendanceId: attendance.id, latitude, longitude }));
     if (checkOut.rejected.match(result)) {
       alert((result.payload as string) || 'Failed to check out');
     }
@@ -385,7 +385,7 @@ export function WorkerProfilePage() {
                           </Badge>
                         </div>
                         <div className="space-y-2">
-                          {attendanceHistoryMap[assignment.id].history.map((record, i) => {
+                            {attendanceHistoryMap[assignment.id].siteAttendances.map((record, i) => {
                             const duration = record.checkOutTime
                               ? Math.floor((new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime()) / (1000 * 60))
                               : null;
@@ -394,7 +394,7 @@ export function WorkerProfilePage() {
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                                     <span className="text-blue-600 font-semibold text-xs">
-                                      #{attendanceHistoryMap[assignment.id].history.length - i}
+                                      #{attendanceHistoryMap[assignment.id].siteAttendances.length - i}
                                     </span>
                                   </div>
                                   <div>
@@ -433,7 +433,7 @@ export function WorkerProfilePage() {
                             );
                           })}
                         </div>
-                        {attendanceHistoryMap[assignment.id].history.length === 0 && (
+                        {attendanceHistoryMap[assignment.id].siteAttendances.length === 0 && (
                           <p className="text-center text-slate-500 text-sm py-4">No check-in history for today</p>
                         )}
                       </div>
