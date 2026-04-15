@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { getUserFromHeaders, verifyToken, extractToken } from '@/lib/auth';
 import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
+function parseOptionalRate(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 // POST - Create worker record for existing user
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, employeeType, hourlyRate, monthlyRate, removeStatus } = body;
+    const { userId, employeeType, hourlyRate, monthlyRate, dailyRate, extraHourRate, removeStatus } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -73,8 +79,10 @@ export async function POST(request: NextRequest) {
         data: {
           userId: userId,
           employeeType: employeeType || 'full-time',
-          hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
-          monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
+          hourlyRate: parseOptionalRate(hourlyRate),
+          monthlyRate: parseOptionalRate(monthlyRate),
+          dailyRate: parseOptionalRate(dailyRate),
+          extraHourRate: parseOptionalRate(extraHourRate),
           removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
         },
       });
@@ -98,8 +106,10 @@ export async function POST(request: NextRequest) {
             userAgent,
             newValues: {
               employeeType: employeeType || 'full-time',
-              hourlyRate,
-              monthlyRate,
+              hourlyRate: parseOptionalRate(hourlyRate),
+              monthlyRate: parseOptionalRate(monthlyRate),
+              dailyRate: parseOptionalRate(dailyRate),
+              extraHourRate: parseOptionalRate(extraHourRate),
               removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
             },
           },
@@ -119,6 +129,8 @@ export async function POST(request: NextRequest) {
         employeeType: worker.employeeType,
         hourlyRate: worker.hourlyRate,
         monthlyRate: worker.monthlyRate,
+        dailyRate: worker.dailyRate,
+        extraHourRate: worker.extraHourRate,
         removeStatus: worker.removeStatus
       }
     }, { status: 201 });

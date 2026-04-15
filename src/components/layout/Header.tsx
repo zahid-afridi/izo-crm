@@ -129,7 +129,7 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
     sites: 'nav.sites', workers: 'nav.workers', assignments: 'nav.assignments', teams: 'nav.teams',
     offers: 'nav.offers', 'service-packages': 'nav.servicePackages', clients: 'nav.clients',
     orders: 'nav.orders', 'order-management': 'nav.orderManagement', 'team-management': 'nav.teamManagement',
-    'website-manager': 'nav.websiteManager', 'activity-log': 'nav.activityLog', reports: 'nav.reports',
+    'website-manager': 'nav.websiteManager', attendance: 'nav.attendance', 'activity-log': 'nav.activityLog', reports: 'nav.reports',
     settings: 'nav.settings', 'site-manager-dashboard': 'nav.dashboard', 'sites-management': 'nav.sites',
     'cars-management': 'nav.cars', 'workers-management': 'nav.workers', 'create-assignment': 'nav.assignments',
     'site-reports': 'nav.reports', 'worker-location-tracking': 'nav.workers', 'worker-dashboard': 'nav.dashboard',

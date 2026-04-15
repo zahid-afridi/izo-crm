@@ -78,6 +78,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
     removeStatus: 'active',
     hourlyRate: '',
     monthlyRate: '',
+    dailyRate: '',
+    extraHourRate: '',
     password: '',
   });
 
@@ -178,6 +180,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
       removeStatus: 'active',
       hourlyRate: '',
       monthlyRate: '',
+      dailyRate: '',
+      extraHourRate: '',
       password: '',
     });
     setError('');
@@ -213,6 +217,12 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
       }
       if (formData.monthlyRate && (isNaN(Number(formData.monthlyRate)) || Number(formData.monthlyRate) < 0)) {
         errors.monthlyRate = t('workers.validationMonthlyRateInvalid');
+      }
+      if (formData.dailyRate && (isNaN(Number(formData.dailyRate)) || Number(formData.dailyRate) < 0)) {
+        errors.dailyRate = t('workers.validationHourlyRateInvalid');
+      }
+      if (formData.extraHourRate && (isNaN(Number(formData.extraHourRate)) || Number(formData.extraHourRate) < 0)) {
+        errors.extraHourRate = t('workers.validationHourlyRateInvalid');
       }
     }
 
@@ -275,6 +285,18 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
       }
     }
 
+    if (name === 'dailyRate' && value.trim()) {
+      if (isNaN(Number(value)) || Number(value) < 0) {
+        newErrors.dailyRate = t('workers.validationHourlyRateInvalid');
+      }
+    }
+
+    if (name === 'extraHourRate' && value.trim()) {
+      if (isNaN(Number(value)) || Number(value) < 0) {
+        newErrors.extraHourRate = t('workers.validationHourlyRateInvalid');
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(prev => ({ ...prev, ...newErrors }));
     }
@@ -333,6 +355,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
         employeeType: formData.employeeType,
         hourlyRate: formData.hourlyRate ? Number(formData.hourlyRate) : undefined,
         monthlyRate: formData.monthlyRate ? Number(formData.monthlyRate) : undefined,
+        dailyRate: formData.dailyRate ? Number(formData.dailyRate) : undefined,
+        extraHourRate: formData.extraHourRate ? Number(formData.extraHourRate) : undefined,
         removeStatus: formData.removeStatus,
       } as any);
 
@@ -417,6 +441,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
           removeStatus: worker.worker?.removeStatus || 'active',
           hourlyRate: worker.worker?.hourlyRate?.toString() || '',
           monthlyRate: worker.worker?.monthlyRate?.toString() || '',
+          dailyRate: worker.worker?.dailyRate?.toString() || '',
+          extraHourRate: worker.worker?.extraHourRate?.toString() || '',
           password: data.worker.plainPassword || '123456', // Use actual password or fallback
         });
       } else {
@@ -433,6 +459,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
           removeStatus: worker.worker?.removeStatus || 'active',
           hourlyRate: worker.worker?.hourlyRate?.toString() || '',
           monthlyRate: worker.worker?.monthlyRate?.toString() || '',
+          dailyRate: worker.worker?.dailyRate?.toString() || '',
+          extraHourRate: worker.worker?.extraHourRate?.toString() || '',
           password: '123456',
         });
       }
@@ -451,6 +479,8 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
         removeStatus: worker.worker?.removeStatus || 'active',
         hourlyRate: worker.worker?.hourlyRate?.toString() || '',
         monthlyRate: worker.worker?.monthlyRate?.toString() || '',
+        dailyRate: worker.worker?.dailyRate?.toString() || '',
+        extraHourRate: worker.worker?.extraHourRate?.toString() || '',
         password: '123456',
       });
     }
@@ -770,7 +800,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                         <div></div>
 
                         <div>
-                          <Label>{t('workers.hourlyRate')}</Label>
+                          <Label>{t('workers.hourlyRate')} ($)</Label>
                           <Input
                             name="hourlyRate"
                             type="number"
@@ -786,7 +816,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                         </div>
 
                         <div>
-                          <Label>{t('workers.monthlyRate')}</Label>
+                          <Label>{t('workers.monthlyRate')} ($)</Label>
                           <Input
                             name="monthlyRate"
                             type="number"
@@ -797,6 +827,34 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                           />
                           {validationErrors.monthlyRate && (
                             <p className="text-red-500 text-sm mt-1">{validationErrors.monthlyRate}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Daily Rate ($)</Label>
+                          <Input
+                            name="dailyRate"
+                            type="number"
+                            placeholder="0"
+                            value={formData.dailyRate}
+                            onChange={handleInputChangeWithValidation}
+                            className={validationErrors.dailyRate ? 'border-red-500' : ''}
+                          />
+                          {validationErrors.dailyRate && (
+                            <p className="text-red-500 text-sm mt-1">{validationErrors.dailyRate}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Extra Hour Rate ($)</Label>
+                          <Input
+                            name="extraHourRate"
+                            type="number"
+                            placeholder="0"
+                            value={formData.extraHourRate}
+                            onChange={handleInputChangeWithValidation}
+                            className={validationErrors.extraHourRate ? 'border-red-500' : ''}
+                          />
+                          {validationErrors.extraHourRate && (
+                            <p className="text-red-500 text-sm mt-1">{validationErrors.extraHourRate}</p>
                           )}
                         </div>
                       </div>
@@ -1234,7 +1292,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                   <div></div>
 
                   <div>
-                    <Label>{t('workers.hourlyRate')}</Label>
+                    <Label>{t('workers.hourlyRate')} ($)</Label>
                     <Input
                       name="hourlyRate"
                       type="number"
@@ -1250,7 +1308,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                   </div>
 
                   <div>
-                    <Label>{t('workers.monthlyRate')}</Label>
+                    <Label>{t('workers.monthlyRate')} ($)</Label>
                     <Input
                       name="monthlyRate"
                       type="number"
@@ -1261,6 +1319,34 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                     />
                     {validationErrors.monthlyRate && (
                       <p className="text-red-500 text-sm mt-1">{validationErrors.monthlyRate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Daily Rate ($)</Label>
+                    <Input
+                      name="dailyRate"
+                      type="number"
+                      placeholder="0"
+                      value={formData.dailyRate}
+                      onChange={handleInputChangeWithValidation}
+                      className={validationErrors.dailyRate ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.dailyRate && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.dailyRate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Extra Hour Rate ($)</Label>
+                    <Input
+                      name="extraHourRate"
+                      type="number"
+                      placeholder="0"
+                      value={formData.extraHourRate}
+                      onChange={handleInputChangeWithValidation}
+                      className={validationErrors.extraHourRate ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.extraHourRate && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.extraHourRate}</p>
                     )}
                   </div>
                 </div>
@@ -1412,15 +1498,27 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                       </Badge>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-gray-500">{t('workers.hourlyRate')}</Label>
+                      <Label className="text-sm font-medium text-gray-500">{t('workers.hourlyRate')} ($)</Label>
                       <p className="text-gray-900 mt-1">
-                        {selectedWorker.worker.hourlyRate ? `€${selectedWorker.worker.hourlyRate}` : t('workers.notSet')}
+                        {selectedWorker.worker.hourlyRate ? `$${selectedWorker.worker.hourlyRate}` : t('workers.notSet')}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-gray-500">{t('workers.monthlyRate')}</Label>
+                      <Label className="text-sm font-medium text-gray-500">{t('workers.monthlyRate')} ($)</Label>
                       <p className="text-gray-900 mt-1">
-                        {selectedWorker.worker.monthlyRate ? `€${selectedWorker.worker.monthlyRate}` : t('workers.notSet')}
+                        {selectedWorker.worker.monthlyRate ? `$${selectedWorker.worker.monthlyRate}` : t('workers.notSet')}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Daily Rate ($)</Label>
+                      <p className="text-gray-900 mt-1">
+                        {selectedWorker.worker.dailyRate ? `$${selectedWorker.worker.dailyRate}` : t('workers.notSet')}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Extra Hour Rate ($)</Label>
+                      <p className="text-gray-900 mt-1">
+                        {selectedWorker.worker.extraHourRate ? `$${selectedWorker.worker.extraHourRate}` : t('workers.notSet')}
                       </p>
                     </div>
                   </div>

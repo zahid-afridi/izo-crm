@@ -56,6 +56,7 @@ model Users {
   createdProducts Product[]  @relation("ProductCreator")
   websiteOrders   WebsiteOrder[] @relation("WebsiteOrders")
   siteAttendances  SiteAttendance[]
+  employeeAttendances EmployeeAttendance[]
 
   @@index([username])
   @@index([email])
@@ -450,6 +451,8 @@ model Worker {
   employeeType String
   hourlyRate   Float?
   monthlyRate  Float?
+  dailyRate    Float?
+  extraHourRate Float?
   /// Employment status: active | on_leave | disabled (formerly "removed")
   removeStatus String   @default("active")
   createdAt    DateTime @default(now())
@@ -730,6 +733,30 @@ model SiteAttendance {
   @@index([date])
   @@index([workerId, assignmentId, date])
   @@map("Attendance")
+}
+
+model EmployeeAttendance {
+  id               String    @id @default(uuid())
+  userId           String
+  attendanceDate   DateTime
+  checkInTime      DateTime?
+  checkOutTime     DateTime?
+  checkInMethod    String?
+  checkOutMethod   String?
+  checkInUserAgent String?
+  checkOutUserAgent String?
+  totalWorkedMinutes Int?
+  notes            String?
+  isManualEntry    Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             Users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([attendanceDate])
+  @@index([checkInTime])
+  @@index([checkOutTime])
+  @@index([userId, attendanceDate])
 }
 
 model DailyProgram {
