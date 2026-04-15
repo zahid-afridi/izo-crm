@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
             employeeType: true,
             hourlyRate: true,
             monthlyRate: true,
+            dailyRate: true,
+            extraHourRate: true,
             removeStatus: true,
           },
         },

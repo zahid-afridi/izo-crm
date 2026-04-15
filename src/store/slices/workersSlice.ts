@@ -15,6 +15,8 @@ export interface Worker {
     employeeType: string;
     hourlyRate?: number;
     monthlyRate?: number;
+    dailyRate?: number;
+    extraHourRate?: number;
     removeStatus: string;
   };
   createdAt?: string;

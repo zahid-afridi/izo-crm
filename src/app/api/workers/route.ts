@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs';
 import { encryptPassword } from '@/lib/password-utils';
 import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
+function parseOptionalRate(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 // GET all users (display all users regardless of role)
 export async function GET(request: NextRequest) {
   try {
@@ -67,6 +73,8 @@ export async function GET(request: NextRequest) {
             employeeType: true,
             hourlyRate: true,
             monthlyRate: true,
+            dailyRate: true,
+            extraHourRate: true,
             removeStatus: true,
           },
         },
@@ -101,6 +109,8 @@ export async function POST(request: NextRequest) {
       removeStatus,
       hourlyRate,
       monthlyRate,
+      dailyRate,
+      extraHourRate,
       password,
       createdByUserId, // User creating the worker
     } = body;
@@ -152,8 +162,10 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           employeeType: employeeType || 'full-time',
-          hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
-          monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
+          hourlyRate: parseOptionalRate(hourlyRate),
+          monthlyRate: parseOptionalRate(monthlyRate),
+          dailyRate: parseOptionalRate(dailyRate),
+          extraHourRate: parseOptionalRate(extraHourRate),
           removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
         },
       });
@@ -188,6 +200,10 @@ export async function POST(request: NextRequest) {
                 email,
                 employeeType,
                 role,
+                hourlyRate: parseOptionalRate(hourlyRate),
+                monthlyRate: parseOptionalRate(monthlyRate),
+                dailyRate: parseOptionalRate(dailyRate),
+                extraHourRate: parseOptionalRate(extraHourRate),
               },
             },
           });

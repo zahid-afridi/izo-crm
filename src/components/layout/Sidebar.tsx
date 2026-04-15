@@ -37,16 +37,16 @@ interface SidebarProps {
 
 // Define which menu items each role can see
 const ROLE_MENU_ACCESS: Record<string, string[]> = {
-  worker: ['/workers', '/chat'],
+  worker: ['/workers', '/chat', '/attendance'],
   admin: ['*'],           // Admin sees everything
-  product_manager: ['/products', '/chat'],
-  site_manager: ['/sites', '/assignments', '/cars', '/teams'],
-  offer_manager: ['/offers', '/service-packages', '/clients', '/products', '/chat'],
-  order_manager: ['/orders', '/clients', '/products', '/chat', '/team-management', '/order-management'],
-  sales_agent: ['/clients', '/orders', '/products', '/chat'],
-  office_employee: ['/orders', '/chat'],
-  website_manager: ['/website-manager', '/chat'],
-  hr: ['/workers', '/chat'],
+  product_manager: ['/products', '/chat', '/attendance'],
+  site_manager: ['/sites', '/assignments', '/cars', '/teams', '/attendance'],
+  offer_manager: ['/offers', '/service-packages', '/clients', '/products', '/chat', '/attendance'],
+  order_manager: ['/orders', '/clients', '/products', '/chat', '/team-management', '/order-management', '/attendance'],
+  sales_agent: ['/clients', '/orders', '/products', '/chat', '/attendance'],
+  office_employee: ['/orders', '/chat', '/attendance'],
+  website_manager: ['/website-manager', '/chat', '/attendance'],
+  hr: ['/workers', '/chat', '/attendance'],
 };
 
 // Filter menu items based on user role
@@ -88,6 +88,7 @@ const menuItems = [
   { path: '/team-management', labelKey: 'nav.teamManagement', icon: Users },
   { path: '/website-manager', labelKey: 'nav.websiteManager', icon: Globe },
   { path: '/chat', labelKey: 'nav.chat', icon: MessageSquare },
+  { path: '/attendance', labelKey: 'nav.attendance', icon: Calendar },
   { path: '/activity-log', labelKey: 'nav.activityLog', icon: History },
   { path: '/reports', labelKey: 'nav.reports', icon: BarChart3 },
   { path: '/settings', labelKey: 'nav.settings', icon: Settings },

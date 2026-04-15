@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs';
 import { encryptPassword, decryptPassword } from '@/lib/password-utils';
 import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
+function parseOptionalRate(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 // GET worker by ID
 export async function GET(
   request: NextRequest,
@@ -33,6 +39,8 @@ export async function GET(
             employeeType: true,
             hourlyRate: true,
             monthlyRate: true,
+            dailyRate: true,
+            extraHourRate: true,
             removeStatus: true,
           },
         },
@@ -212,6 +220,8 @@ export async function PUT(
       removeStatus: removeStatusPutRaw,
       hourlyRate,
       monthlyRate,
+      dailyRate,
+      extraHourRate,
       password,
       isLocked,
       updatedByUserId,
@@ -273,12 +283,20 @@ export async function PUT(
       });
 
       let worker = existingWorker.worker;
-      if (employeeType || removeStatus || hourlyRate || monthlyRate) {
+      const hasWorkerRateFields =
+        hourlyRate !== undefined ||
+        monthlyRate !== undefined ||
+        dailyRate !== undefined ||
+        extraHourRate !== undefined;
+
+      if (employeeType || removeStatus || hasWorkerRateFields) {
         const workerUpdateData: any = {};
         if (employeeType) workerUpdateData.employeeType = employeeType;
         if (removeStatus) workerUpdateData.removeStatus = removeStatus;
-        if (hourlyRate) workerUpdateData.hourlyRate = parseFloat(hourlyRate);
-        if (monthlyRate) workerUpdateData.monthlyRate = parseFloat(monthlyRate);
+        if (hourlyRate !== undefined) workerUpdateData.hourlyRate = parseOptionalRate(hourlyRate);
+        if (monthlyRate !== undefined) workerUpdateData.monthlyRate = parseOptionalRate(monthlyRate);
+        if (dailyRate !== undefined) workerUpdateData.dailyRate = parseOptionalRate(dailyRate);
+        if (extraHourRate !== undefined) workerUpdateData.extraHourRate = parseOptionalRate(extraHourRate);
 
         // Check if worker record exists
         if (existingWorker.worker) {
@@ -294,8 +312,10 @@ export async function PUT(
               userId: id,
               employeeType: employeeType || 'full-time',
               removeStatus: normalizeWorkerRemoveStatus(removeStatus || 'active'),
-              hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
-              monthlyRate: monthlyRate ? parseFloat(monthlyRate) : null,
+              hourlyRate: parseOptionalRate(hourlyRate),
+              monthlyRate: parseOptionalRate(monthlyRate),
+              dailyRate: parseOptionalRate(dailyRate),
+              extraHourRate: parseOptionalRate(extraHourRate),
             },
           });
         }

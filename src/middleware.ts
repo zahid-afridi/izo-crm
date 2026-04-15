@@ -31,27 +31,27 @@ const ROLE_ACCESS: Record<
   { pages: string[]; apis: string[]; home: string }
 > = {
   worker: {
-    pages: ["/workers", "/chat"],
+    pages: ["/workers", "/chat", "/attendance"],
     apis: ["*"],
     home: "/workers",
   },
   product_manager: {
-    pages: ["/products", "/chat"],
+    pages: ["/products", "/chat", "/attendance"],
     apis: ["*"],
     home: "/products",
   },
   site_manager: {
-    pages: ["/sites", "/assignments", "/cars", "/teams", "/chat"],
+    pages: ["/sites", "/assignments", "/cars", "/teams", "/chat", "/attendance"],
     apis: ["*"],
     home: "/sites",
   },
   offer_manager: {
-    pages: ["/offers", "/service-packages", "/clients", "/products", "/chat"],
+    pages: ["/offers", "/service-packages", "/clients", "/products", "/chat", "/attendance"],
     apis: ["*"],
     home: "/offers",
   },
   sales_agent: {
-    pages: ["/products", "/clients", "/orders", "/chat"],
+    pages: ["/products", "/clients", "/orders", "/chat", "/attendance"],
     apis: ["*"],
     home: "/orders",
   },
@@ -63,22 +63,23 @@ const ROLE_ACCESS: Record<
       "/chat",
       "/team-management",
       "/order-management",
+      "/attendance",
     ],
     apis: ["*"],
     home: "/orders",
   },
   office_employee: {
-    pages: ["/orders", "/chat"],
+    pages: ["/orders", "/chat", "/attendance"],
     apis: ["*"],
     home: "/orders",
   },
   website_manager: {
-    pages: ["/website-manager"],
+    pages: ["/website-manager", "/attendance"],
     apis: ["*"],
     home: "/website-manager",
   },
   hr: {
-    pages: ['/workers', '/chat'],
+    pages: ['/workers', '/chat', '/attendance'],
     apis: ['*'],
     home: '/workers',
   },
