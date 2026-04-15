@@ -34,6 +34,8 @@ import { MobileProductsView } from './MobileProductsView';
 import { MobileAssignmentsView } from './MobileAssignmentsView';
 import Image from 'next/image';
 import Logo from '@/../public/logo.svg';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface MobileAppProps {
   userRole: string;
@@ -53,6 +55,10 @@ type MobileMainView =
   | 'workers';
 
 export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
+
   // Set initial view based on role
   const getInitialView = (): MobileMainView => {
     if (userRole === 'product_manager') return 'products';
@@ -88,8 +94,8 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
           <Menu className="w-6 h-6" />
         </button>
         <div className="text-center flex-1">
-          <h1 className="text-lg font-semibold">IZOGRUP</h1>
-          <p className="text-xs opacity-90">{getRoleLabel()}</p>
+          <h1 className="text-lg font-semibold">{companyTitle}</h1>
+          <p className="text-xs opacity-90">{companyTagline}</p>
         </div>
         <button className="p-2 hover:bg-white/10 rounded-lg relative">
           <Bell className="w-6 h-6" />
@@ -375,7 +381,7 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <Image src={Logo} width={48} height={48} alt="IzoGrup Logo" className="rounded-full"/>
+            <Image src={Logo} width={48} height={48} alt={`${companyTitle} Logo`} className="rounded-full"/>
             <div>
               <p className="font-medium">{userName}</p>
               <p className="text-sm opacity-90">{getRoleLabel()}</p>

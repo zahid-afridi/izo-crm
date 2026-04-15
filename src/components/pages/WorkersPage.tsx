@@ -612,7 +612,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                     <button
                       onClick={() => setCurrentStep('basic')}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${currentStep === 'basic'
-                        ? 'bg-brand-600 text-white'
+                        ? 'bg-brand-gradient text-white hover:opacity-95'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                     >
@@ -621,7 +621,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                     <button
                       onClick={() => setCurrentStep('employment')}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${currentStep === 'employment'
-                        ? 'bg-brand-600 text-white'
+                        ? 'bg-brand-gradient text-white hover:opacity-95'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                     >
@@ -630,7 +630,7 @@ export function WorkersPage({ userRole }: WorkersPageProps) {
                     <button
                       onClick={() => setCurrentStep('security')}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${currentStep === 'security'
-                        ? 'bg-brand-600 text-white'
+                        ? 'bg-brand-gradient text-white hover:opacity-95'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                     >

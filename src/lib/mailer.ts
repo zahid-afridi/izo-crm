@@ -99,7 +99,7 @@ function buildTransporter(
 }
 
 function getSenderName(settings: SettingsMailerRecord): string {
-  return settings.companyDisplayName?.trim() || 'Izo';
+  return settings.companyDisplayName?.trim() || 'IzoGrup';
 }
 
 function assertMailerSettings(settings: SettingsMailerRecord): asserts settings is SettingsMailerRecord & {

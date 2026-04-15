@@ -5,6 +5,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 import { 
   FileText,
   Download,
@@ -20,6 +22,9 @@ interface SiteReportsProps {
 }
 
 export function SiteReports({ userRole }: SiteReportsProps) {
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
   const [selectedWorker, setSelectedWorker] = useState('');
   const [selectedSite, setSelectedSite] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -95,9 +100,9 @@ export function SiteReports({ userRole }: SiteReportsProps) {
     const monthName = new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const reportContent = `
 ╔════════════════════════════════════════════════╗
-║            IZOGRUP CRM LOGO                    ║
+║            ${companyTitle.toUpperCase()} CRM LOGO                    ║
 ║                                                ║
-║  Izogrup-Employees Economic Relationship       ║
+║  ${companyTagline}       ║
 ║  For ${monthName}                         ║
 ╚════════════════════════════════════════════════╝
 
@@ -383,8 +388,8 @@ Total Due: €910
                   <div className="w-16 h-16 bg-brand-gradient rounded-lg mx-auto flex items-center justify-center shadow-md">
                     <Building2 className="w-8 h-8 text-white" />
                   </div>
-                  <h2 className="text-xl text-gray-900">IZOGRUP</h2>
-                  <h3 className="text-gray-900">Izogrup-Employees Economic Relationship</h3>
+                  <h2 className="text-xl text-gray-900">{companyTitle}</h2>
+                  <h3 className="text-gray-900">{companyTagline}</h3>
                   <p className="text-gray-600">For {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { 
                     month: 'long', 
                     year: 'numeric' 

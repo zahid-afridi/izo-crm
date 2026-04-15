@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
 import { SearchResults } from '../SearchResults';
 import { useGlobalSearch } from '@/hooks/useKeyboardShortcuts';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -35,6 +37,7 @@ interface Notification {
 export function Header({ toggleSidebar, onLogout, currentUser, currentPage, userRole, onExportUI, onNavigate }: HeaderProps) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const shell = useAppSelector(selectSettingsForShell);
 
   const rawRole = (userRole || currentUser?.role || '').trim();
   const roleLabel = rawRole
@@ -133,7 +136,8 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
     'worker-chat': 'nav.chat',
     profile: 'nav.profile',
   };
-  const pageTitle = currentPage && pageTitleKey[currentPage] ? t(pageTitleKey[currentPage]) : (currentPage ? currentPage : t('header.izoCrm'));
+  const pageTitle = currentPage && pageTitleKey[currentPage] ? t(pageTitleKey[currentPage]) : (currentPage ? currentPage : (shell.companyDisplayName?.trim() || 'IzoGrup'));
+  const headerTagline = shell.tagline?.trim() || 'Construction mangement system';
 
   return (
     <>
@@ -151,7 +155,7 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
               </Button>
               <div className="min-w-0">
                 <h1 className="text-sm sm:text-base text-gray-900 truncate">{pageTitle}</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">{t('header.constructionSystem')}</p>
+                <p className="text-xs text-gray-500 hidden sm:block">{headerTagline}</p>
               </div>
             </div>
 

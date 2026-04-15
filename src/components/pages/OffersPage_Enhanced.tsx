@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Plus, Search, Download, MoreVertical, Eye, Send, Package, X, ArrowRight, Mail, FileText, Printer, Trash2, Loader } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { OfferExportDialog } from './OfferExportDialog';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface OffersPageProps {
   userRole: string;
@@ -57,6 +59,9 @@ interface OfferItem {
 
 export function OffersPage({ userRole }: OffersPageProps) {
   const { t } = useTranslation();
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
   const {
     filteredOffers: offers,
     isLoading: isInitialLoading,
@@ -611,7 +616,7 @@ Offer Details:
 The PDF document is securely hosted and can be downloaded directly from the link above.
 
 Best regards,
-IZOGRUP Team`);
+${companyTitle} Team`);
 
       // Open Gmail
       window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, '_blank');
@@ -671,7 +676,7 @@ Offer Details:
 The PDF document is securely hosted and can be downloaded directly from the link above.
 
 Best regards,
-IZOGRUP Team`);
+${companyTitle} Team`);
 
       // Open Outlook
       window.open(`https://outlook.live.com/mail/0/deeplink/compose?subject=${subject}&body=${body}`, '_blank');
@@ -771,7 +776,7 @@ Offer Details:
 The PDF document is securely hosted and can be downloaded directly from the link above.
 
 Best regards,
-IZOGRUP Team`);
+${companyTitle} Team`);
 
         // Try to open default email client
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -871,7 +876,7 @@ ${offer.deliveryTerms ? `Delivery: ${offer.deliveryTerms}` : ''}
 ${offer.notes ? `Notes: ${offer.notes}` : ''}
 
 ---
-Generated from IZOGRUP CRM System`;
+Generated from ${companyTitle} CRM System (${companyTagline})`;
 
     try {
       await navigator.clipboard.writeText(offerText);
