@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWebsiteManager } from '@/hooks/useWebsiteManager';
 import { saveSettings, saveCompanyInfo } from '@/store/slices/websiteManagerSlice';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -184,7 +186,7 @@ const mockBlogs: BlogPost[] = [
     publishDate: '2025-01-15',
     author: 'John Doe',
     images: ['blog1.jpg'],
-    metaTitle: 'Best Practices for Waterproofing | IzoGrup',
+    metaTitle: 'Best Practices for Waterproofing | Izo',
     metaDescription: 'Comprehensive guide to waterproofing best practices',
     showOnHomepage: true,
     displayOrder: 1,
@@ -200,6 +202,9 @@ const mockClients: Client[] = [
 export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
   const { t } = useTranslation();
   const wm = useWebsiteManager();
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
 
   // Destructure for convenience
   const {
@@ -642,8 +647,8 @@ export function WebsiteManagerPage({ userRole }: WebsiteManagerPageProps) {
 
   const handleResetSettings = () => {
     if (confirm(t('websiteManager.resetSettings'))) {
-      setWebsiteTitle('IzoGrup - Leading Construction Materials Provider');
-      setMetaDescription("IzoGrup is Albania's leading provider of waterproofing and construction materials. Quality products and professional services for residential and commercial projects.");
+      setWebsiteTitle(`${companyTitle} - Leading Construction Materials Provider`);
+      setMetaDescription(`${companyTitle} ${companyTagline}`);
       setMetaKeywords('waterproofing, construction materials, Albania, roofing, insulation');
     }
   };

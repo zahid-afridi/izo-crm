@@ -25,6 +25,8 @@ import {
   Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface Worker {
   id: string;
@@ -73,6 +75,9 @@ interface SiteReport {
 }
 
 export function SiteManagerReports() {
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
   const [activeTab, setActiveTab] = useState('worker-reports');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -562,7 +567,7 @@ export function SiteManagerReports() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Monthly Salary Reports</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Generate professional salary reports with IzoGrup branding for printing and official use.
+              Generate professional salary reports with {companyTitle} branding for printing and official use.
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -617,8 +622,8 @@ export function SiteManagerReports() {
                 The generated report will include:
               </p>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• IzoGrup logo and professional header</li>
-                <li>• Report title: "Izogrup-Employees Economic Relationship For [Month Year]"</li>
+                <li>• {companyTitle} logo and professional header</li>
+                <li>• Report title: "{companyTagline} For [Month Year]"</li>
                 <li>• Employee name and surname</li>
                 <li>• Total work days for the month</li>
                 <li>• Daily salary rate</li>

@@ -29,8 +29,8 @@ function resolveLoginError(code: string, t: (key: string) => string): string {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const { t } = useTranslation();
   const shell = useAppSelector(selectSettingsForShell);
-  const companyTitle = shell.companyDisplayName?.trim() || t('header.izoCrm');
-  const headline = shell.tagline?.trim() || t('header.constructionSystem');
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const headline = shell.tagline?.trim() || 'Construction mangement system';
   const [email, setEmail] = useState('admin@gmail.com');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);

@@ -98,9 +98,9 @@ export function Sidebar({ isOpen, setIsOpen, onNavigate, currentPage, setCurrent
   const { t } = useTranslation();
   const { user } = useAuthRedux();
   const shell = useAppSelector(selectSettingsForShell);
-  const companyTitle = shell.companyDisplayName?.trim() || t('header.izoCrm');
-  const headline = shell.tagline?.trim() || t('nav.managementSystem');
-  const footerTagline = shell.tagline?.trim() || t('nav.crmSystem');
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const headline = shell.tagline?.trim() || 'Construction mangement system';
+  const footerTagline = shell.tagline?.trim() || 'Construction mangement system';
   const role = user?.role?.toLowerCase() || null;
 
   // Get filtered menu items based on user role

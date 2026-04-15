@@ -7,6 +7,8 @@ import { Card } from './ui/card';
 import { Package, Construction, Users, FileText, Store, ShoppingCart, TrendingUp, Calendar, Building2, UserPlus, Loader, MessageSquare, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useAppSelector } from '@/store/hooks';
+import { selectSettingsForShell } from '@/store/selectors/settingsSelectors';
 
 interface DashboardProps {
   userRole: string;
@@ -15,6 +17,9 @@ interface DashboardProps {
 export function Dashboard({ userRole }: DashboardProps) {
   const { t } = useTranslation();
   const router = useRouter();
+  const shell = useAppSelector(selectSettingsForShell);
+  const companyTitle = shell.companyDisplayName?.trim() || 'IzoGrup';
+  const companyTagline = shell.tagline?.trim() || 'Construction mangement system';
   const {
     data: dashboardData,
     isLoading: loading,
@@ -328,22 +333,23 @@ export function Dashboard({ userRole }: DashboardProps) {
   }
 
   const stats = getStatsForRole();
+  const roleDescription =
+    (userRole === 'admin' && t('dashboard.roleAdmin')) ||
+    (userRole === 'site_manager' && t('dashboard.roleSiteManager')) ||
+    (userRole === 'offer_manager' && t('dashboard.roleOfferManager')) ||
+    (userRole === 'product_manager' && t('dashboard.roleProductManager')) ||
+    (userRole === 'sales_agent' && t('dashboard.roleSalesAgent')) ||
+    (userRole === 'worker' && t('dashboard.roleWorker')) ||
+    (userRole === 'order_manager' && t('dashboard.roleOrderManager')) ||
+    (userRole === 'office_employee' && t('dashboard.roleOfficeEmployee')) ||
+    companyTagline;
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       {/* Welcome Message */}
       <Card className="p-6 bg-brand-gradient text-white shadow-lg">
-        <h2 className="text-white mb-2">{t('dashboard.welcomeToSystem')}</h2>
-        <p className="text-white/90">
-          {userRole === 'admin' && t('dashboard.roleAdmin')}
-          {userRole === 'site_manager' && t('dashboard.roleSiteManager')}
-          {userRole === 'offer_manager' && t('dashboard.roleOfferManager')}
-          {userRole === 'product_manager' && t('dashboard.roleProductManager')}
-          {userRole === 'sales_agent' && t('dashboard.roleSalesAgent')}
-          {userRole === 'worker' && t('dashboard.roleWorker')}
-          {userRole === 'order_manager' && t('dashboard.roleOrderManager')}
-          {userRole === 'office_employee' && t('dashboard.roleOfficeEmployee')}
-        </p>
+        <h2 className="text-white mb-2">{`Welcome to ${companyTitle}`}</h2>
+        <p className="text-white/90">{roleDescription}</p>
       </Card>
 
       {/* Stats Cards */}
