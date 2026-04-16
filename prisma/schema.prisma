@@ -56,6 +56,7 @@ model Users {
   websiteOrders   WebsiteOrder[] @relation("WebsiteOrders")
   siteAttendances  SiteAttendance[]
   employeeAttendances EmployeeAttendance[]
+  assignmentWorkers AssignmentWorker[]
 
   @@index([username])
   @@index([email])
@@ -420,12 +421,52 @@ model Site {
   description       String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
-  siteManager            Users?       @relation("SiteManager", fields: [siteManagerId], references: [id])
+  siteManager       Users?       @relation("SiteManager", fields: [siteManagerId], references: [id])
+  assignments       Assignment[]
 
   @@index([status])
   @@index([startDate])
   @@index([clientId])
   @@index([siteManagerId])
+}
+
+model Assignment {
+  id               String   @id @default(uuid())
+  siteId           String
+  assignmentDate   DateTime
+  startTime        DateTime?
+  endTime          DateTime?
+  status           String   @default("draft") // draft | published
+  publishedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workers          AssignmentWorker[]
+
+  @@unique([siteId, assignmentDate])
+  @@index([siteId])
+  @@index([assignmentDate])
+  @@index([status])
+  @@map("assignments")
+}
+
+model AssignmentWorker {
+  id            String     @id @default(uuid())
+  assignmentId  String
+  workerId      String
+  startTime     DateTime?
+  endTime       DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  worker        Users      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, workerId])
+  @@index([assignmentId])
+  @@index([workerId])
+  @@index([startTime])
+  @@index([endTime])
+  @@map("assignment_workers")
 }
 
 model Worker {
