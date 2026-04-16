@@ -23,6 +23,7 @@ export const rolePermissions: Record<string, RolePermissions> = {
       'products',
       'services',
       'sites',
+      'assignments',
       'workers',
       'teams',
       'offers',
@@ -67,6 +68,7 @@ export const rolePermissions: Record<string, RolePermissions> = {
     allowedPages: [
       'dashboard',
       'sites',
+      'assignments',
       'workers',
       'teams',
       'offers',

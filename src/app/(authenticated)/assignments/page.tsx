@@ -48,7 +48,21 @@ export default function AssignmentsRoute() {
     publishedAt?: string;
   };
 
-  const DEFAULT_DATE = '2026-02-15';
+  const formatDateInput = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const todayDate = new Date();
+  const TODAY_DATE = formatDateInput(todayDate);
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const DEFAULT_DATE = formatDateInput(tomorrowDate);
+  const defaultRangeEndDate = new Date(tomorrowDate);
+  defaultRangeEndDate.setDate(defaultRangeEndDate.getDate() + 1);
+  const DEFAULT_RANGE_END = formatDateInput(defaultRangeEndDate);
 
   const dispatch = useAppDispatch();
   const reduxSites = useAppSelector(selectAllSites);
@@ -67,12 +81,13 @@ export default function AssignmentsRoute() {
 
   const [selectedSiteName, setSelectedSiteName] = useState<string>('');
   const [sitesQuery, setSitesQuery] = useState('');
+  const [siteStatusFilter, setSiteStatusFilter] = useState<'all' | 'active' | 'pending'>('all');
 
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
 
   const [assignTab, setAssignTab] = useState<'day' | 'range'>('day');
   const [rangeStart, setRangeStart] = useState<string>(DEFAULT_DATE);
-  const [rangeEnd, setRangeEnd] = useState<string>('2026-02-17');
+  const [rangeEnd, setRangeEnd] = useState<string>(DEFAULT_RANGE_END);
 
   const [timeRangeForAdd, setTimeRangeForAdd] = useState<string>('08:00 - 16:00');
 
@@ -114,9 +129,16 @@ export default function AssignmentsRoute() {
 
   const filteredSites = useMemo(() => {
     const q = sitesQuery.trim().toLowerCase();
-    if (!q) return assignmentSites;
-    return assignmentSites.filter((site) => site.name.toLowerCase().includes(q));
-  }, [assignmentSites, sitesQuery]);
+    return assignmentSites.filter((site) => {
+      const matchesSearch = !q || site.name.toLowerCase().includes(q);
+      const normalizedStatus = String(site.status).toLowerCase();
+      const matchesStatus =
+        siteStatusFilter === 'all' ||
+        (siteStatusFilter === 'active' && normalizedStatus === 'active') ||
+        (siteStatusFilter === 'pending' && normalizedStatus === 'pending');
+      return matchesSearch && matchesStatus;
+    });
+  }, [assignmentSites, sitesQuery, siteStatusFilter]);
 
   useEffect(() => {
     if (!sitesInitialized) {
@@ -139,8 +161,18 @@ export default function AssignmentsRoute() {
       return;
     }
 
-    if (!selectedSiteName || !assignmentSites.some((site) => site.name === selectedSiteName)) {
-      setSelectedSiteName(assignmentSites[0].name);
+    const currentSelected = assignmentSites.find((site) => site.name === selectedSiteName);
+    const firstSelectableSite = assignmentSites.find(
+      (site) => String(site.status).toLowerCase() !== 'pending'
+    );
+    const fallbackSite = firstSelectableSite || assignmentSites[0];
+
+    if (
+      !selectedSiteName ||
+      !currentSelected ||
+      String(currentSelected.status).toLowerCase() === 'pending'
+    ) {
+      setSelectedSiteName(fallbackSite.name);
     }
   }, [assignmentSites, selectedSiteName]);
 
@@ -608,39 +640,7 @@ export default function AssignmentsRoute() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-            <div className="relative col-span-2 sm:col-span-1">
-              <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  setIsLoadingSelectedAssignment(true);
-                  setSelectedDate(e.target.value);
-                }}
-                className="pl-9 w-full sm:w-[170px]"
-              />
-            </div>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setAssignTab('day');
-                setIsLoadingSelectedAssignment(true);
-                setSelectedDate(DEFAULT_DATE);
-              }}
-            >
-              Today
-            </Button>
-            <Button
-              className="w-full sm:w-auto bg-[#0d1b3f] hover:bg-[#0b1633]"
-              onClick={() => {
-                setAssignTab('day');
-                setIsLoadingSelectedAssignment(true);
-                setSelectedDate(addDays(DEFAULT_DATE, 1));
-              }}
-            >
-              Tomorrow
-            </Button>
+        
 
             <Button
               variant="outline"
@@ -685,6 +685,35 @@ export default function AssignmentsRoute() {
                 onChange={(e) => setSitesQuery(e.target.value)}
               />
             </div>
+            <div className="mb-3 flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'all' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'all' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'active' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'active' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('active')}
+              >
+                Active
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'pending' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'pending' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('pending')}
+              >
+                Pending
+              </Button>
+            </div>
             <div className="space-y-3">
               {sitesLoading && assignmentSites.length === 0 ? (
                 <p className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50">Loading sites...</p>
@@ -692,14 +721,23 @@ export default function AssignmentsRoute() {
                 <p className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50">No sites found.</p>
               ) : (
                 filteredSites.map((site) => (
+                  (() => {
+                    const isPending = String(site.status).toLowerCase() === 'pending';
+                    return (
                   <button
                     key={site.id}
                     type="button"
                     onClick={() => {
+                      if (isPending) return;
                       setIsLoadingSelectedAssignment(true);
                       setSelectedSiteName(site.name);
                     }}
-                    className={`w-full text-left rounded-xl border p-4 transition-colors ${site.name === selectedSiteName ? 'bg-[#0d1b3f] text-white border-[#0d1b3f]' : 'bg-white text-gray-900'}`}
+                    disabled={isPending}
+                    className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                      site.name === selectedSiteName
+                        ? 'bg-brand-gradient text-white border-transparent'
+                        : 'bg-white text-gray-900'
+                    } ${isPending ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className={`font-semibold ${site.name === selectedSiteName ? 'text-white' : 'text-gray-900'}`}>{site.name}</p>
@@ -707,6 +745,8 @@ export default function AssignmentsRoute() {
                     </div>
                     <p className={`text-sm mt-1 ${site.name === selectedSiteName ? 'text-white/80' : 'text-gray-500'}`}>{site.assigned} assigned</p>
                   </button>
+                    );
+                  })()
                 ))
               )}
             </div>
@@ -788,7 +828,12 @@ export default function AssignmentsRoute() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Date</p>
-                    <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={TODAY_DATE}
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
@@ -800,11 +845,25 @@ export default function AssignmentsRoute() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Start date</p>
-                    <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={TODAY_DATE}
+                      value={rangeStart}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setRangeStart(next);
+                        if (rangeEnd < next) setRangeEnd(next);
+                      }}
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">End date</p>
-                    <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={rangeStart || TODAY_DATE}
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(e.target.value)}
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Time for new workers</p>
