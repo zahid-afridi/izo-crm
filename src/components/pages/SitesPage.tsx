@@ -31,7 +31,7 @@ interface SitesPageProps { userRole: string; }
 
 const EMPTY_FORM = {
   name: '', address: '', city: '', postalCode: '', clientId: '',
-  startDate: '', estimatedEndDate: '', status: 'scheduled', siteManagerId: '', description: '',
+  startDate: '', estimatedEndDate: '', status: 'pending', siteManagerId: '', description: '',
 };
 
 export function SitesPage({ userRole }: SitesPageProps) {
@@ -152,7 +152,7 @@ export function SitesPage({ userRole }: SitesPageProps) {
     try {
       const result = await dispatch(updateSite({ id: editingSite.id, data: formData }));
       if (updateSite.fulfilled.match(result)) {
-        toast.success(formData.status === 'completed' ? t('sites.siteUpdatedCompleted') : t('sites.updateSuccess'));
+        toast.success(formData.status === 'closed' ? t('sites.siteUpdatedCompleted') : t('sites.updateSuccess'));
         resetForm();
         setIsEditDialogOpen(false);
       } else {
@@ -171,13 +171,12 @@ export function SitesPage({ userRole }: SitesPageProps) {
   const handleUpdateSiteStatus = async (siteId: string, newStatus: string) => {
     const site = filteredSites.find((s) => s.id === siteId);
     if (!site) return;
-    if (newStatus === 'on-hold' && site.progress === 100) { toast.error(t('sites.onHoldProgress100Error')); return; }
     setIsUpdatingStatus(siteId);
     dispatch(optimisticStatusUpdate({ id: siteId, status: newStatus }));
     const result = await dispatch(patchSiteStatus({ id: siteId, status: newStatus }));
     setIsUpdatingStatus(null);
     if (patchSiteStatus.fulfilled.match(result)) {
-      toast.success(newStatus === 'completed' ? t('sites.statusUpdatedCompleted') : t('sites.statusUpdatedSuccess'));
+      toast.success(newStatus === 'closed' ? t('sites.statusUpdatedCompleted') : t('sites.statusUpdatedSuccess'));
     } else {
       dispatch(fetchSites({ search: filters.search, status: filters.status }));
       toast.error((result.payload as string) || t('sites.statusUpdateFailed'));
@@ -185,8 +184,7 @@ export function SitesPage({ userRole }: SitesPageProps) {
   };
 
   const openProgressDialog = (site: Site) => {
-    if (site.status === 'on-hold') { toast.error(t('sites.cannotUpdateProgressOnHold')); return; }
-    if (site.status === 'completed') { toast.error(t('sites.cannotUpdateProgressCompleted')); return; }
+    if (site.status === 'closed') { toast.error(t('sites.cannotUpdateProgressCompleted')); return; }
     setProgressSite(site);
     setProgressForm({ progress: site.progress, progressNotes: site.progressNotes || '' });
     setIsProgressDialogOpen(true);
@@ -194,8 +192,7 @@ export function SitesPage({ userRole }: SitesPageProps) {
 
   const handleUpdateProgress = async () => {
     if (!progressSite) return;
-    if (progressSite.status === 'on-hold') { toast.error(t('sites.cannotUpdateProgressOnHoldShort')); return; }
-    if (progressSite.status === 'completed') { toast.error(t('sites.cannotUpdateProgressCompletedShort')); return; }
+    if (progressSite.status === 'closed') { toast.error(t('sites.cannotUpdateProgressCompletedShort')); return; }
     setSubmitting(true);
     try {
       const result = await dispatch(updateSite({ id: progressSite.id, data: { progress: progressForm.progress, progressNotes: progressForm.progressNotes } }));
@@ -258,25 +255,21 @@ export function SitesPage({ userRole }: SitesPageProps) {
       <div>
         <Label>{t('common.status')}</Label>
         <Select value={formData.status} onValueChange={(v) => {
-          if (v === 'on-hold' && editingSite && editingSite.progress === 100) { toast.error(t('sites.onHoldProgress100Error')); return; }
           setFormData((p) => ({ ...p, status: v }));
         }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="scheduled">{t('sites.statusScheduled')}</SelectItem>
+            <SelectItem value="pending">{t('sites.statusPending')}</SelectItem>
             <SelectItem value="active">{t('sites.statusActive')}</SelectItem>
-            <SelectItem value="on-hold" disabled={!!(editingSite && editingSite.progress === 100)}>
-              {t('sites.statusOnHold')}{editingSite && editingSite.progress === 100 ? ` ${t('sites.onHoldCannotSelect')}` : ''}
-            </SelectItem>
-            <SelectItem value="completed">{t('sites.statusCompleted')}</SelectItem>
+            <SelectItem value="closed">{t('sites.statusClosed')}</SelectItem>
           </SelectContent>
         </Select>
-        {formData.status === 'completed' && (
+        {formData.status === 'closed' && (
           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
             <p className="text-xs text-green-700">ℹ️ {t('sites.completedAutoProgress')}</p>
           </div>
         )}
-        {editingSite && editingSite.progress === 100 && formData.status !== 'completed' && (
+        {editingSite && editingSite.progress === 100 && formData.status !== 'closed' && (
           <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-xs text-yellow-700">⚠️ {t('sites.progress100ConsiderCompleted')}</p>
           </div>
@@ -324,9 +317,8 @@ export function SitesPage({ userRole }: SitesPageProps) {
             <SelectContent>
               <SelectItem value="all">{t('sites.allStatus')}</SelectItem>
               <SelectItem value="active">{t('sites.statusActive')}</SelectItem>
-              <SelectItem value="scheduled">{t('sites.statusScheduled')}</SelectItem>
-              <SelectItem value="completed">{t('sites.statusCompleted')}</SelectItem>
-              <SelectItem value="on-hold">{t('sites.statusOnHold')}</SelectItem>
+              <SelectItem value="pending">{t('sites.statusPending')}</SelectItem>
+              <SelectItem value="closed">{t('sites.statusClosed')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -360,8 +352,8 @@ export function SitesPage({ userRole }: SitesPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.totalSites')}</p><p className="text-gray-900">{stats.total}</p></Card>
         <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.activeSites')}</p><p className="text-gray-900">{stats.active}</p></Card>
-        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.scheduled')}</p><p className="text-gray-900">{stats.scheduled}</p></Card>
-        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.completed')}</p><p className="text-gray-900">{stats.completed}</p></Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.pending')}</p><p className="text-gray-900">{stats.pending}</p></Card>
+        <Card className="p-4"><p className="text-sm text-gray-500 mb-1">{t('sites.closed')}</p><p className="text-gray-900">{stats.closed}</p></Card>
       </div>
 
       {/* Sites Grid */}
@@ -402,17 +394,17 @@ export function SitesPage({ userRole }: SitesPageProps) {
                 </div>
                 {canEdit && (
                   <Button variant="ghost" size="sm"
-                    className={`mt-2 w-full ${(site.status === 'on-hold' || site.status === 'completed') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`mt-2 w-full ${site.status === 'closed' ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => openProgressDialog(site)}
-                    disabled={site.status === 'on-hold' || site.status === 'completed'}
+                    disabled={site.status === 'closed'}
                   >
                     <TrendingUp className="w-4 h-4 mr-2" />
-                    {site.status === 'on-hold' ? t('sites.progressLockedOnHold') : site.status === 'completed' ? t('sites.progressLockedCompleted') : t('sites.updateProgress')}
+                    {site.status === 'closed' ? t('sites.progressLockedCompleted') : t('sites.updateProgress')}
                   </Button>
                 )}
-                {(site.status === 'on-hold' || site.status === 'completed') && (
+                {site.status === 'closed' && (
                   <p className="text-xs text-orange-600 mt-1 text-center">
-                    {site.status === 'on-hold' ? t('sites.progressDisabledOnHold') : t('sites.progressDisabledCompleted')}
+                    {t('sites.progressDisabledCompleted')}
                   </p>
                 )}
               </div>
@@ -433,12 +425,9 @@ export function SitesPage({ userRole }: SitesPageProps) {
                     <Select value={site.status} onValueChange={(v) => handleUpdateSiteStatus(site.id, v)} disabled={isUpdatingStatus === site.id}>
                       <SelectTrigger className="w-auto min-w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="scheduled"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" />{t('sites.statusScheduled')}</span></SelectItem>
+                        <SelectItem value="pending"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" />{t('sites.statusPending')}</span></SelectItem>
                         <SelectItem value="active"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500" />{t('sites.statusActive')}</span></SelectItem>
-                        <SelectItem value="on-hold" disabled={site.progress === 100}>
-                          <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500" />{t('sites.statusOnHold')}{site.progress === 100 ? ` ${t('sites.progress100Suffix')}` : ''}</span>
-                        </SelectItem>
-                        <SelectItem value="completed"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-500" />{t('sites.statusCompleted')}</span></SelectItem>
+                        <SelectItem value="closed"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-500" />{t('sites.statusClosed')}</span></SelectItem>
                       </SelectContent>
                     </Select>
                     {isUpdatingStatus === site.id && (
@@ -448,7 +437,7 @@ export function SitesPage({ userRole }: SitesPageProps) {
                     )}
                   </div>
                 ) : (
-                  <Badge variant={site.status === 'active' ? 'default' : site.status === 'scheduled' ? 'secondary' : 'outline'}>{site.status}</Badge>
+                  <Badge variant={site.status === 'active' ? 'default' : site.status === 'pending' ? 'secondary' : 'outline'}>{site.status}</Badge>
                 )}
               </div>
             </Card>
@@ -541,18 +530,18 @@ export function SitesPage({ userRole }: SitesPageProps) {
                 <p className="text-sm text-gray-600 mb-2">{t('sites.siteName')}: {progressSite.name}</p>
                 <p className="text-xs text-gray-500">{t('common.status')}: {progressSite.status}</p>
               </div>
-              {progressSite.status === 'on-hold' && (
+              {progressSite.status === 'closed' && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-700 font-medium">⚠️ {t('sites.siteOnHoldWarning')}</p>
-                  <p className="text-xs text-red-600 mt-1">{t('sites.progressNotAllowedOnHold')}</p>
+                  <p className="text-sm text-red-700 font-medium">⚠️ {t('sites.progressLockedCompleted')}</p>
+                  <p className="text-xs text-red-600 mt-1">{t('sites.cannotUpdateProgressCompletedShort')}</p>
                 </div>
               )}
               <div>
                 <Label>{t('sites.progress')}: {progressForm.progress}%</Label>
                 <input type="range" min="0" max="100" value={progressForm.progress}
                   onChange={(e) => setProgressForm((p) => ({ ...p, progress: parseInt(e.target.value) }))}
-                  disabled={progressSite.status === 'on-hold'}
-                  className={`w-full h-2 rounded-lg appearance-none cursor-pointer progress-slider ${progressSite.status === 'on-hold' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={progressSite.status === 'closed'}
+                  className={`w-full h-2 rounded-lg appearance-none cursor-pointer progress-slider ${progressSite.status === 'closed' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   style={{ background: `linear-gradient(to right, #9F001B 0%, #9F001B ${progressForm.progress}%, #e5e7eb ${progressForm.progress}%, #e5e7eb 100%)` }}
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
@@ -566,12 +555,12 @@ export function SitesPage({ userRole }: SitesPageProps) {
                 <Label>{t('sites.progressNotes')}</Label>
                 <Textarea placeholder={t('sites.placeholderProgressNotes')} value={progressForm.progressNotes}
                   onChange={(e) => setProgressForm((p) => ({ ...p, progressNotes: e.target.value }))}
-                  disabled={progressSite.status === 'on-hold'}
-                  className={progressSite.status === 'on-hold' ? 'opacity-50 cursor-not-allowed' : ''} rows={4} />
+                  disabled={progressSite.status === 'closed'}
+                  className={progressSite.status === 'closed' ? 'opacity-50 cursor-not-allowed' : ''} rows={4} />
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setIsProgressDialogOpen(false)}>{t('common.cancel')}</Button>
-                <Button onClick={handleUpdateProgress} disabled={submitting || progressSite.status === 'on-hold'}>
+                <Button onClick={handleUpdateProgress} disabled={submitting || progressSite.status === 'closed'}>
                   {submitting && <Loader className="w-4 h-4 mr-2 animate-spin" />}{t('sites.updateProgress')}
                 </Button>
               </div>

@@ -41,9 +41,9 @@ const ROLE_ACCESS: Record<
     home: "/products",
   },
   site_manager: {
-    pages: ["/sites", "/cars", "/teams", "/chat", "/attendance"],
+    pages: ["/sites", "/cars","assignments", "/teams", "/chat", "/attendance"],
     apis: ["*"],
-    home: "/sites",
+    home: "/assignments",
   },
   offer_manager: {
     pages: ["/offers", "/service-packages", "/clients", "/products", "/chat", "/attendance"],

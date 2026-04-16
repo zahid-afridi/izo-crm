@@ -411,7 +411,7 @@ model Site {
   startDate         DateTime
   estimatedEndDate  DateTime?
   actualEndDate     DateTime?
-  status            String       @default("scheduled")
+  status            String       @default("pending")
   progress          Int          @default(0)
   progressUpdatedAt DateTime?
   progressNotes     String?
