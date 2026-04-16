@@ -391,9 +391,9 @@ export function ReportsPage({ userRole }: ReportsPageProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{t('reports.allSites')}</SelectItem>
-                      <SelectItem value="scheduled">{t('reports.scheduled')}</SelectItem>
+                      <SelectItem value="pending">{t('reports.pending')}</SelectItem>
                       <SelectItem value="active">{t('reports.active')}</SelectItem>
-                      <SelectItem value="completed">{t('reports.completed')}</SelectItem>
+                      <SelectItem value="closed">{t('reports.closed')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

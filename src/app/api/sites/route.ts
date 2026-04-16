@@ -9,9 +9,20 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {};
+    const allowedStatuses = ['active', 'pending', 'closed'];
+    const normalizeSiteStatus = (s: unknown) => {
+      const v = String(s ?? '').toLowerCase();
+      if (v === 'scheduled') return 'pending';
+      if (v === 'completed') return 'closed';
+      if (v === 'on-hold' || v === 'on_hold') return 'pending';
+      return v;
+    };
 
     if (status && status !== 'all') {
-      where.status = status;
+      const resolvedStatus = normalizeSiteStatus(status);
+      if (allowedStatuses.includes(resolvedStatus)) {
+        where.status = resolvedStatus;
+      }
     }
 
     if (search) {
@@ -57,6 +68,7 @@ export async function GET(request: NextRequest) {
 
         return {
           ...site,
+          status: normalizeSiteStatus(site.status),
           workers,
           assignedWorkers: workers.length,
           totalAssignments: 0,
@@ -112,7 +124,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const resolvedStatus = status || 'scheduled';
+    const allowedStatuses = ['active', 'pending', 'closed'];
+    const resolvedStatus = String(status || 'pending').toLowerCase();
+    if (!allowedStatuses.includes(resolvedStatus)) {
+      return NextResponse.json({ error: 'Invalid status. Must be active, pending, or closed' }, { status: 400 });
+    }
 
     const site = await prisma.site.create({
       data: {
@@ -124,10 +140,10 @@ export async function POST(request: NextRequest) {
         client: client || null,
         startDate: new Date(startDate),
         estimatedEndDate: estimatedEndDate ? new Date(estimatedEndDate) : null,
-        status: resolvedStatus,
-        // If a site is created directly with completed status, ensure progress is 100%
-        progress: resolvedStatus === 'completed' ? 100 : 0,
-        progressUpdatedAt: resolvedStatus === 'completed' ? new Date() : null,
+        status: resolvedStatus as any,
+        // Keep progress in sync with status
+        progress: resolvedStatus === 'closed' ? 100 : 0,
+        progressUpdatedAt: resolvedStatus === 'closed' ? new Date() : null,
         siteManagerId: siteManagerId || null,
         description: description || null,
         workerIds: [],

@@ -43,7 +43,7 @@ const mockSites = [
     id: 2,
     name: 'Office Building - Durres',
     location: 'Durres, Albania',
-    status: 'active',
+    status: 'pending',
     startDate: '2025-02-01',
     workers: 8,
     manager: 'Jane Smith',
@@ -53,7 +53,7 @@ const mockSites = [
     id: 3,
     name: 'Residential Complex',
     location: 'Vlore, Albania',
-    status: 'disabled',
+    status: 'closed',
     startDate: '2024-11-10',
     workers: 0,
     manager: 'John Doe',
@@ -110,7 +110,8 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="disabled">Completed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -184,7 +185,8 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="disabled">Completed (Disabled)</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -218,8 +220,8 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
           <p className="text-2xl text-gray-900">{mockSites.filter(s => s.status === 'active').length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-gray-500 mb-1">Completed Sites</p>
-          <p className="text-2xl text-gray-900">{mockSites.filter(s => s.status === 'disabled').length}</p>
+          <p className="text-sm text-gray-500 mb-1">Closed Sites</p>
+          <p className="text-2xl text-gray-900">{mockSites.filter(s => s.status === 'closed').length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">Total Workers Assigned</p>
@@ -282,7 +284,7 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
                   </TableCell>
                   <TableCell>
                     <Badge variant={site.status === 'active' ? 'default' : 'secondary'}>
-                      {site.status === 'active' ? 'Active' : 'Completed'}
+                      {site.status === 'active' ? 'Active' : site.status === 'pending' ? 'Pending' : 'Closed'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -308,7 +310,7 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <PowerOff className="w-4 h-4 mr-2" />
-                              {site.status === 'active' ? 'Mark as Completed' : 'Reactivate'}
+                              {site.status === 'active' ? 'Mark as Closed' : 'Reactivate'}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -368,7 +370,8 @@ export function SitesManagement({ userRole }: SitesManagementProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="disabled">Completed (Disabled)</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

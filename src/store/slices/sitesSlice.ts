@@ -221,7 +221,8 @@ const sitesSlice = createSlice({
       const { id, status } = action.payload;
       if (state.byId[id]) {
         state.byId[id].status = status;
-        if (status === 'completed') state.byId[id].progress = 100;
+        if (status === 'closed') state.byId[id].progress = 100;
+        if (status === 'pending') state.byId[id].progress = 0;
       }
     },
   },
@@ -285,7 +286,8 @@ const sitesSlice = createSlice({
         const { id, status } = action.payload;
         if (state.byId[id]) {
           state.byId[id].status = status;
-          if (status === 'completed') state.byId[id].progress = 100;
+          if (status === 'closed') state.byId[id].progress = 100;
+          if (status === 'pending') state.byId[id].progress = 0;
         }
       })
       .addCase(patchSiteStatus.rejected, (state, action) => {

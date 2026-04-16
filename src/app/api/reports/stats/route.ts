@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const sites = await prisma.site.findMany({
       where: {
         status: {
-          in: ['active', 'completed'],
+          in: ['active', 'closed'],
         },
       },
     });
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const activeClients = clients.filter(c => c.status === 'active').length;
     const totalClients = clients.length;
     const activeSites = sites.filter(s => s.status === 'active').length;
-    const completedSites = sites.filter(s => s.status === 'completed').length;
+    const completedSites = sites.filter(s => s.status === 'closed').length;
 
     return NextResponse.json({
       stats: {

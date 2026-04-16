@@ -37,6 +37,14 @@ export async function GET(
       );
     }
 
+    const normalizeSiteStatus = (s: unknown) => {
+      const v = String(s ?? '').toLowerCase();
+      if (v === 'scheduled') return 'pending';
+      if (v === 'completed') return 'closed';
+      if (v === 'on-hold' || v === 'on_hold') return 'pending';
+      return v;
+    };
+
     const workers = site.workerIds.length
       ? await prisma.users.findMany({
           where: { id: { in: site.workerIds } },
@@ -51,7 +59,7 @@ export async function GET(
       : [];
 
     return NextResponse.json(
-      { site: { ...site, workers, assignedWorkers: workers.length, totalAssignments: 0 } },
+      { site: { ...site, status: normalizeSiteStatus(site.status), workers, assignedWorkers: workers.length, totalAssignments: 0 } },
       { status: 200 }
     );
   } catch (error: any) {
@@ -93,10 +101,11 @@ export async function PATCH(
       );
     }
 
-    // Validation: Cannot set status to "on-hold" if progress is 100%
-    if (status === 'on-hold' && existingSite.progress === 100) {
+    const allowedStatuses = ['active', 'pending', 'closed'];
+    const resolvedStatus = typeof status === 'string' ? status.toLowerCase() : '';
+    if (resolvedStatus && !allowedStatuses.includes(resolvedStatus)) {
       return NextResponse.json(
-        { error: 'Cannot set status to "on-hold" when progress is 100%. Please reduce progress first.' },
+        { error: 'Invalid status. Must be active, pending, or closed' },
         { status: 400 }
       );
     }
@@ -104,15 +113,19 @@ export async function PATCH(
     const updateData: any = {};
     
     if (status) {
-      updateData.status = status;
-      // If status is set to completed, automatically set progress to 100%
-      if (status === 'completed') {
+      updateData.status = resolvedStatus;
+
+      // Keep progress in sync with status
+      if (resolvedStatus === 'closed') {
         updateData.progress = 100;
         updateData.progressUpdatedAt = new Date();
-        // Set actual end date if not already set
-        if (!existingSite.actualEndDate) {
-          updateData.actualEndDate = new Date();
-        }
+        if (!existingSite.actualEndDate) updateData.actualEndDate = new Date();
+      } else if (resolvedStatus === 'pending') {
+        updateData.progress = 0;
+        updateData.progressUpdatedAt = null;
+        updateData.actualEndDate = null;
+      } else if (resolvedStatus === 'active') {
+        updateData.actualEndDate = null;
       }
     }
 
@@ -188,6 +201,14 @@ export async function PUT(
       );
     }
 
+    const normalizeSiteStatus = (s: unknown) => {
+      const v = String(s ?? '').toLowerCase();
+      if (v === 'scheduled') return 'pending';
+      if (v === 'completed') return 'closed';
+      if (v === 'on-hold' || v === 'on_hold') return 'pending';
+      return v;
+    };
+
     // Verify site manager if provided (only validate if not null/empty)
     if (siteManagerId && siteManagerId.trim() !== '') {
       const manager = await prisma.users.findUnique({
@@ -225,53 +246,61 @@ export async function PUT(
     }
     
     // Handle status and progress synchronization with validation
-    if (status) {
-      // Validation: Cannot set status to "on-hold" if progress is 100%
-      if (status === 'on-hold' && existingSite.progress === 100) {
+    const allowedStatuses = ['active', 'pending', 'closed'];
+    const resolvedStatus = typeof status === 'string' ? status.toLowerCase() : undefined;
+
+    if (resolvedStatus) {
+      if (!allowedStatuses.includes(resolvedStatus)) {
         return NextResponse.json(
-          { error: 'Cannot set status to "on-hold" when progress is 100%. Please reduce progress first.' },
+          { error: 'Invalid status. Must be active, pending, or closed' },
           { status: 400 }
         );
       }
-      
-      updateData.status = status;
-      // If status is set to completed, automatically set progress to 100%
-      if (status === 'completed') {
+
+      updateData.status = resolvedStatus;
+
+      if (resolvedStatus === 'closed') {
         updateData.progress = 100;
         updateData.progressUpdatedAt = new Date();
-        // Set actual end date if not already set
-        if (!actualEndDate && !existingSite.actualEndDate) {
+        if (!('actualEndDate' in updateData) && !existingSite.actualEndDate) {
           updateData.actualEndDate = new Date();
         }
+      } else if (resolvedStatus === 'pending') {
+        updateData.progress = 0;
+        updateData.progressUpdatedAt = null;
+        updateData.actualEndDate = null;
+      } else if (resolvedStatus === 'active') {
+        updateData.actualEndDate = null;
       }
     }
-    
+
     if (progress !== undefined) {
-      // Validation: Cannot update progress if status is "on-hold"
-      if (existingSite.status === 'on-hold') {
-        return NextResponse.json(
-          { error: 'Cannot update progress for sites that are on hold. Please change the site status first.' },
-          { status: 400 }
-        );
-      }
-      
       const clampedProgress = Math.min(100, Math.max(0, progress)); // Clamp between 0-100
       updateData.progress = clampedProgress;
       updateData.progressUpdatedAt = new Date();
-      
-      // If progress is set to 100%, automatically set status to completed
-      if (clampedProgress === 100 && existingSite.status !== 'completed') {
-        updateData.status = 'completed';
-        // Set actual end date if not already set
-        if (!existingSite.actualEndDate) {
+
+      if (clampedProgress === 100) {
+        updateData.status = 'closed';
+        if (!('actualEndDate' in updateData) && !existingSite.actualEndDate) {
           updateData.actualEndDate = new Date();
         }
-      }
-      // If progress is less than 100% and status was completed, change to active
-      else if (clampedProgress < 100 && existingSite.status === 'completed') {
-        updateData.status = 'active';
-        // Clear actual end date since it's no longer completed
-        updateData.actualEndDate = null;
+      } else {
+        // If progress is not 100%, clear closed end date.
+        const normalizedExistingStatus = normalizeSiteStatus(existingSite.status);
+
+        if (normalizedExistingStatus === 'closed') {
+          updateData.status = 'active';
+          updateData.actualEndDate = null;
+        }
+        // If site was pending and some work has started, move to active.
+        else if (normalizedExistingStatus === 'pending') {
+          if (clampedProgress > 0) {
+            updateData.status = 'active';
+          } else {
+            updateData.status = 'pending';
+            updateData.actualEndDate = null;
+          }
+        }
       }
     }
     

@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM "Team"       WHERE status = 'active')                            AS active_teams,
         (SELECT COUNT(*) FROM "Site")                                                           AS total_sites,
         (SELECT COUNT(*) FROM "Site"       WHERE status = 'active')                            AS active_sites,
-        (SELECT COUNT(*) FROM "Site"       WHERE status = 'completed')                         AS completed_sites,
+        (SELECT COUNT(*) FROM "Site"       WHERE status = 'closed')                             AS completed_sites,
         (SELECT COUNT(*) FROM "Offer")                                                          AS total_offers,
         (SELECT COUNT(*) FROM "Offer"      WHERE "offerStatus" = 'accepted')                   AS accepted_offers,
         (SELECT COUNT(*) FROM "Order")                                                          AS total_orders,

@@ -37,7 +37,7 @@ export const selectSiteStats = (state: RootState) => {
   return {
     total: sites.length,
     active: sites.filter((s) => s.status === 'active').length,
-    scheduled: sites.filter((s) => s.status === 'scheduled').length,
-    completed: sites.filter((s) => s.status === 'completed').length,
+    pending: sites.filter((s) => s.status === 'pending').length,
+    closed: sites.filter((s) => s.status === 'closed').length,
   };
 };
