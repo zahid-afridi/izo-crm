@@ -83,13 +83,7 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
   };
 
   const handleNotificationNavigate = (notification: Notification) => {
-    if (notification.module === 'assignments') {
-      if (userRole === 'worker') {
-        router.push('/workers');
-      } else {
-        router.push('/assignments');
-      }
-    }
+    void notification;
   };
 
   useEffect(() => {
@@ -126,12 +120,12 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
 
   const pageTitleKey: Record<string, string> = {
     dashboard: 'nav.dashboard', chat: 'nav.chat', Messages: 'nav.messages', products: 'nav.products', services: 'nav.services',
-    sites: 'nav.sites', workers: 'nav.workers', assignments: 'nav.assignments', teams: 'nav.teams',
+    sites: 'nav.sites', workers: 'nav.workers', teams: 'nav.teams',
     offers: 'nav.offers', 'service-packages': 'nav.servicePackages', clients: 'nav.clients',
     orders: 'nav.orders', 'order-management': 'nav.orderManagement', 'team-management': 'nav.teamManagement',
     'website-manager': 'nav.websiteManager', attendance: 'nav.attendance', 'activity-log': 'nav.activityLog', reports: 'nav.reports',
     settings: 'nav.settings', 'site-manager-dashboard': 'nav.dashboard', 'sites-management': 'nav.sites',
-    'cars-management': 'nav.cars', 'workers-management': 'nav.workers', 'create-assignment': 'nav.assignments',
+    'cars-management': 'nav.cars', 'workers-management': 'nav.workers',
     'site-reports': 'nav.reports', 'worker-location-tracking': 'nav.workers', 'worker-dashboard': 'nav.dashboard',
     'worker-chat': 'nav.chat',
     profile: 'nav.profile',

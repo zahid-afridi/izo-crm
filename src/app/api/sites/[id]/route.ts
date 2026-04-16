@@ -37,15 +37,9 @@ export async function GET(
       );
     }
 
-    // Fetch worker assignments from the Assignment table
-    const uniqueWorkers = await prisma.assignment.findMany({
-      where: {
-        siteId: site.id,
-        status: 'active',
-      },
-      select: {
-        workerId: true,
-        worker: {
+    const workers = site.workerIds.length
+      ? await prisma.users.findMany({
+          where: { id: { in: site.workerIds } },
           select: {
             id: true,
             fullName: true,
@@ -53,21 +47,11 @@ export async function GET(
             phone: true,
             role: true,
           },
-        },
-      },
-      distinct: ['workerId'], // Get unique workers only
-    });
-
-    const workers = uniqueWorkers.map(assignment => assignment.worker);
-    const assignmentCount = await prisma.assignment.count({
-      where: {
-        siteId: site.id,
-        status: 'active',
-      },
-    });
+        })
+      : [];
 
     return NextResponse.json(
-      { site: { ...site, workers, assignedWorkers: workers.length, totalAssignments: assignmentCount } },
+      { site: { ...site, workers, assignedWorkers: workers.length, totalAssignments: 0 } },
       { status: 200 }
     );
   } catch (error: any) {
@@ -312,15 +296,9 @@ export async function PUT(
       },
     });
 
-    // Fetch worker assignments from the Assignment table
-    const uniqueWorkers = await prisma.assignment.findMany({
-      where: {
-        siteId: site.id,
-        status: 'active',
-      },
-      select: {
-        workerId: true,
-        worker: {
+    const workers = site.workerIds.length
+      ? await prisma.users.findMany({
+          where: { id: { in: site.workerIds } },
           select: {
             id: true,
             fullName: true,
@@ -328,21 +306,11 @@ export async function PUT(
             phone: true,
             role: true,
           },
-        },
-      },
-      distinct: ['workerId'], // Get unique workers only
-    });
-
-    const workers = uniqueWorkers.map(assignment => assignment.worker);
-    const assignmentCount = await prisma.assignment.count({
-      where: {
-        siteId: site.id,
-        status: 'active',
-      },
-    });
+        })
+      : [];
 
     return NextResponse.json(
-      { message: 'Site updated successfully', site: { ...site, workers, assignedWorkers: workers.length, totalAssignments: assignmentCount } },
+      { message: 'Site updated successfully', site: { ...site, workers, assignedWorkers: workers.length, totalAssignments: 0 } },
       { status: 200 }
     );
   } catch (error: any) {
@@ -412,21 +380,6 @@ export async function DELETE(
       );
     }
 
-    // Check if site has active assignments
-    const activeAssignments = await prisma.assignment.count({
-      where: {
-        siteId: id,
-        status: 'active',
-      },
-    });
-
-    if (activeAssignments > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete site with active assignments. Please complete or remove assignments first.' },
-        { status: 400 }
-      );
-    }
-
     await prisma.site.delete({
       where: { id },
     });
@@ -441,7 +394,7 @@ export async function DELETE(
     // Handle Prisma specific errors
     if (error.code === 'P2003') {
       return NextResponse.json(
-        { error: 'Cannot delete site. It is referenced by other records (assignments, etc.). Please remove related records first.' },
+        { error: 'Cannot delete site. It is referenced by other records.' },
         { status: 400 }
       );
     }

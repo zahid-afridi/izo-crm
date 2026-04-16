@@ -24,7 +24,6 @@ const allPages = [
   { id: 'services', label: 'Services Management', roles: ['admin', 'website_manager'] },
   { id: 'sites', label: 'Construction Sites', roles: ['admin', 'site_manager'] },
   { id: 'workers', label: 'Workers Management', roles: ['admin', 'site_manager'] },
-  { id: 'assignments', label: 'Worker Assignments', roles: ['admin', 'site_manager'] },
   { id: 'teams', label: 'Team Management', roles: ['admin', 'site_manager'] },
   { id: 'offers', label: 'Offers Management', roles: ['admin', 'offer_manager'] },
   { id: 'service-packages', label: 'Service Packages', roles: ['admin', 'offer_manager'] },

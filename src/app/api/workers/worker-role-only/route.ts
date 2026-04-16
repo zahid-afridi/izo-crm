@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizeWorkerRemoveStatus } from '@/lib/workerRemoveStatus';
 
-// GET only users with 'worker' role (for assignments and other worker-specific operations)
+// GET only users with 'worker' role
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -72,28 +72,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // If date is provided and includeAssigned is false, filter out assigned workers
-    if (date && !includeAssigned) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const assignedWorkerIds = await prisma.assignment.findMany({
-        where: {
-          assignedDate: {
-            gte: startOfDay,
-            lte: endOfDay,
-          },
-        },
-        select: {
-          workerId: true,
-        },
-      });
-
-      const assignedIds = assignedWorkerIds.map(a => a.workerId);
-      workers = workers.filter(w => !assignedIds.includes(w.id));
-    }
+    // Assignment module removed: keep legacy params accepted for compatibility.
+    void includeAssigned;
+    void date;
 
     return NextResponse.json({ workers }, { status: 200 });
   } catch (error) {

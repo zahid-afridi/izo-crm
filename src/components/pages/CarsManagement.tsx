@@ -124,7 +124,7 @@ export function CarsManagement({ userRole }: CarsManagementProps) {
               <DialogHeader>
                 <DialogTitle>Add New Car</DialogTitle>
                 <DialogDescription>
-                  Register a new vehicle for site assignments
+                  Register a new vehicle for site operations
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">

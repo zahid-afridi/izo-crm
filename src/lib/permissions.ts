@@ -13,7 +13,6 @@ export const PERMISSIONS = {
     projects: ['create', 'read', 'update', 'delete', 'publish'],
     teams: ['create', 'read', 'update', 'delete'],
     cars: ['create', 'read', 'update', 'delete', 'disable'],
-    assignments: ['create', 'read', 'update', 'delete'],
     reports: ['generate', 'export'],
     website: ['manage_all'],
     chat: ['create', 'read', 'approve', 'delete'],
@@ -44,7 +43,6 @@ export const PERMISSIONS = {
     sites: ['create', 'read', 'update', 'disable'],
     workers: ['create', 'read', 'update', 'disable'],
     cars: ['create', 'read', 'update', 'disable'],
-    assignments: ['create', 'read', 'update', 'delete', 'finalize', 'export'],
     teams: ['read'],
     offers: ['read', 'export'],
     reports: ['generate', 'export'],
@@ -86,7 +84,6 @@ export const PERMISSIONS = {
   },
   
   worker: {
-    assignments: ['read'],
     siteAttendance: ['update'],
     chat: ['create', 'read'],
   },

@@ -43,7 +43,6 @@ model Users {
   lastLogin    DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  assignments  Assignment[]
   managedSites Site[]       @relation("SiteManager")
   teamsLed     Team[]       @relation("TeamLead")
   worker       Worker?
@@ -421,28 +420,12 @@ model Site {
   description       String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
-  assignments            Assignment[]
-  assignmentSiteHistory  AssignmentSiteHistory[]
   siteManager            Users?       @relation("SiteManager", fields: [siteManagerId], references: [id])
 
   @@index([status])
   @@index([startDate])
   @@index([clientId])
   @@index([siteManagerId])
-}
-
-model AssignmentSiteHistory {
-  id          String   @id @default(uuid())
-  siteId      String
-  date        DateTime
-  workerCount Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  @@unique([siteId, date])
-  @@index([siteId])
-  @@index([date])
 }
 
 model Worker {
@@ -496,31 +479,6 @@ model Team {
   @@index([name])
 }
 
-model Assignment {
-  id                    String   @id @default(uuid())
-  siteId                String
-  workerId              String
-  carId                 String?
-  assignedDate          DateTime
-  status                String   @default("active")
-  notes                 String?
-  showAssignmentHistory Boolean  @default(false)
-  workerLocked          Boolean  @default(false)
-  carLocked             Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  worker                Users    @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  car                   Car?     @relation(fields: [carId], references: [id], onDelete: SetNull)
-  siteAttendances        SiteAttendance[]
-
-  @@index([siteId])
-  @@index([workerId])
-  @@index([carId])
-  @@index([assignedDate])
-  @@index([status])
-}
-
 model Car {
   id           String       @id @default(uuid())
   name         String
@@ -531,8 +489,6 @@ model Car {
   isLocked     Boolean      @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  assignments  Assignment[]
-
   @@index([status])
   @@index([isLocked])
   @@index([name])
@@ -714,7 +670,6 @@ model ChatMessage {
 model SiteAttendance {
   id           String    @id @default(uuid())
   workerId     String
-  assignmentId String
   checkInTime  DateTime
   checkOutTime DateTime?
   date         DateTime // Date of the attendance (for grouping)
@@ -725,13 +680,11 @@ model SiteAttendance {
   checkOutLng  Float?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   worker       Users      @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId])
-  @@index([assignmentId])
   @@index([date])
-  @@index([workerId, assignmentId, date])
+  @@index([workerId, date])
   @@map("Attendance")
 }
 

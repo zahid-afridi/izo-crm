@@ -31,7 +31,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { MobileProductsView } from './MobileProductsView';
-import { MobileAssignmentsView } from './MobileAssignmentsView';
 import Image from 'next/image';
 import Logo from '@/../public/logo.svg';
 import { useAppSelector } from '@/store/hooks';
@@ -49,7 +48,6 @@ type MobileMainView =
   | 'sites'
   | 'offers'
   | 'orders'
-  | 'assignments'
   | 'chat'
   | 'menu'
   | 'workers';
@@ -74,7 +72,6 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
       { id: 'home', label: 'Dashboard', icon: Home, roles: ['admin', 'site_manager', 'offer_manager', 'order_manager', 'website_manager', 'sales_agent', 'hr'] },
       { id: 'products', label: 'Products', icon: Package, roles: ['admin', 'product_manager', 'sales_agent', 'order_manager'] },
       { id: 'sites', label: 'Sites', icon: Building2, roles: ['admin', 'site_manager'] },
-      { id: 'assignments', label: 'Assignments', icon: Calendar, roles: ['admin', 'site_manager'] },
       { id: 'workers', label: 'Team Management', icon: Users, roles: ['admin', 'site_manager', 'hr'] },
       { id: 'clients', label: 'Clients', icon: Store, roles: ['admin', 'offer_manager', 'sales_agent', 'order_manager'] },
       { id: 'offers', label: 'Offers', icon: FileText, roles: ['admin', 'offer_manager', 'sales_agent'] },
@@ -276,7 +273,7 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
     } else if (userRole === 'site_manager') {
       return [
         { label: 'View Sites', icon: Building2, onClick: () => setCurrentView('sites') },
-        { label: 'Assignments', icon: Calendar, onClick: () => setCurrentView('assignments') },
+        { label: 'Attendance', icon: Calendar, onClick: () => setCurrentView('workers') },
         { label: 'Workers', icon: Users, onClick: () => {} },
         { label: 'Reports', icon: BarChart3, onClick: () => {} },
       ];
@@ -471,9 +468,6 @@ export function MobileApp({ userRole, onLogout, userName }: MobileAppProps) {
           <h2 className="text-xl text-gray-900 mb-4">Construction Sites</h2>
           <p className="text-gray-600">Sites management view coming soon...</p>
         </div>
-      )}
-      {currentView === 'assignments' && (
-        <MobileAssignmentsView userRole={userRole} />
       )}
       {currentView === 'workers' && (
         <div className="p-4 pb-24">

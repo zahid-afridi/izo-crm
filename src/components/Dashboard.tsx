@@ -48,7 +48,6 @@ export function Dashboard({ userRole }: DashboardProps) {
         'create_offer': '/offers',
         'add_client': '/clients',
         'create_order': '/orders',
-        'add_assignment': '/assignments',
         'add_team': '/teams',
         'add_car': '/cars',
         'add_service': '/services',
