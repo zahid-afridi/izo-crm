@@ -40,7 +40,7 @@ const ROLE_MENU_ACCESS: Record<string, string[]> = {
   worker: ['/workers', '/chat', '/attendance'],
   admin: ['*'],           // Admin sees everything
   product_manager: ['/products', '/chat', '/attendance'],
-  site_manager: ['/sites', '/assignments', '/cars', '/teams', '/attendance'],
+  site_manager: ['/sites', '/cars', '/teams', '/attendance'],
   offer_manager: ['/offers', '/service-packages', '/clients', '/products', '/chat', '/attendance'],
   order_manager: ['/orders', '/clients', '/products', '/chat', '/team-management', '/order-management', '/attendance'],
   sales_agent: ['/clients', '/orders', '/products', '/chat', '/attendance'],
@@ -77,7 +77,6 @@ const menuItems = [
   // { path: '/services', labelKey: 'nav.services', icon: Wrench },
   { path: '/sites', labelKey: 'nav.sites', icon: Building2 },
   { path: '/workers', labelKey: 'nav.workers', icon: Users },
-  { path: '/assignments', labelKey: 'nav.assignments', icon: Calendar },
   { path: '/cars', labelKey: 'nav.cars', icon: Car },
   { path: '/teams', labelKey: 'nav.teams', icon: Users },
   { path: '/offers', labelKey: 'nav.offers', icon: FileText },

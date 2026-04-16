@@ -39,26 +39,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch worker assignments for each site from the Assignment table
+    // Assignment module removed: use site.workerIds as assignment source.
     const sitesWithWorkers = await Promise.all(
       sites.map(async (site) => {
-        // Count current active assignments for this site
-        const assignmentCount = await prisma.assignment.count({
-          where: {
-            siteId: site.id,
-            status: 'active', // Only count active assignments
-          },
-        });
-
-        // Get unique workers assigned to this site (in case of multiple assignments per worker)
-        const uniqueWorkers = await prisma.assignment.findMany({
-          where: {
-            siteId: site.id,
-            status: 'active',
-          },
-          select: {
-            workerId: true,
-            worker: {
+        const workers = site.workerIds.length
+          ? await prisma.users.findMany({
+              where: { id: { in: site.workerIds } },
               select: {
                 id: true,
                 fullName: true,
@@ -66,16 +52,14 @@ export async function GET(request: NextRequest) {
                 phone: true,
                 role: true,
               },
-            },
-          },
-          distinct: ['workerId'], // Get unique workers only
-        });
+            })
+          : [];
 
         return {
           ...site,
-          workers: uniqueWorkers.map(assignment => assignment.worker),
-          assignedWorkers: uniqueWorkers.length, // Count of unique workers
-          totalAssignments: assignmentCount, // Total assignments (including multiple per worker)
+          workers,
+          assignedWorkers: workers.length,
+          totalAssignments: 0,
         };
       })
     );

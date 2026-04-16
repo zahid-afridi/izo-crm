@@ -428,19 +428,14 @@ export async function DELETE(
         where: { teamLeadId: id }
       });
 
-      // 3. Delete all assignments for this worker
-      await tx.assignment.deleteMany({
-        where: { workerId: id }
-      });
-
-      // 4. Delete worker record if it exists
+      // 3. Delete worker record if it exists
       if (user.worker) {
         await tx.worker.delete({
           where: { userId: id },
         });
       }
 
-      // 5. Finally, delete the user
+      // 4. Finally, delete the user
       await tx.users.delete({
         where: { id },
       });
@@ -491,7 +486,7 @@ export async function DELETE(
     return NextResponse.json(
       { 
         message: `${user.worker ? 'Worker' : 'User'} deleted successfully`,
-        details: 'Removed from all teams and assignments'
+        details: 'Removed from all teams'
       },
       { status: 200 }
     );

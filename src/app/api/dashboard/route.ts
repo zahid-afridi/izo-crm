@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
       active_workers: bigint;
       active_clients: bigint;
       orders_this_month: bigint;
-      today_assignments: bigint;
       active_teams: bigint;
       total_sites: bigint;
       active_sites: bigint;
@@ -76,9 +75,6 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM "Worker"     WHERE "removeStatus" = 'active')                    AS active_workers,
         (SELECT COUNT(*) FROM "Client"     WHERE status = 'active')                            AS active_clients,
         (SELECT COUNT(*) FROM "Order"      WHERE "orderDate" >= ${startOfMonth})               AS orders_this_month,
-        (SELECT COUNT(*) FROM "Assignment" WHERE "assignedDate" >= ${startOfDay}
-                                             AND "assignedDate" <  ${endOfDay}
-                                             AND status = 'active')                            AS today_assignments,
         (SELECT COUNT(*) FROM "Team"       WHERE status = 'active')                            AS active_teams,
         (SELECT COUNT(*) FROM "Site")                                                           AS total_sites,
         (SELECT COUNT(*) FROM "Site"       WHERE status = 'active')                            AS active_sites,
@@ -153,7 +149,6 @@ export async function GET(request: NextRequest) {
           orderCompletionRate: totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0,
           activeWorkers,
           workerUtilization: totalWorkers > 0 ? Math.round((activeWorkers / totalWorkers) * 100) : 0,
-          todayAssignments: n(stats.today_assignments),
           activeTeams:      n(stats.active_teams),
         },
         recentActivity: recentActivity.map(a => ({

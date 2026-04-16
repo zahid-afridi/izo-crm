@@ -1,5 +1,31 @@
 import { prisma } from '@/lib/prisma';
-import { SiteReportResult, WorkerReportResult } from '@/types/assignments';
+
+export interface SiteReportResult {
+  site: { id: string; name: string };
+  rows: Array<{ date: string; workers: string[]; workerCount: number }>;
+  summary: { totalWorkerDays: number };
+}
+
+export interface WorkerReportResult {
+  worker: { id: string; fullName: string };
+  rows: Array<{ date: string; status: string; siteName?: string }>;
+  workDays?: number;
+  dayOffDays?: number;
+}
+
+export interface PayrollReport {
+  month: string;
+  workers: Array<{
+    workerId: string;
+    fullName: string;
+    workDays: number;
+    dailySalary: number | null;
+    totalEarnings: number | null;
+    paidAmount: number;
+    dueAmount: number | null;
+    missingSalaryWarning: boolean;
+  }>;
+}
 
 export async function getSiteReport(params: {
   siteId: string;
@@ -41,29 +67,29 @@ export async function getSiteReport(params: {
     lt = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1));
   }
 
-  // Query assignments for the site in the date range
-  const assignments = await prisma.assignment.findMany({
+  // Query employee attendance in the date range.
+  const attendances = await prisma.employeeAttendance.findMany({
     where: {
-      siteId,
-      assignedDate: { gte, lt },
+      attendanceDate: { gte, lt },
+      checkInTime: { not: null },
     },
     select: {
-      assignedDate: true,
-      worker: { select: { fullName: true } },
+      attendanceDate: true,
+      user: { select: { fullName: true } },
     },
-    orderBy: { assignedDate: 'asc' },
+    orderBy: { attendanceDate: 'asc' },
   });
 
   // Group by date string YYYY-MM-DD
   const dateMap = new Map<string, string[]>();
 
-  for (const a of assignments) {
-    const d = a.assignedDate;
+  for (const a of attendances) {
+    const d = a.attendanceDate;
     const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
     if (!dateMap.has(dateStr)) {
       dateMap.set(dateStr, []);
     }
-    dateMap.get(dateStr)!.push(a.worker.fullName);
+    dateMap.get(dateStr)!.push(a.user.fullName);
   }
 
   // Build rows sorted by date
@@ -118,20 +144,18 @@ export async function getWorkerReport(params: {
       };
     }
 
-    // Check active assignment
-    const assignment = await prisma.assignment.findFirst({
+    const attendance = await prisma.employeeAttendance.findFirst({
       where: {
-        workerId,
-        assignedDate: { gte: dayStart, lt: dayEnd },
-        status: 'active',
+        userId: workerId,
+        attendanceDate: { gte: dayStart, lt: dayEnd },
       },
-      select: { site: { select: { name: true } } },
+      select: { checkInTime: true },
     });
 
-    if (assignment) {
+    if (attendance?.checkInTime) {
       return {
         worker,
-        rows: [{ date, status: 'working', siteName: assignment.site.name }],
+        rows: [{ date, status: 'working' }],
       };
     }
 
@@ -148,18 +172,16 @@ export async function getWorkerReport(params: {
   const gte = new Date(Date.UTC(y, m - 1, 1));
   const lt = new Date(Date.UTC(y, m, 1));
 
-  // Fetch all active assignments for the worker in the month
-  const assignments = await prisma.assignment.findMany({
+  const attendances = await prisma.employeeAttendance.findMany({
     where: {
-      workerId,
-      assignedDate: { gte, lt },
-      status: 'active',
+      userId: workerId,
+      attendanceDate: { gte, lt },
+      checkInTime: { not: null },
     },
     select: {
-      assignedDate: true,
-      site: { select: { name: true } },
+      attendanceDate: true,
     },
-    orderBy: { assignedDate: 'asc' },
+    orderBy: { attendanceDate: 'asc' },
   });
 
   // Fetch DailyProgram records in the month
@@ -178,13 +200,13 @@ export async function getWorkerReport(params: {
     }
   }
 
-  // Build per-date rows from assignments
+  // Build per-date rows from attendance
   const rows: Array<{ date: string; status: string; siteName?: string }> = [];
 
-  for (const a of assignments) {
-    const d = a.assignedDate;
+  for (const a of attendances) {
+    const d = a.attendanceDate;
     const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-    rows.push({ date: dateStr, status: 'working', siteName: a.site.name });
+    rows.push({ date: dateStr, status: 'working' });
   }
 
   // Add day-off rows
@@ -197,13 +219,13 @@ export async function getWorkerReport(params: {
 
   return {
     worker,
-    workDays: assignments.length,
+    workDays: attendances.length,
     dayOffDays: dayOffDates.size,
     rows,
   };
 }
 
-export async function getPayrollReport(month: string): Promise<import('@/types/assignments').PayrollReport> {
+export async function getPayrollReport(month: string): Promise<PayrollReport> {
   const [y, m] = month.split('-').map(Number);
   const gte = new Date(Date.UTC(y, m - 1, 1));
   const lt = new Date(Date.UTC(y, m, 1));
@@ -215,11 +237,11 @@ export async function getPayrollReport(month: string): Promise<import('@/types/a
 
   const rows = await Promise.all(
     workers.map(async (worker) => {
-      const workDays = await prisma.assignment.count({
+      const workDays = await prisma.employeeAttendance.count({
         where: {
-          workerId: worker.userId,
-          assignedDate: { gte, lt },
-          status: 'active',
+          userId: worker.userId,
+          attendanceDate: { gte, lt },
+          checkInTime: { not: null },
         },
       });
 

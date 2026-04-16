@@ -22,7 +22,7 @@ export default function LoginRoute() {
         admin: '/dashboard',
         worker: '/workers',
         product_manager: '/products',
-        site_manager: '/assignments',
+        site_manager: '/sites',
         offer_manager: '/offers',
         sales_agent: '/orders',
         order_manager: '/orders',

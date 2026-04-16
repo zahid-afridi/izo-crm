@@ -84,10 +84,10 @@ export function SiteManagerDashboard({ userRole }: SiteManagerDashboardProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Button 
             className="h-auto py-4 flex flex-col gap-2"
-            onClick={() => handleNavigation('/site-manager/create-assignment')}
+            onClick={() => handleNavigation('/sites')}
           >
             <Plus className="w-5 h-5" />
-            <span className="text-sm">Manage Assignments</span>
+            <span className="text-sm">Manage Sites</span>
           </Button>
           <Button 
             variant="outline" 

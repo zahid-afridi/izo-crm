@@ -1,11 +1,46 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type {
-  SiteReportParams,
-  SiteReportResult,
-  WorkerReportParams,
-  WorkerReportResult,
-  PayrollReport,
-} from '@/types/assignments';
+
+type SiteReportParams = {
+  siteId: string;
+  mode: 'dateRange' | 'monthly' | 'total';
+  dateFrom?: string;
+  dateTo?: string;
+  month?: string;
+};
+
+type SiteReportResult = {
+  site: { id: string; name: string };
+  rows: Array<{ date: string; workers: string[]; workerCount: number }>;
+  summary: { totalWorkerDays: number };
+};
+
+type WorkerReportParams = {
+  workerId: string;
+  mode: 'daily' | 'monthly';
+  date?: string;
+  month?: string;
+};
+
+type WorkerReportResult = {
+  worker: { id: string; fullName: string };
+  rows: Array<{ date: string; status: string; siteName?: string }>;
+  workDays?: number;
+  dayOffDays?: number;
+};
+
+type PayrollReport = {
+  month: string;
+  workers: Array<{
+    workerId: string;
+    fullName: string;
+    workDays: number;
+    dailySalary: number | null;
+    totalEarnings: number | null;
+    paidAmount: number;
+    dueAmount: number | null;
+    missingSalaryWarning: boolean;
+  }>;
+};
 
 function buildQueryString(params: Record<string, string | undefined>): string {
   const search = new URLSearchParams();

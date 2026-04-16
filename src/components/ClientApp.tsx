@@ -10,7 +10,6 @@ import { ProductsPage } from "./pages/ProductsPage";
 import { ServicesPage } from "./pages/ServicesPage";
 import { SitesPage } from "./pages/SitesPage";
 import { WorkersPage } from "./pages/WorkersPage";
-import { AssignmentsPage } from "./pages/AssignmentsPage";
 import { TeamsPage } from "./pages/TeamsPage";
 import { TeamManagementPage } from "./pages/TeamManagementPage";
 import { OffersPage } from "./pages/OffersPage_Enhanced";
@@ -32,7 +31,6 @@ import { SiteManagerDashboard } from "./pages/SiteManagerDashboard";
 import { SitesManagement } from "./pages/SitesManagement";
 import { CarsManagement } from "./pages/CarsManagement";
 import { WorkersManagement } from "./pages/WorkersManagement";
-import { CreateAssignment } from "./pages/CreateAssignment";
 import { SiteReports } from "./pages/SiteReports";
 import { WorkerLocationTracking } from "./pages/WorkerLocationTracking";
 
@@ -91,8 +89,6 @@ export default function ClientApp() {
         return <SitesPage userRole={currentUserRole} />;
       case "workers":
         return <WorkersPage userRole={currentUserRole} />;
-      case "assignments":
-        return <AssignmentsPage userRole={currentUserRole} />;
       case "teams":
         return <TeamsPage userRole={currentUserRole} />;
       case "team-management":
@@ -128,8 +124,6 @@ export default function ClientApp() {
         return <CarsManagement userRole={currentUserRole} />;
       case "workers-management":
         return <WorkersManagement userRole={currentUserRole} />;
-      case "create-assignment":
-        return <CreateAssignment userRole={currentUserRole} />;
       case "site-reports":
         return <SiteReports userRole={currentUserRole} />;
       case "worker-location-tracking":

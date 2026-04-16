@@ -25,22 +25,22 @@ export async function GET(
 
     // Initialize stats object
     const stats = {
-      totalAssignments: 0,
-      completedAssignments: 0,
+      totalAttendanceRecords: 0,
+      completedAttendanceRecords: 0,
       totalOrders: 0,
       completedOrders: 0,
       totalOffers: 0,
       acceptedOffers: 0,
     };
 
-    // Get assignment stats if user is a worker
+    // Get attendance stats if user is a worker
     if (user.role === 'worker') {
-      const assignments = await prisma.assignment.findMany({
-        where: { workerId: id }
+      const attendance = await prisma.employeeAttendance.findMany({
+        where: { userId: id }
       });
 
-      stats.totalAssignments = assignments.length;
-      stats.completedAssignments = assignments.filter(a => a.status === 'completed').length;
+      stats.totalAttendanceRecords = attendance.length;
+      stats.completedAttendanceRecords = attendance.filter(a => a.checkInTime && a.checkOutTime).length;
     }
 
     // Get order stats if user handles orders
