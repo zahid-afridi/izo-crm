@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchSites } from '@/store/slices/sitesSlice';
+import { selectAllSites, selectSitesIsInitialized, selectSitesIsLoading } from '@/store/selectors/sitesSelectors';
+import { fetchWorkers } from '@/store/slices/workersSlice';
+import { selectAllWorkers, selectWorkersIsInitialized, selectWorkersIsLoading } from '@/store/selectors/workersSelectors';
+import { fetchCars } from '@/store/slices/carsSlice';
+import { selectAllCars, selectCarsIsInitialized, selectCarsIsLoading } from '@/store/selectors/carsSelectors';
 import {
   Calendar,
   Search,
@@ -17,21 +24,16 @@ import {
   ChevronDown,
   Send,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 
 export default function AssignmentsRoute() {
-  const statCards = [
-    { label: 'Total Workers', value: '100', sub: 'Visible across all sites' },
-    { label: 'Active Sites', value: '20', sub: '10 more pending' },
-    { label: 'Assigned Today', value: '81', sub: '19 remaining workers' },
-  ];
-
-  type WorkerBasic = { name: string; role: string };
+  type WorkerBasic = { id: string; name: string; role: string };
   type AssignedWorker = WorkerBasic & { time: string };
   type LeaveStatus = 'Unpaid Day Off' | 'Paid Day Off' | 'No status';
   type RemainingWorker = WorkerBasic & { status: LeaveStatus };
 
-  type CarBasic = { name: string; type: string };
+  type CarBasic = { id: string; name: string; type: string };
   type AssignedCar = CarBasic & { time: string };
 
   type DraftDay = {
@@ -46,63 +48,53 @@ export default function AssignmentsRoute() {
     publishedAt?: string;
   };
 
-  const DEFAULT_DATE = '2026-02-15';
+  const formatDateInput = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
-  const sites = [
-    { name: 'Site A - Lake View Residence', assigned: 12, status: 'Active' },
-    { name: 'Site B - Commercial Building', assigned: 8, status: 'Active' },
-    { name: 'Site C - Premium Villas', assigned: 0, status: 'Pending' },
-    { name: 'Site D - Industrial Road', assigned: 5, status: 'Active' },
-    { name: 'Site E - Green Terrace', assigned: 0, status: 'Closed' },
-  ];
+  const todayDate = new Date();
+  const TODAY_DATE = formatDateInput(todayDate);
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const DEFAULT_DATE = formatDateInput(tomorrowDate);
+  const defaultRangeEndDate = new Date(tomorrowDate);
+  defaultRangeEndDate.setDate(defaultRangeEndDate.getDate() + 1);
+  const DEFAULT_RANGE_END = formatDateInput(defaultRangeEndDate);
 
-  const initialAssignedWorkers: AssignedWorker[] = [
-    { name: 'Arjan M.', role: 'Mason', time: '08:00 - 16:00' },
-    { name: 'Besnik L.', role: 'Electrician', time: '08:00 - 12:00' },
-    { name: 'Dritan K.', role: 'Plumber', time: '13:00 - 17:00' },
-    { name: 'Ervis T.', role: 'General Worker', time: '08:00 - 16:00' },
-  ];
+  const dispatch = useAppDispatch();
+  const reduxSites = useAppSelector(selectAllSites);
+  const sitesLoading = useAppSelector(selectSitesIsLoading);
+  const sitesInitialized = useAppSelector(selectSitesIsInitialized);
+  const reduxWorkers = useAppSelector(selectAllWorkers);
+  const workersLoading = useAppSelector(selectWorkersIsLoading);
+  const workersInitialized = useAppSelector(selectWorkersIsInitialized);
+  const reduxCars = useAppSelector(selectAllCars);
+  const carsLoading = useAppSelector(selectCarsIsLoading);
+  const carsInitialized = useAppSelector(selectCarsIsInitialized);
+
+  const initialAssignedWorkers: AssignedWorker[] = [];
 
   const initialAssignedCars: AssignedCar[] = [];
-  const initialAvailableCars: CarBasic[] = [
-    { name: 'Car 1', type: 'Pickup Truck' },
-    { name: 'Car 2', type: 'Van' },
-    { name: 'Car 3', type: 'Sedan' },
-    { name: 'Car 4', type: 'Pickup Truck' },
-  ];
 
-  const initialAvailableWorkers: WorkerBasic[] = [
-    { name: 'Klevis H.', role: 'Carpenter' },
-    { name: 'Lorenc S.', role: 'General Worker' },
-    { name: 'Marin T.', role: 'Electrician' },
-    { name: 'Dorian P.', role: 'Driver' },
-    { name: 'Arben V.', role: 'Plumber' },
-    { name: 'Genti Z.', role: 'General Worker' },
-  ];
-
-  const initialRemainingWorkers: RemainingWorker[] = [
-    { name: 'Nertil B.', role: 'General Worker', status: 'Unpaid Day Off' },
-    { name: 'Olsi D.', role: 'Driver', status: 'Unpaid Day Off' },
-    { name: 'Petrit C.', role: 'Plumber', status: 'Paid Day Off' },
-  ];
-
-  const [selectedSiteName, setSelectedSiteName] = useState<string>(sites[0]?.name || '');
-  const selectedSite = sites.find((s) => s.name === selectedSiteName) ?? sites[0];
+  const [selectedSiteName, setSelectedSiteName] = useState<string>('');
+  const [sitesQuery, setSitesQuery] = useState('');
+  const [siteStatusFilter, setSiteStatusFilter] = useState<'all' | 'active' | 'pending'>('all');
 
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
 
   const [assignTab, setAssignTab] = useState<'day' | 'range'>('day');
   const [rangeStart, setRangeStart] = useState<string>(DEFAULT_DATE);
-  const [rangeEnd, setRangeEnd] = useState<string>('2026-02-17');
+  const [rangeEnd, setRangeEnd] = useState<string>(DEFAULT_RANGE_END);
 
   const [timeRangeForAdd, setTimeRangeForAdd] = useState<string>('08:00 - 16:00');
 
   const [assignedWorkers, setAssignedWorkers] = useState<AssignedWorker[]>(initialAssignedWorkers);
-  const [availableWorkers, setAvailableWorkers] = useState<WorkerBasic[]>(initialAvailableWorkers);
-  const [remainingWorkers, setRemainingWorkers] = useState<RemainingWorker[]>(initialRemainingWorkers);
+  const [leaveStatusByWorker, setLeaveStatusByWorker] = useState<Record<string, LeaveStatus>>({});
 
   const [assignedCars, setAssignedCars] = useState<AssignedCar[]>(initialAssignedCars);
-  const [availableCars, setAvailableCars] = useState<CarBasic[]>(initialAvailableCars);
 
   const [availableQuery, setAvailableQuery] = useState('');
   const [assignedQuery, setAssignedQuery] = useState('');
@@ -116,15 +108,129 @@ export default function AssignmentsRoute() {
   const [draftsModalMode, setDraftsModalMode] = useState<'draft' | 'published'>('draft');
   const [allAssignmentsFilterDate, setAllAssignmentsFilterDate] = useState<string>(DEFAULT_DATE);
   const [drafts, setDrafts] = useState<DraftDay[]>([]);
+  const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
+  const [currentAssignmentStatus, setCurrentAssignmentStatus] = useState<'draft' | 'published' | null>(null);
+  const [isLoadingSelectedAssignment, setIsLoadingSelectedAssignment] = useState(false);
+  const [workerAction, setWorkerAction] = useState<{
+    workerId: string;
+    type: 'add' | 'remove' | 'time';
+  } | null>(null);
+
+  const assignmentSites = useMemo(
+    () =>
+      reduxSites.map((site) => ({
+        id: site.id,
+        name: site.name,
+        assigned: site.assignedWorkers ?? 0,
+        status: site.status,
+      })),
+    [reduxSites]
+  );
+
+  const filteredSites = useMemo(() => {
+    const q = sitesQuery.trim().toLowerCase();
+    return assignmentSites.filter((site) => {
+      const matchesSearch = !q || site.name.toLowerCase().includes(q);
+      const normalizedStatus = String(site.status).toLowerCase();
+      const matchesStatus =
+        siteStatusFilter === 'all' ||
+        (siteStatusFilter === 'active' && normalizedStatus === 'active') ||
+        (siteStatusFilter === 'pending' && normalizedStatus === 'pending');
+      return matchesSearch && matchesStatus;
+    });
+  }, [assignmentSites, sitesQuery, siteStatusFilter]);
+
+  useEffect(() => {
+    if (!sitesInitialized) {
+      dispatch(fetchSites(undefined));
+    }
+  }, [dispatch, sitesInitialized]);
+
+  useEffect(() => {
+    if ((poolTab === 'available' || poolTab === 'remaining') && !workersInitialized && !workersLoading) {
+      dispatch(fetchWorkers({ status: 'active', page: 1, pageSize: 200 }));
+    }
+    if (poolTab === 'cars' && !carsInitialized && !carsLoading) {
+      dispatch(fetchCars());
+    }
+  }, [poolTab, workersInitialized, workersLoading, carsInitialized, carsLoading, dispatch]);
+
+  useEffect(() => {
+    if (!assignmentSites.length) {
+      if (selectedSiteName) setSelectedSiteName('');
+      return;
+    }
+
+    const currentSelected = assignmentSites.find((site) => site.name === selectedSiteName);
+    const firstSelectableSite = assignmentSites.find(
+      (site) => String(site.status).toLowerCase() !== 'pending'
+    );
+    const fallbackSite = firstSelectableSite || assignmentSites[0];
+
+    if (
+      !selectedSiteName ||
+      !currentSelected ||
+      String(currentSelected.status).toLowerCase() === 'pending'
+    ) {
+      setSelectedSiteName(fallbackSite.name);
+    }
+  }, [assignmentSites, selectedSiteName]);
+
+  const workerPool = useMemo<WorkerBasic[]>(
+    () =>
+      reduxWorkers
+        .filter((w) => String(w.role).toLowerCase() === 'worker')
+        .map((w) => ({
+          id: w.id,
+          name: w.fullName,
+          role: w.worker?.employeeType || 'Worker',
+        })),
+    [reduxWorkers]
+  );
+
+  const assignedWorkerIds = useMemo(() => new Set(assignedWorkers.map((w) => w.id)), [assignedWorkers]);
+
+  const availableWorkersPool = useMemo(
+    () => workerPool.filter((w) => !assignedWorkerIds.has(w.id)),
+    [workerPool, assignedWorkerIds]
+  );
+
+  const remainingWorkersPool = useMemo<RemainingWorker[]>(
+    () =>
+      availableWorkersPool.map((w) => ({
+        ...w,
+        status: leaveStatusByWorker[w.id] || 'No status',
+      })),
+    [availableWorkersPool, leaveStatusByWorker]
+  );
+
+  const carPool = useMemo<CarBasic[]>(
+    () =>
+      reduxCars.map((car) => ({
+        id: car.id,
+        name: car.name,
+        type: [car.model, car.number].filter(Boolean).join(' • ') || 'Car',
+      })),
+    [reduxCars]
+  );
+
+  const assignedCarIds = useMemo(() => new Set(assignedCars.map((c) => c.id)), [assignedCars]);
+
+  const availableCarsPool = useMemo(
+    () => carPool.filter((c) => !assignedCarIds.has(c.id)),
+    [carPool, assignedCarIds]
+  );
 
   const statusBadge = (status: string) => {
-    if (status === 'Active') {
-      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{status}</Badge>;
+    const normalized = status.toLowerCase();
+    const label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    if (normalized === 'active') {
+      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{label}</Badge>;
     }
-    if (status === 'Pending') {
-      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{status}</Badge>;
+    if (normalized === 'pending') {
+      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{label}</Badge>;
     }
-    return <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">{status}</Badge>;
+    return <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">{label}</Badge>;
   };
 
   function parseYMD(ymd: string) {
@@ -160,9 +266,9 @@ export default function AssignmentsRoute() {
 
   const filteredAvailableWorkers = useMemo(() => {
     const q = availableQuery.trim().toLowerCase();
-    if (!q) return availableWorkers;
-    return availableWorkers.filter((w) => w.name.toLowerCase().includes(q) || w.role.toLowerCase().includes(q));
-  }, [availableWorkers, availableQuery]);
+    if (!q) return availableWorkersPool;
+    return availableWorkersPool.filter((w) => w.name.toLowerCase().includes(q) || w.role.toLowerCase().includes(q));
+  }, [availableWorkersPool, availableQuery]);
 
   const filteredAssignedWorkers = useMemo(() => {
     const q = assignedQuery.trim().toLowerCase();
@@ -172,15 +278,43 @@ export default function AssignmentsRoute() {
 
   const filteredRemainingWorkers = useMemo(() => {
     const q = remainingQuery.trim().toLowerCase();
-    if (!q) return remainingWorkers;
-    return remainingWorkers.filter((w) => w.name.toLowerCase().includes(q) || w.role.toLowerCase().includes(q));
-  }, [remainingWorkers, remainingQuery]);
+    if (!q) return remainingWorkersPool;
+    return remainingWorkersPool.filter((w) => w.name.toLowerCase().includes(q) || w.role.toLowerCase().includes(q));
+  }, [remainingWorkersPool, remainingQuery]);
 
   const filteredCars = useMemo(() => {
     const q = carQuery.trim().toLowerCase();
-    if (!q) return availableCars;
-    return availableCars.filter((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
-  }, [availableCars, carQuery]);
+    if (!q) return availableCarsPool;
+    return availableCarsPool.filter((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
+  }, [availableCarsPool, carQuery]);
+
+  const selectedSite = useMemo(
+    () => assignmentSites.find((s) => s.name === selectedSiteName) ?? assignmentSites[0],
+    [assignmentSites, selectedSiteName]
+  );
+  const selectedSiteId = selectedSite?.id || '';
+
+  const statCards = useMemo(() => {
+    const activeSitesCount = assignmentSites.filter((s) => String(s.status).toLowerCase() === 'active').length;
+    const pendingSitesCount = assignmentSites.filter((s) => String(s.status).toLowerCase() === 'pending').length;
+    return [
+      {
+        label: 'Total Workers',
+        value: String(workerPool.length),
+        sub: 'Visible across all sites',
+      },
+      {
+        label: 'Active Sites',
+        value: String(activeSitesCount),
+        sub: `${pendingSitesCount} more pending`,
+      },
+      {
+        label: 'Assigned Today',
+        value: String(assignedWorkers.length),
+        sub: `${availableWorkersPool.length} remaining workers`,
+      },
+    ];
+  }, [workerPool.length, assignmentSites, assignedWorkers.length, availableWorkersPool.length]);
 
   const draftCount = drafts.length;
   const publishedCount = drafts.filter((d) => d.published).length;
@@ -190,108 +324,310 @@ export default function AssignmentsRoute() {
   const draftItemsForSelectedSiteAndDate = draftsForSelectedSiteAndDate.filter((d) => !d.published);
   const publishedItemsForSelectedSiteAndDate = draftsForSelectedSiteAndDate.filter((d) => d.published);
 
-  function upsertDraftsForDates(dates: string[], shouldPublish: boolean) {
-    if (!selectedSiteName) return;
+  function mapApiAssignmentToDraft(row: any): DraftDay {
+    return {
+      id: row.id,
+      date: formatYMD(new Date(row.assignmentDate)),
+      siteName: row.siteName || selectedSiteName,
+      timeRange: row.timeRange || timeRangeForAdd,
+      assignedWorkers: Array.isArray(row.assignedWorkers)
+        ? row.assignedWorkers.map((w: any) => ({
+            id: String(w.workerId || w.id || ''),
+            name: String(w.name || w.workerName || 'Worker'),
+            role: String(w.role || w.workerRole || 'worker'),
+            time: String(w.timeRange || timeRangeForAdd),
+          }))
+        : [],
+      assignedCars: [],
+      remainingLeave: [],
+      published: row.status === 'published' || !!row.publishedAt,
+      publishedAt: row.publishedAt || undefined,
+    };
+  }
+
+  async function fetchAssignmentsForSite(siteIdParam?: string) {
+    const siteId = siteIdParam || selectedSiteId;
+    if (!siteId) {
+      setDrafts([]);
+      return;
+    }
+    const response = await fetch(`/api/assignments?siteId=${encodeURIComponent(siteId)}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch assignments');
+    }
+    const payload = await response.json();
+    const items = Array.isArray(payload.assignments) ? payload.assignments : [];
+    setDrafts(items.map(mapApiAssignmentToDraft));
+  }
+
+  function mapApiWorkersToAssignedWorkers(list: any[]): AssignedWorker[] {
+    if (!Array.isArray(list)) return [];
+    return list.map((w) => ({
+      id: String(w.workerId || w.id || ''),
+      name: String(w.name || w.workerName || 'Worker'),
+      role: String(w.role || w.workerRole || 'worker'),
+      time: String(w.timeRange || timeRangeForAdd),
+    }));
+  }
+
+  async function fetchSelectedAssignmentByDate(siteIdParam: string, dateParam: string) {
+    if (!siteIdParam || !dateParam) return;
+    setIsLoadingSelectedAssignment(true);
+    setCurrentAssignmentId(null);
+    setCurrentAssignmentStatus(null);
+    try {
+      const qs = new URLSearchParams({
+        siteId: siteIdParam,
+        date: dateParam,
+      });
+      const response = await fetch(`/api/assignments?${qs.toString()}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch assignment for selected date');
+      const payload = await response.json();
+      const list = Array.isArray(payload.assignments) ? payload.assignments : [];
+      const row = list[0];
+      if (!row) {
+        setCurrentAssignmentId(null);
+        setCurrentAssignmentStatus(null);
+        setAssignedWorkers([]);
+        setAssignedCars([]);
+        return;
+      }
+
+      setCurrentAssignmentId(String(row.id));
+      setCurrentAssignmentStatus(row.status === 'published' ? 'published' : 'draft');
+      if (row.timeRange) setTimeRangeForAdd(String(row.timeRange));
+      setAssignedWorkers(mapApiWorkersToAssignedWorkers(row.assignedWorkers || []));
+      setAssignedCars([]);
+    } finally {
+      setIsLoadingSelectedAssignment(false);
+    }
+  }
+
+  async function ensureAssignmentForSelectedDate(): Promise<string> {
+    if (!selectedSiteId) throw new Error('Please select a site first.');
+    if (currentAssignmentId) return currentAssignmentId;
+
+    const response = await fetch('/api/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        siteId: selectedSiteId,
+        assignmentDate: selectedDate,
+        timeRange: timeRangeForAdd,
+        status: 'draft',
+        assignedWorkers: [],
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create assignment for selected date');
+    }
+    const payload = await response.json();
+    const created = Array.isArray(payload.assignments) ? payload.assignments[0] : null;
+    const newId = created?.id ? String(created.id) : null;
+    if (!newId) throw new Error('Assignment create response is invalid');
+
+    setCurrentAssignmentId(newId);
+    setCurrentAssignmentStatus(created.status === 'published' ? 'published' : 'draft');
+    await fetchAssignmentsForSite(selectedSiteId);
+    return newId;
+  }
+
+  async function addWorkerToCurrentAssignment(worker: WorkerBasic) {
+    setWorkerAction({ workerId: worker.id, type: 'add' });
+    try {
+      const assignmentId = await ensureAssignmentForSelectedDate();
+      const response = await fetch(`/api/assignments/${assignmentId}/workers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          workerId: worker.id,
+          time: timeRangeForAdd,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to assign worker');
+      }
+      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
+      await fetchAssignmentsForSite(selectedSiteId);
+    } finally {
+      setWorkerAction((prev) =>
+        prev?.workerId === worker.id && prev.type === 'add' ? null : prev
+      );
+    }
+  }
+
+  async function removeWorkerFromCurrentAssignment(workerId: string) {
+    setWorkerAction({ workerId, type: 'remove' });
+    if (!currentAssignmentId) {
+      setAssignedWorkers((prev) => prev.filter((w) => w.id !== workerId));
+      setWorkerAction(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/assignments/${currentAssignmentId}/workers`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ workerId }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to remove worker');
+      }
+      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
+      await fetchAssignmentsForSite(selectedSiteId);
+    } finally {
+      setWorkerAction((prev) =>
+        prev?.workerId === workerId && prev.type === 'remove' ? null : prev
+      );
+    }
+  }
+
+  async function updateWorkerTimeInCurrentAssignment(workerId: string, time: string) {
+    if (!currentAssignmentId) return;
+    setWorkerAction({ workerId, type: 'time' });
+    try {
+      const response = await fetch(`/api/assignments/${currentAssignmentId}/workers`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ workerId, time }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update worker time');
+      }
+      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
+      await fetchAssignmentsForSite(selectedSiteId);
+    } finally {
+      setWorkerAction((prev) =>
+        prev?.workerId === workerId && prev.type === 'time' ? null : prev
+      );
+    }
+  }
+
+  async function upsertDraftsForDates(dates: string[], shouldPublish: boolean) {
+    if (!selectedSiteId) {
+      toast.error('Please select a site first.');
+      return;
+    }
     if (dates.length === 0) {
       toast.error('Please choose a valid date range.');
       return;
     }
 
-    const remainingLeave = remainingWorkers.map((w) => ({ name: w.name, status: w.status }));
-    const assignedSnapshot = assignedWorkers;
-    const assignedCarsSnapshot = assignedCars;
-
-    const nextDrafts = [...drafts];
-    let created = 0;
-    let skipped = 0;
-    const nowIso = new Date().toISOString();
-
-    for (const date of dates) {
-      const existingIndex = nextDrafts.findIndex((d) => d.date === date && d.siteName === selectedSiteName);
-
-      const newDraft: DraftDay = {
-        id:
-          existingIndex >= 0
-            ? nextDrafts[existingIndex].id
-            : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        date,
-        siteName: selectedSiteName,
+    const response = await fetch('/api/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        siteId: selectedSiteId,
+        dates,
         timeRange: timeRangeForAdd,
-        assignedWorkers: assignedSnapshot,
-        assignedCars: assignedCarsSnapshot,
-        remainingLeave,
-        published: shouldPublish ? true : false,
-        publishedAt: shouldPublish ? nowIso : undefined,
-      };
+        status: shouldPublish ? 'published' : 'draft',
+        assignedWorkers: assignedWorkers.map((w) => ({
+          id: w.id,
+          time: w.time,
+        })),
+      }),
+    });
 
-      // If user is saving drafts (not publishing) and the day is already published, keep it published.
-      if (!shouldPublish && existingIndex >= 0 && nextDrafts[existingIndex].published) {
-        skipped += 1;
-        continue;
-      }
-
-      if (existingIndex >= 0) nextDrafts[existingIndex] = { ...nextDrafts[existingIndex], ...newDraft };
-      else nextDrafts.unshift(newDraft);
-      created += 1;
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to save assignments');
     }
 
-    setDrafts(nextDrafts);
+    await fetchAssignmentsForSite(selectedSiteId);
+    await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
     toast.success(
-      skipped > 0
-        ? shouldPublish
-          ? `Published for ${created} day(s). ${skipped} day(s) were already published.`
-          : `Drafts saved for ${created} day(s). ${skipped} day(s) were already published.`
-        : shouldPublish
-          ? `Published for ${created} day(s).`
-          : `Drafts saved for ${created} day(s).`
+      shouldPublish ? `Published for ${dates.length} day(s).` : `Drafts saved for ${dates.length} day(s).`
     );
   }
 
   function createDayDraft() {
-    void upsertDraftsForDates([selectedDate], false);
+    upsertDraftsForDates([selectedDate], false).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to save draft');
+    });
   }
 
   function createRangeDraft() {
-    void upsertDraftsForDates(getDateRangeInclusive(rangeStart, rangeEnd), false);
+    upsertDraftsForDates(getDateRangeInclusive(rangeStart, rangeEnd), false).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to save drafts');
+    });
   }
 
   function publishDayForSelection() {
-    void upsertDraftsForDates([selectedDate], true);
+    upsertDraftsForDates([selectedDate], true).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to publish');
+    });
   }
 
   function publishRangeForSelection() {
-    void upsertDraftsForDates(getDateRangeInclusive(rangeStart, rangeEnd), true);
+    upsertDraftsForDates(getDateRangeInclusive(rangeStart, rangeEnd), true).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to publish');
+    });
   }
 
-  function setDraftStatus(id: string, shouldPublish: boolean) {
-    const nowIso = new Date().toISOString();
-    setDrafts((prev) =>
-      prev.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              published: shouldPublish,
-              publishedAt: shouldPublish ? nowIso : undefined,
-            }
-          : d
-      )
-    );
+  async function setDraftStatus(id: string, shouldPublish: boolean) {
+    const response = await fetch(`/api/assignments/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        status: shouldPublish ? 'published' : 'draft',
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update assignment status');
+    }
+    await fetchAssignmentsForSite(selectedSiteId);
+    await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
+    setCurrentAssignmentStatus(shouldPublish ? 'published' : 'draft');
     toast.success(shouldPublish ? 'Draft published' : 'Moved back to draft');
-    // TODO: Persist status change to DB via API.
   }
 
   function publishDraft(id: string) {
-    setDraftStatus(id, true);
+    setDraftStatus(id, true).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to publish draft');
+    });
   }
 
-  function publishAllDrafts() {
-    setDrafts((prev) =>
-      prev.map((d) =>
-        d.published ? d : { ...d, published: true, publishedAt: new Date().toISOString() }
-      )
-    );
+  async function publishAllDrafts() {
+    const response = await fetch('/api/assignments/publish-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        siteId: selectedSiteId || undefined,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to publish all drafts');
+    }
+    await fetchAssignmentsForSite(selectedSiteId);
+    await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
     toast.success('All drafts published');
   }
+
+  useEffect(() => {
+    if (!selectedSiteId) return;
+    Promise.all([
+      fetchAssignmentsForSite(selectedSiteId),
+      fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+    ]).catch(() => {
+      toast.error('Failed to load assignments');
+    });
+  }, [selectedSiteId, selectedDate]);
 
   return (
     <AuthenticatedLayout>
@@ -304,34 +640,7 @@ export default function AssignmentsRoute() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-            <div className="relative col-span-2 sm:col-span-1">
-              <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-9 w-full sm:w-[170px]"
-              />
-            </div>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setAssignTab('day');
-                setSelectedDate(DEFAULT_DATE);
-              }}
-            >
-              Today
-            </Button>
-            <Button
-              className="w-full sm:w-auto bg-[#0d1b3f] hover:bg-[#0b1633]"
-              onClick={() => {
-                setAssignTab('day');
-                setSelectedDate(addDays(DEFAULT_DATE, 1));
-              }}
-            >
-              Tomorrow
-            </Button>
+        
 
             <Button
               variant="outline"
@@ -369,23 +678,77 @@ export default function AssignmentsRoute() {
             </div>
             <div className="relative mb-3">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input placeholder="Search sites..." className="pl-9" />
+              <Input
+                placeholder="Search sites..."
+                className="pl-9"
+                value={sitesQuery}
+                onChange={(e) => setSitesQuery(e.target.value)}
+              />
+            </div>
+            <div className="mb-3 flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'all' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'all' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'active' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'active' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('active')}
+              >
+                Active
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={siteStatusFilter === 'pending' ? 'default' : 'outline'}
+                className={siteStatusFilter === 'pending' ? 'bg-brand-gradient text-white hover:bg-brand-gradient' : ''}
+                onClick={() => setSiteStatusFilter('pending')}
+              >
+                Pending
+              </Button>
             </div>
             <div className="space-y-3">
-              {sites.map((site) => (
-                <button
-                  key={site.name}
-                  type="button"
-                  onClick={() => setSelectedSiteName(site.name)}
-                  className={`w-full text-left rounded-xl border p-4 transition-colors ${site.name === selectedSiteName ? 'bg-[#0d1b3f] text-white border-[#0d1b3f]' : 'bg-white text-gray-900'}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`font-semibold ${site.name === selectedSiteName ? 'text-white' : 'text-gray-900'}`}>{site.name}</p>
-                    {statusBadge(site.status)}
-                  </div>
-                  <p className={`text-sm mt-1 ${site.name === selectedSiteName ? 'text-white/80' : 'text-gray-500'}`}>{site.assigned} assigned</p>
-                </button>
-              ))}
+              {sitesLoading && assignmentSites.length === 0 ? (
+                <p className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50">Loading sites...</p>
+              ) : filteredSites.length === 0 ? (
+                <p className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50">No sites found.</p>
+              ) : (
+                filteredSites.map((site) => (
+                  (() => {
+                    const isPending = String(site.status).toLowerCase() === 'pending';
+                    return (
+                  <button
+                    key={site.id}
+                    type="button"
+                    onClick={() => {
+                      if (isPending) return;
+                      setIsLoadingSelectedAssignment(true);
+                      setSelectedSiteName(site.name);
+                    }}
+                    disabled={isPending}
+                    className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                      site.name === selectedSiteName
+                        ? 'bg-brand-gradient text-white border-transparent'
+                        : 'bg-white text-gray-900'
+                    } ${isPending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`font-semibold ${site.name === selectedSiteName ? 'text-white' : 'text-gray-900'}`}>{site.name}</p>
+                      {statusBadge(site.status)}
+                    </div>
+                    <p className={`text-sm mt-1 ${site.name === selectedSiteName ? 'text-white/80' : 'text-gray-500'}`}>{site.assigned} assigned</p>
+                  </button>
+                    );
+                  })()
+                ))
+              )}
             </div>
           </Card>
 
@@ -396,6 +759,11 @@ export default function AssignmentsRoute() {
                 <p className="text-sm text-gray-500">
                   {selectedSiteName} • {selectedDate}
                 </p>
+                {currentAssignmentStatus && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Status: <span className="font-medium">{currentAssignmentStatus}</span>
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
                 <Button
@@ -403,7 +771,15 @@ export default function AssignmentsRoute() {
                   variant="outline"
                   className="w-full sm:w-auto"
                   onClick={() => {
-                    toast('Use the pool on the right to add workers/cars.');
+                    if (!selectedSiteId) {
+                      toast.error('Please select a site first.');
+                      return;
+                    }
+                    ensureAssignmentForSelectedDate()
+                      .then(() => toast('Assignment ready. Use the pool on the right to add workers/cars.'))
+                      .catch((error) => {
+                        toast.error(error instanceof Error ? error.message : 'Failed to initialize assignment');
+                      });
                   }}
                 >
                   <Plus className="w-4 h-4" />
@@ -452,7 +828,12 @@ export default function AssignmentsRoute() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Date</p>
-                    <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={TODAY_DATE}
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
@@ -464,11 +845,25 @@ export default function AssignmentsRoute() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Start date</p>
-                    <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={TODAY_DATE}
+                      value={rangeStart}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setRangeStart(next);
+                        if (rangeEnd < next) setRangeEnd(next);
+                      }}
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">End date</p>
-                    <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
+                    <Input
+                      type="date"
+                      min={rangeStart || TODAY_DATE}
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(e.target.value)}
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Time for new workers</p>
@@ -509,25 +904,45 @@ export default function AssignmentsRoute() {
                 </div>
 
                 <div className="space-y-3">
+                  {isLoadingSelectedAssignment && (
+                    <div className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading assignment workers...
+                    </div>
+                  )}
                   {filteredAssignedWorkers.map((worker) => (
-                    <div key={worker.name} className="rounded-xl border p-4">
+                    <div key={worker.id} className="rounded-xl border p-4">
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
                         <div>
                           <p className="font-semibold text-gray-900">{worker.name}</p>
                           <p className="text-sm text-gray-500">{worker.role}</p>
                         </div>
                         <div className="w-full sm:w-[180px]">
-                          <p className="text-xs text-gray-500 mb-1">Time</p>
+                          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                            Time
+                            {workerAction?.workerId === worker.id && workerAction.type === 'time' && (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            )}
+                          </p>
                           <Input
                             value={worker.time}
                             onChange={(e) => {
                               const next = e.target.value;
                               setAssignedWorkers((prev) =>
                                 prev.map((w) =>
-                                  w.name === worker.name ? { ...w, time: next } : w
+                                  w.id === worker.id ? { ...w, time: next } : w
                                 )
                               );
                             }}
+                            onBlur={(e) => {
+                              const next = e.target.value;
+                              updateWorkerTimeInCurrentAssignment(worker.id, next).catch((error) => {
+                                toast.error(
+                                  error instanceof Error ? error.message : 'Failed to update worker time'
+                                );
+                              });
+                            }}
+                            disabled={isLoadingSelectedAssignment}
                           />
                         </div>
                       </div>
@@ -538,13 +953,15 @@ export default function AssignmentsRoute() {
                           variant="ghost"
                           className="px-2 text-red-600 hover:text-red-700"
                           onClick={() => {
-                            setAssignedWorkers((prev) => prev.filter((w) => w.name !== worker.name));
-                            setAvailableWorkers((prev) => {
-                              if (prev.some((w) => w.name === worker.name)) return prev;
-                              return [...prev, { name: worker.name, role: worker.role }];
+                            removeWorkerFromCurrentAssignment(worker.id).catch((error) => {
+                              toast.error(error instanceof Error ? error.message : 'Failed to remove worker');
                             });
                           }}
+                          disabled={isLoadingSelectedAssignment}
                         >
+                          {workerAction?.workerId === worker.id && workerAction.type === 'remove' && (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          )}
                           Remove
                         </Button>
                       </div>
@@ -566,7 +983,7 @@ export default function AssignmentsRoute() {
                 ) : (
                   <div className="space-y-2">
                     {assignedCars.map((car) => (
-                      <div key={car.name} className="rounded-xl border p-4">
+                      <div key={car.id} className="rounded-xl border p-4">
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
                           <div>
                             <p className="font-semibold text-gray-900">{car.name}</p>
@@ -580,7 +997,7 @@ export default function AssignmentsRoute() {
                                 const next = e.target.value;
                                 setAssignedCars((prev) =>
                                   prev.map((c) =>
-                                    c.name === car.name ? { ...c, time: next } : c
+                                    c.id === car.id ? { ...c, time: next } : c
                                   )
                                 );
                               }}
@@ -594,11 +1011,7 @@ export default function AssignmentsRoute() {
                             variant="ghost"
                             className="px-2 text-red-600 hover:text-red-700"
                             onClick={() => {
-                              setAssignedCars((prev) => prev.filter((c) => c.name !== car.name));
-                              setAvailableCars((prev) => {
-                                if (prev.some((x) => x.name === car.name)) return prev;
-                                return [...prev, { name: car.name, type: car.type }];
-                              });
+                              setAssignedCars((prev) => prev.filter((c) => c.id !== car.id));
                             }}
                           >
                             Remove
@@ -643,9 +1056,15 @@ export default function AssignmentsRoute() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  {(workersLoading && workerPool.length === 0) || isLoadingSelectedAssignment ? (
+                    <div className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {isLoadingSelectedAssignment ? 'Syncing available workers...' : 'Loading workers...'}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
                     {filteredAvailableWorkers.map((worker) => (
-                      <div key={worker.name} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
+                      <div key={worker.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-gray-900">{worker.name}</p>
                           <p className="text-sm text-gray-500">{worker.role}</p>
@@ -655,18 +1074,21 @@ export default function AssignmentsRoute() {
                           size="sm"
                           className="shrink-0"
                           onClick={() => {
-                            setAvailableWorkers((prev) => prev.filter((w) => w.name !== worker.name));
-                            setAssignedWorkers((prev) => {
-                              if (prev.some((w) => w.name === worker.name)) return prev;
-                              return [...prev, { ...worker, time: timeRangeForAdd }];
+                            addWorkerToCurrentAssignment(worker).catch((error) => {
+                              toast.error(error instanceof Error ? error.message : 'Failed to assign worker');
                             });
                           }}
+                          disabled={isLoadingSelectedAssignment}
                         >
+                          {workerAction?.workerId === worker.id && workerAction.type === 'add' && (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          )}
                           Add
                         </Button>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="remaining" className="mt-3">
@@ -680,9 +1102,15 @@ export default function AssignmentsRoute() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  {(workersLoading && workerPool.length === 0) || isLoadingSelectedAssignment ? (
+                    <div className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {isLoadingSelectedAssignment ? 'Syncing remaining workers...' : 'Loading workers...'}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
                     {filteredRemainingWorkers.map((worker) => (
-                      <div key={worker.name} className="rounded-xl border p-3 sm:p-4">
+                      <div key={worker.id} className="rounded-xl border p-3 sm:p-4">
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div>
                             <p className="font-medium text-gray-900">{worker.name}</p>
@@ -695,13 +1123,12 @@ export default function AssignmentsRoute() {
                           <div className="relative flex-1">
                             <select
                               value={worker.status}
-                              className="h-11 w-full rounded-md border border-input bg-background px-3 pr-9 text-sm"
+                              className="h-11 w-full rounded-md border border-input bg-background px-3 pr-9 text-sm appearance-none"
                               onChange={(e) => {
                                 const next = e.target.value as LeaveStatus;
-                                setRemainingWorkers((prev) =>
-                                  prev.map((w) => (w.name === worker.name ? { ...w, status: next } : w))
-                                );
+                                setLeaveStatusByWorker((prev) => ({ ...prev, [worker.id]: next }));
                               }}
+                              disabled={isLoadingSelectedAssignment}
                             >
                               <option>Unpaid Day Off</option>
                               <option>Paid Day Off</option>
@@ -713,19 +1140,22 @@ export default function AssignmentsRoute() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setRemainingWorkers((prev) => prev.filter((w) => w.name !== worker.name));
-                              setAssignedWorkers((prev) => {
-                                if (prev.some((w) => w.name === worker.name)) return prev;
-                                return [...prev, { name: worker.name, role: worker.role, time: timeRangeForAdd }];
+                              addWorkerToCurrentAssignment(worker).catch((error) => {
+                                toast.error(error instanceof Error ? error.message : 'Failed to assign worker');
                               });
                             }}
+                            disabled={isLoadingSelectedAssignment}
                           >
+                            {workerAction?.workerId === worker.id && workerAction.type === 'add' && (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            )}
                             Add
                           </Button>
                         </div>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="cars" className="mt-3">
@@ -739,9 +1169,14 @@ export default function AssignmentsRoute() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  {carsLoading && carPool.length === 0 ? (
+                    <p className="text-sm text-gray-500 rounded-xl border p-3 bg-gray-50">
+                      Loading cars...
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
                     {filteredCars.map((car) => (
-                      <div key={car.name} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
+                      <div key={car.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-gray-900">{car.name}</p>
                           <p className="text-sm text-gray-500">{car.type}</p>
@@ -751,9 +1186,8 @@ export default function AssignmentsRoute() {
                           size="sm"
                           className="shrink-0"
                           onClick={() => {
-                            setAvailableCars((prev) => prev.filter((c) => c.name !== car.name));
                             setAssignedCars((prev) => {
-                              if (prev.some((c) => c.name === car.name)) return prev;
+                              if (prev.some((c) => c.id === car.id)) return prev;
                               return [...prev, { ...car, time: timeRangeForAdd }];
                             });
                           }}
@@ -762,7 +1196,8 @@ export default function AssignmentsRoute() {
                         </Button>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </Card>
@@ -836,7 +1271,13 @@ export default function AssignmentsRoute() {
                                 <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Draft</Badge>
                                 <Button
                                   className="bg-green-600 hover:bg-green-700"
-                                  onClick={() => setDraftStatus(d.id, true)}
+                                  onClick={() =>
+                                    setDraftStatus(d.id, true).catch((error) => {
+                                      toast.error(
+                                        error instanceof Error ? error.message : 'Failed to publish draft'
+                                      );
+                                    })
+                                  }
                                 >
                                   <Send className="w-4 h-4 mr-2" />
                                   Publish
@@ -881,7 +1322,16 @@ export default function AssignmentsRoute() {
                                   <CheckCircle2 className="w-4 h-4 mr-1" />
                                   Published
                                 </Badge>
-                                <Button variant="outline" onClick={() => setDraftStatus(d.id, false)}>
+                                <Button
+                                  variant="outline"
+                                  onClick={() =>
+                                    setDraftStatus(d.id, false).catch((error) => {
+                                      toast.error(
+                                        error instanceof Error ? error.message : 'Failed to move draft status'
+                                      );
+                                    })
+                                  }
+                                >
                                   Set Draft
                                 </Button>
                               </div>
