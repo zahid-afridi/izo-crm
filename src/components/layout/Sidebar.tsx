@@ -14,6 +14,7 @@ import {
   Wrench,
   Building2,
   Calendar,
+  CalendarCheck,
   Car,
   History,
   CheckCircle,
@@ -37,7 +38,7 @@ interface SidebarProps {
 
 // Define which menu items each role can see
 const ROLE_MENU_ACCESS: Record<string, string[]> = {
-  worker: ['/workers', '/chat', '/attendance'],
+  worker: ['/workers', '/my-assignments', '/chat', '/attendance'],
   admin: ['*'],           // Admin sees everything
   product_manager: ['/products', '/chat', '/attendance'],
   site_manager: ['/sites', '/assignments', '/cars', '/teams', '/attendance'],
@@ -61,7 +62,8 @@ function filterMenuByRole(items: typeof menuItems, role: string | null): typeof 
     // Admin sees all items except team-management and order-management (which are only for order_manager)
     return items.filter(item =>
       item.path !== '/team-management' &&
-      item.path !== '/order-management'
+      item.path !== '/order-management' &&
+      item.path !== '/my-assignments'
     );
   }
 
@@ -78,6 +80,7 @@ const menuItems = [
   { path: '/sites', labelKey: 'nav.sites', icon: Building2 },
   { path: '/assignments', labelKey: 'nav.assignments', icon: Calendar },
   { path: '/workers', labelKey: 'nav.workers', icon: Users },
+  { path: '/my-assignments', labelKey: 'nav.myAssignments', icon: CalendarCheck },
   { path: '/cars', labelKey: 'nav.cars', icon: Car },
   { path: '/teams', labelKey: 'nav.teams', icon: Users },
   { path: '/offers', labelKey: 'nav.offers', icon: FileText },

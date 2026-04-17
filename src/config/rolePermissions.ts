@@ -209,6 +209,7 @@ export const rolePermissions: Record<string, RolePermissions> = {
     label: 'Worker',
     allowedPages: [
       'workers',
+      'my-assignments',
       'chat',
     ],
     permissions: {
@@ -285,6 +286,7 @@ export const getMenuItems = (userRole: string) => {
     { id: 'service-packages', label: 'Service Packages', icon: 'Package', path: 'service-packages' },
     { id: 'sites', label: 'Construction Sites', icon: 'Building2', path: 'sites' },
     { id: 'workers', label: 'Employees', icon: 'Users', path: 'workers' },
+    { id: 'my-assignments', label: 'My assignments', icon: 'CalendarCheck', path: 'my-assignments' },
     { id: 'teams', label: 'Teams', icon: 'Users', path: 'teams' },
     { id: 'offers', label: 'Offers', icon: 'FileText', path: 'offers' },
     { id: 'clients', label: 'Clients', icon: 'Building', path: 'clients' },

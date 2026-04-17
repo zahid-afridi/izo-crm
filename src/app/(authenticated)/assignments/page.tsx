@@ -85,6 +85,9 @@ export default function AssignmentsRoute() {
   const [workerAssignmentsByDate, setWorkerAssignmentsByDate] = useState<
     Record<string, Array<{ siteName: string; timeRange: string }>>
   >({});
+  const [carAssignmentsByDate, setCarAssignmentsByDate] = useState<
+    Record<string, Array<{ siteName: string; timeRange: string }>>
+  >({});
 
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
 
@@ -132,6 +135,11 @@ export default function AssignmentsRoute() {
   const [conflictEndTime, setConflictEndTime] = useState('16:00');
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
+  const [conflictCar, setConflictCar] = useState<CarBasic | null>(null);
+  const [conflictCarStartTime, setConflictCarStartTime] = useState('08:00');
+  const [conflictCarEndTime, setConflictCarEndTime] = useState('16:00');
+  const [conflictCarError, setConflictCarError] = useState<string | null>(null);
+  const [isResolvingCarConflict, setIsResolvingCarConflict] = useState(false);
 
   const assignmentSites = useMemo(
     () =>
@@ -234,12 +242,7 @@ export default function AssignmentsRoute() {
     [reduxCars]
   );
 
-  const assignedCarIds = useMemo(() => new Set(assignedCars.map((c) => c.id)), [assignedCars]);
-
-  const availableCarsPool = useMemo(
-    () => carPool.filter((c) => !assignedCarIds.has(c.id)),
-    [carPool, assignedCarIds]
-  );
+  const availableCarsPool = useMemo(() => carPool, [carPool]);
 
   const statusBadge = (status: string) => {
     const normalized = status.toLowerCase();
@@ -489,6 +492,57 @@ export default function AssignmentsRoute() {
     return null;
   }
 
+  function getOtherAssignmentsForCar(carId: string) {
+    const assignments = carAssignmentsByDate[carId] || [];
+    return assignments.filter((a) => a.siteName !== selectedSiteName);
+  }
+
+  function getBusyRangesForCar(carId: string) {
+    return getOtherAssignmentsForCar(carId).map((a) => parseTimeRangeToMinutes(a.timeRange));
+  }
+
+  function hasCarTimeConflictWithOtherSites(carId: string, start: string, end: string) {
+    const startMin = toMinutes(start);
+    const endMin = toMinutes(end);
+    if (endMin <= startMin) return true;
+    const candidate = { startMin, endMin };
+    return getBusyRangesForCar(carId).some((busy) => rangesOverlap(candidate, busy));
+  }
+
+  function findSuggestedNonConflictingRangeForCar(carId: string) {
+    const target = parseTimeRangeToMinutes(timeRangeForAdd);
+    const duration = Math.max(30, target.endMin - target.startMin);
+    const busyRanges = getBusyRangesForCar(carId).sort((a, b) => a.startMin - b.startMin);
+    const merged: Array<{ startMin: number; endMin: number }> = [];
+
+    for (const r of busyRanges) {
+      const last = merged[merged.length - 1];
+      if (!last || r.startMin > last.endMin) {
+        merged.push({ ...r });
+      } else {
+        last.endMin = Math.max(last.endMin, r.endMin);
+      }
+    }
+
+    let cursor = 0;
+    for (const r of merged) {
+      if (r.startMin - cursor >= duration) {
+        return {
+          start: minutesToHHmm(cursor),
+          end: minutesToHHmm(cursor + duration),
+        };
+      }
+      cursor = Math.max(cursor, r.endMin);
+    }
+    if (24 * 60 - cursor >= duration) {
+      return {
+        start: minutesToHHmm(cursor),
+        end: minutesToHHmm(cursor + duration),
+      };
+    }
+    return null;
+  }
+
   const filteredAvailableWorkers = useMemo(() => {
     const q = availableQuery.trim().toLowerCase();
     if (!q) return availableWorkersPool;
@@ -573,6 +627,59 @@ export default function AssignmentsRoute() {
 
     return meta;
   }, [workerPool, workerAssignmentsByDate, selectedSiteName, timeRangeForAdd]);
+
+  const carAvailabilityMetaById = useMemo(() => {
+    const meta: Record<
+      string,
+      {
+        assignedSiteName?: string;
+        alreadyAssignedInSelectedSite?: boolean;
+        hasOverlap: boolean;
+        canAdd: boolean;
+        message?: string;
+      }
+    > = {};
+
+    const targetRange = parseTimeRangeToMinutes(timeRangeForAdd);
+    const selectedRange = parseTimeRangeValue(timeRangeForAdd);
+
+    for (const car of carPool) {
+      const assignments = carAssignmentsByDate[car.id] || [];
+      const inSelectedSite = assignments.find((a) => a.siteName === selectedSiteName);
+      if (inSelectedSite) {
+        meta[car.id] = {
+          assignedSiteName: selectedSiteName,
+          alreadyAssignedInSelectedSite: true,
+          hasOverlap: false,
+          canAdd: false,
+          message: `Already assigned to ${selectedSiteName}`,
+        };
+        continue;
+      }
+
+      const otherAssignments = assignments.filter((a) => a.siteName !== selectedSiteName);
+      if (!otherAssignments.length) {
+        meta[car.id] = { hasOverlap: false, canAdd: true };
+        continue;
+      }
+
+      const busyRanges = otherAssignments.map((a) => parseTimeRangeToMinutes(a.timeRange));
+      const conflict = busyRanges.some((busy) => rangesOverlap(targetRange, busy));
+      const firstSite = otherAssignments[0]?.siteName || 'another site';
+
+      meta[car.id] = {
+        assignedSiteName: firstSite,
+        alreadyAssignedInSelectedSite: false,
+        hasOverlap: conflict,
+        canAdd: !conflict,
+        message: conflict
+          ? `Already assigned to ${firstSite}. ${describeAvailabilityWindows(busyRanges)}`
+          : `Already assigned to ${firstSite}, available for selected site at ${format12HourLabel(selectedRange.start)} - ${format12HourLabel(selectedRange.end)}`,
+      };
+    }
+
+    return meta;
+  }, [carPool, carAssignmentsByDate, selectedSiteName, timeRangeForAdd]);
 
   const selectedSite = useMemo(
     () => assignmentSites.find((s) => s.name === selectedSiteName) ?? assignmentSites[0],
@@ -673,10 +780,12 @@ export default function AssignmentsRoute() {
     );
     setAssignedSiteIdsForSelectedDate(ids);
     const workerAssignmentMap: Record<string, Array<{ siteName: string; timeRange: string }>> = {};
+    const carAssignmentMap: Record<string, Array<{ siteName: string; timeRange: string }>> = {};
     for (const row of assignmentRows) {
       const siteName = String(row?.siteName || '').trim();
       const fallbackRange = String(row?.timeRange || '').trim();
       const workers = Array.isArray(row?.assignedWorkers) ? row.assignedWorkers : [];
+      const cars = Array.isArray(row?.assignedCars) ? row.assignedCars : [];
       for (const w of workers) {
         const workerId = String(w?.workerId || w?.id || '').trim();
         if (!workerId) continue;
@@ -687,8 +796,19 @@ export default function AssignmentsRoute() {
           timeRange: workerTimeRange,
         });
       }
+      for (const c of cars) {
+        const carId = String(c?.carId || c?.id || '').trim();
+        if (!carId) continue;
+        const carTimeRange = String(c?.timeRange || fallbackRange || '00:00 - 23:59').trim();
+        if (!carAssignmentMap[carId]) carAssignmentMap[carId] = [];
+        carAssignmentMap[carId].push({
+          siteName: siteName || 'another site',
+          timeRange: carTimeRange,
+        });
+      }
     }
     setWorkerAssignmentsByDate(workerAssignmentMap);
+    setCarAssignmentsByDate(carAssignmentMap);
   }
 
   function mapApiWorkersToAssignedWorkers(list: any[]): AssignedWorker[] {
@@ -800,6 +920,33 @@ export default function AssignmentsRoute() {
       return {
         ...prev,
         [workerId]: next,
+      };
+    });
+  }
+
+  function upsertCarAssignmentInLocalCoverage(carId: string, siteName: string, timeRange: string) {
+    setCarAssignmentsByDate((prev) => {
+      const current = prev[carId] || [];
+      const next = current.filter((a) => a.siteName !== siteName);
+      next.push({ siteName, timeRange });
+      return {
+        ...prev,
+        [carId]: next,
+      };
+    });
+  }
+
+  function removeCarAssignmentFromLocalCoverage(carId: string, siteName: string) {
+    setCarAssignmentsByDate((prev) => {
+      const current = prev[carId] || [];
+      const next = current.filter((a) => a.siteName !== siteName);
+      if (!next.length) {
+        const { [carId]: _, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [carId]: next,
       };
     });
   }
@@ -967,6 +1114,41 @@ export default function AssignmentsRoute() {
     }
   }
 
+  function openCarConflictResolutionModal(car: CarBasic) {
+    const selectedRange = parseTimeRangeValue(timeRangeForAdd);
+    const suggestion = findSuggestedNonConflictingRangeForCar(car.id);
+    setConflictCar(car);
+    setConflictCarStartTime(suggestion?.start || selectedRange.start);
+    setConflictCarEndTime(suggestion?.end || selectedRange.end);
+    setConflictCarError(null);
+  }
+
+  async function resolveConflictAndAddCar() {
+    if (!conflictCar) return;
+
+    if (toMinutes(conflictCarEndTime) <= toMinutes(conflictCarStartTime)) {
+      setConflictCarError('End time must be after start time.');
+      return;
+    }
+
+    if (hasCarTimeConflictWithOtherSites(conflictCar.id, conflictCarStartTime, conflictCarEndTime)) {
+      setConflictCarError('Selected time overlaps with another site assignment. Pick a non-overlapping range.');
+      return;
+    }
+
+    setIsResolvingCarConflict(true);
+    try {
+      const customRange = buildTimeRange(conflictCarStartTime, conflictCarEndTime);
+      await addCarToCurrentAssignment(conflictCar, customRange);
+      setConflictCar(null);
+      setConflictCarError(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to assign car');
+    } finally {
+      setIsResolvingCarConflict(false);
+    }
+  }
+
   async function removeWorkerFromCurrentAssignment(workerId: string) {
     setWorkerAction({ workerId, type: 'remove' });
     if (!currentAssignmentId) {
@@ -1025,25 +1207,35 @@ export default function AssignmentsRoute() {
     }
   }
 
-  async function addCarToCurrentAssignment(car: CarBasic) {
+  async function addCarToCurrentAssignment(car: CarBasic, customTimeRange?: string) {
     setCarAction({ carId: car.id, type: 'add' });
     try {
       const assignmentId = await ensureAssignmentForSelectedDate();
+      const appliedTimeRange = customTimeRange || timeRangeForAdd;
       const response = await fetch(`/api/assignments/${assignmentId}/cars`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           carId: car.id,
-          time: timeRangeForAdd,
+          time: appliedTimeRange,
         }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to assign car');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      upsertCarAssignmentInLocalCoverage(car.id, selectedSiteName, appliedTimeRange);
+      if (selectedSiteId) {
+        setAssignedSiteIdsForSelectedDate((prev) =>
+          prev.includes(selectedSiteId) ? prev : [...prev, selectedSiteId]
+        );
+      }
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setCarAction((prev) =>
         prev?.carId === car.id && prev.type === 'add' ? null : prev
@@ -1069,8 +1261,12 @@ export default function AssignmentsRoute() {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to remove car');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      removeCarAssignmentFromLocalCoverage(carId, selectedSiteName);
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setCarAction((prev) =>
         prev?.carId === carId && prev.type === 'remove' ? null : prev
@@ -1092,8 +1288,12 @@ export default function AssignmentsRoute() {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update car time');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      upsertCarAssignmentInLocalCoverage(carId, selectedSiteName, time);
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setCarAction((prev) =>
         prev?.carId === carId && prev.type === 'time' ? null : prev
@@ -1242,6 +1442,7 @@ export default function AssignmentsRoute() {
     fetchAssignedSiteCoverageByDate(selectedDate).catch(() => {
       setAssignedSiteIdsForSelectedDate([]);
       setWorkerAssignmentsByDate({});
+      setCarAssignmentsByDate({});
     });
   }, [selectedDate]);
 
@@ -1800,28 +2001,45 @@ export default function AssignmentsRoute() {
                   ) : (
                     <div className="space-y-2">
                     {filteredCars.map((car) => (
+                      (() => {
+                        const meta = carAvailabilityMetaById[car.id];
+                        const canAdd = meta?.canAdd ?? true;
+                        const hasConflict = meta?.hasOverlap ?? false;
+                        const alreadyInSelectedSite = meta?.alreadyAssignedInSelectedSite ?? false;
+                        return (
                       <div key={car.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-gray-900">{car.name}</p>
                           <p className="text-sm text-gray-500">{car.type}</p>
+                          {meta?.message && (
+                            <p className={`text-xs mt-1 ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
+                              {meta.message}
+                            </p>
+                          )}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           className="shrink-0"
                           onClick={() => {
+                            if (hasConflict) {
+                              openCarConflictResolutionModal(car);
+                              return;
+                            }
                             addCarToCurrentAssignment(car).catch((error) => {
                               toast.error(error instanceof Error ? error.message : 'Failed to assign car');
                             });
                           }}
-                          disabled={isLoadingSelectedAssignment}
+                          disabled={isLoadingSelectedAssignment || (!canAdd && !hasConflict)}
                         >
                           {carAction?.carId === car.id && carAction.type === 'add' && (
                             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           )}
-                          Add
+                          {hasConflict ? 'Resolve time' : !canAdd && alreadyInSelectedSite ? 'Added' : 'Add'}
                         </Button>
                       </div>
+                        );
+                      })()
                     ))}
                     </div>
                   )}
@@ -1921,6 +2139,103 @@ export default function AssignmentsRoute() {
                   >
                     {isResolvingConflict && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Add worker
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={!!conflictCar}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConflictCar(null);
+              setConflictCarError(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Resolve car time conflict</DialogTitle>
+            </DialogHeader>
+            {conflictCar && (
+              <div className="space-y-3">
+                <div className="rounded-xl border p-3 bg-gray-50">
+                  <p className="text-sm font-medium text-gray-900">{conflictCar.name}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Already assigned on {selectedDate}:
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {getOtherAssignmentsForCar(conflictCar.id).map((a, idx) => (
+                      <p key={`${a.siteName}-${a.timeRange}-${idx}`} className="text-xs text-gray-700">
+                        {a.siteName} ({formatTimeRange12h(a.timeRange)})
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Choose non-conflicting time for {selectedSiteName}</p>
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <select
+                      value={conflictCarStartTime}
+                      onChange={(e) => {
+                        setConflictCarStartTime(e.target.value);
+                        setConflictCarError(null);
+                      }}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {timeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-gray-400 text-sm text-center">to</span>
+                    <select
+                      value={conflictCarEndTime}
+                      onChange={(e) => {
+                        setConflictCarEndTime(e.target.value);
+                        setConflictCarError(null);
+                      }}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {timeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {conflictCarError && (
+                  <p className="text-xs text-red-600">{conflictCarError}</p>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setConflictCar(null);
+                      setConflictCarError(null);
+                    }}
+                    disabled={isResolvingCarConflict}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-brand-gradient text-white hover:bg-brand-gradient"
+                    onClick={() => {
+                      resolveConflictAndAddCar().catch((error) => {
+                        toast.error(error instanceof Error ? error.message : 'Failed to resolve car conflict');
+                      });
+                    }}
+                    disabled={isResolvingCarConflict}
+                  >
+                    {isResolvingCarConflict && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Add car
                   </Button>
                 </div>
               </div>

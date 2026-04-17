@@ -120,7 +120,7 @@ export function Header({ toggleSidebar, onLogout, currentUser, currentPage, user
 
   const pageTitleKey: Record<string, string> = {
     dashboard: 'nav.dashboard', chat: 'nav.chat', Messages: 'nav.messages', products: 'nav.products', services: 'nav.services',
-    sites: 'nav.sites', workers: 'nav.workers', teams: 'nav.teams',
+    sites: 'nav.sites', workers: 'nav.workers', 'my-assignments': 'nav.myAssignments', teams: 'nav.teams',
     offers: 'nav.offers', 'service-packages': 'nav.servicePackages', clients: 'nav.clients',
     orders: 'nav.orders', 'order-management': 'nav.orderManagement', 'team-management': 'nav.teamManagement',
     'website-manager': 'nav.websiteManager', attendance: 'nav.attendance', 'activity-log': 'nav.activityLog', reports: 'nav.reports',

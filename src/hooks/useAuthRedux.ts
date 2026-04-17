@@ -25,7 +25,7 @@ export function useAuthRedux() {
       const role = result.payload.role.toLowerCase();
       const roleRedirects: Record<string, string> = {
         admin: '/dashboard',
-        worker: '/workers',
+        worker: '/my-assignments',
         product_manager: '/products',
         site_manager: '/sites',
         offer_manager: '/offers',

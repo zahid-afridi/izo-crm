@@ -31,9 +31,9 @@ const ROLE_ACCESS: Record<
   { pages: string[]; apis: string[]; home: string }
 > = {
   worker: {
-    pages: ["/workers", "/chat", "/attendance"],
+    pages: ["/workers", "/my-assignments", "/chat", "/attendance"],
     apis: ["*"],
-    home: "/workers",
+    home: "/my-assignments",
   },
   product_manager: {
     pages: ["/products", "/chat", "/attendance"],
