@@ -442,6 +442,7 @@ model Assignment {
   updatedAt        DateTime @updatedAt
   site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   workers          AssignmentWorker[]
+  cars             AssignmentCar[]
 
   @@unique([siteId, assignmentDate])
   @@index([siteId])
@@ -467,6 +468,25 @@ model AssignmentWorker {
   @@index([startTime])
   @@index([endTime])
   @@map("assignment_workers")
+}
+
+model AssignmentCar {
+  id            String     @id @default(uuid())
+  assignmentId  String
+  carId         String
+  startTime     DateTime?
+  endTime       DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  car           Car        @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, carId])
+  @@index([assignmentId])
+  @@index([carId])
+  @@index([startTime])
+  @@index([endTime])
+  @@map("assignment_cars")
 }
 
 model Worker {
@@ -530,6 +550,7 @@ model Car {
   isLocked     Boolean      @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  assignmentCars AssignmentCar[]
   @@index([status])
   @@index([isLocked])
   @@index([name])

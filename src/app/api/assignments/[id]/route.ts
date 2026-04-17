@@ -70,7 +70,19 @@ function assignmentDto(row: any) {
         timeRange:
           w.startTime && w.endTime ? `${formatHm(w.startTime)} - ${formatHm(w.endTime)}` : null,
       })) || [],
-    assignedCars: [],
+    assignedCars:
+      row.cars?.map((c: any) => ({
+        id: c.id,
+        carId: c.carId,
+        name: c.car?.name || null,
+        model: c.car?.model || null,
+        number: c.car?.number || null,
+        type: [c.car?.model, c.car?.number].filter(Boolean).join(' • ') || 'Car',
+        startTime: c.startTime,
+        endTime: c.endTime,
+        timeRange:
+          c.startTime && c.endTime ? `${formatHm(c.startTime)} - ${formatHm(c.endTime)}` : null,
+      })) || [],
     remainingLeave: [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -95,6 +107,19 @@ export async function GET(
                 fullName: true,
                 role: true,
                 worker: { select: { employeeType: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        cars: {
+          include: {
+            car: {
+              select: {
+                id: true,
+                name: true,
+                model: true,
+                number: true,
               },
             },
           },
@@ -159,6 +184,19 @@ export async function PATCH(
                 fullName: true,
                 role: true,
                 worker: { select: { employeeType: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        cars: {
+          include: {
+            car: {
+              select: {
+                id: true,
+                name: true,
+                model: true,
+                number: true,
               },
             },
           },
