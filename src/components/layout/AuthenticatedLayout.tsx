@@ -19,7 +19,7 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const isChatPage = pathname === '/chat';
   const pathToPage: Record<string, string> = {
     '/dashboard': 'dashboard', '/products': 'products', '/services': 'services', '/sites': 'sites',
-    '/workers': 'workers', '/teams': 'teams', '/offers': 'offers',
+    '/workers': 'workers', '/my-assignments': 'my-assignments', '/teams': 'teams', '/offers': 'offers',
     '/service-packages': 'service-packages', '/clients': 'clients', '/orders': 'orders',
     '/order-management': 'order-management', '/team-management': 'team-management',
     '/website-manager': 'website-manager', '/chat': 'Messages', '/activity-log': 'activity-log',
