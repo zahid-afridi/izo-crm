@@ -82,6 +82,9 @@ export default function AssignmentsRoute() {
   const [sitesQuery, setSitesQuery] = useState('');
   const [siteStatusFilter, setSiteStatusFilter] = useState<'all' | 'active' | 'unassigned'>('all');
   const [assignedSiteIdsForSelectedDate, setAssignedSiteIdsForSelectedDate] = useState<string[]>([]);
+  const [workerAssignmentsByDate, setWorkerAssignmentsByDate] = useState<
+    Record<string, Array<{ siteName: string; timeRange: string }>>
+  >({});
 
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
 
@@ -106,6 +109,7 @@ export default function AssignmentsRoute() {
 
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [draftsModalMode, setDraftsModalMode] = useState<'draft' | 'published'>('draft');
+  const [isPublishingAllDrafts, setIsPublishingAllDrafts] = useState(false);
   const [addWorkersOpen, setAddWorkersOpen] = useState(false);
   const [addWorkersQuery, setAddWorkersQuery] = useState('');
   const [selectedWorkerIdsForAdd, setSelectedWorkerIdsForAdd] = useState<string[]>([]);
@@ -123,6 +127,11 @@ export default function AssignmentsRoute() {
     carId: string;
     type: 'add' | 'remove' | 'time';
   } | null>(null);
+  const [conflictWorker, setConflictWorker] = useState<WorkerBasic | null>(null);
+  const [conflictStartTime, setConflictStartTime] = useState('08:00');
+  const [conflictEndTime, setConflictEndTime] = useState('16:00');
+  const [conflictError, setConflictError] = useState<string | null>(null);
+  const [isResolvingConflict, setIsResolvingConflict] = useState(false);
 
   const assignmentSites = useMemo(
     () =>
@@ -202,20 +211,17 @@ export default function AssignmentsRoute() {
     [reduxWorkers]
   );
 
-  const assignedWorkerIds = useMemo(() => new Set(assignedWorkers.map((w) => w.id)), [assignedWorkers]);
-
-  const availableWorkersPool = useMemo(
-    () => workerPool.filter((w) => !assignedWorkerIds.has(w.id)),
-    [workerPool, assignedWorkerIds]
-  );
+  const availableWorkersPool = useMemo(() => workerPool, [workerPool]);
 
   const remainingWorkersPool = useMemo<RemainingWorker[]>(
     () =>
-      availableWorkersPool.map((w) => ({
+      workerPool
+        .filter((w) => !workerAssignmentsByDate[w.id]?.length)
+        .map((w) => ({
         ...w,
         status: leaveStatusByWorker[w.id] || 'No status',
       })),
-    [availableWorkersPool, leaveStatusByWorker]
+    [workerPool, leaveStatusByWorker, workerAssignmentsByDate]
   );
 
   const carPool = useMemo<CarBasic[]>(
@@ -278,6 +284,211 @@ export default function AssignmentsRoute() {
     return days;
   }
 
+  function format12HourLabel(value: string) {
+    const [h, m] = value.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
+  }
+
+  const timeOptions = useMemo(() => {
+    const out: Array<{ value: string; label: string }> = [];
+    for (let hour = 0; hour < 24; hour += 1) {
+      for (const minute of [0, 30]) {
+        const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        out.push({ value, label: format12HourLabel(value) });
+      }
+    }
+    return out;
+  }, []);
+
+  function parseTimeRangeValue(value?: string | null) {
+    const raw = String(value || '').trim();
+    const [leftRaw = '', rightRaw = ''] = raw.split('-').map((x) => x.trim());
+    const hhmm = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    const start = hhmm.test(leftRaw) ? leftRaw : '08:00';
+    const end = hhmm.test(rightRaw) ? rightRaw : '16:00';
+    return { start, end };
+  }
+
+  function buildTimeRange(start: string, end: string) {
+    return `${start} - ${end}`;
+  }
+
+  function formatTimeRange12h(range: string) {
+    const { start, end } = parseTimeRangeValue(range);
+    return `${format12HourLabel(start)} - ${format12HourLabel(end)}`;
+  }
+
+  function TimeRangePicker({
+    value,
+    onChange,
+    disabled = false,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    disabled?: boolean;
+  }) {
+    const { start, end } = parseTimeRangeValue(value);
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-center">
+        <select
+          value={start}
+          onChange={(e) => onChange(buildTimeRange(e.target.value, end))}
+          disabled={disabled}
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          {timeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-gray-400 text-sm text-center">to</span>
+        <select
+          value={end}
+          onChange={(e) => onChange(buildTimeRange(start, e.target.value))}
+          disabled={disabled}
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          {timeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  function toMinutes(hhmm: string) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function parseTimeRangeToMinutes(range: string) {
+    const { start, end } = parseTimeRangeValue(range);
+    return { startMin: toMinutes(start), endMin: toMinutes(end) };
+  }
+
+  function minutesToHHmm(totalMinutes: number) {
+    const normalized = Math.max(0, Math.min(totalMinutes, 24 * 60 - 1));
+    const h = Math.floor(normalized / 60);
+    const m = normalized % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
+  function rangesOverlap(
+    a: { startMin: number; endMin: number },
+    b: { startMin: number; endMin: number }
+  ) {
+    return a.startMin < b.endMin && b.startMin < a.endMin;
+  }
+
+  function formatMinutesTo12h(totalMinutes: number) {
+    const clamped = Math.max(0, Math.min(totalMinutes, 24 * 60 - 1));
+    const h = Math.floor(clamped / 60);
+    const m = clamped % 60;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
+  }
+
+  function describeAvailabilityWindows(
+    busyRanges: Array<{ startMin: number; endMin: number }>
+  ) {
+    if (!busyRanges.length) return 'Available all day';
+
+    const sorted = [...busyRanges].sort((a, b) => a.startMin - b.startMin);
+    const merged: Array<{ startMin: number; endMin: number }> = [];
+    for (const r of sorted) {
+      const last = merged[merged.length - 1];
+      if (!last || r.startMin > last.endMin) {
+        merged.push({ ...r });
+      } else {
+        last.endMin = Math.max(last.endMin, r.endMin);
+      }
+    }
+
+    if (merged.length === 1) {
+      const one = merged[0];
+      if (one.startMin > 0 && one.endMin < 24 * 60) {
+        return `Available before ${formatMinutesTo12h(one.startMin)} and after ${formatMinutesTo12h(one.endMin)}`;
+      }
+      if (one.startMin > 0) {
+        return `Available before ${formatMinutesTo12h(one.startMin)}`;
+      }
+      if (one.endMin < 24 * 60) {
+        return `Available after ${formatMinutesTo12h(one.endMin)}`;
+      }
+      return 'No remaining availability today';
+    }
+
+    const freeWindows: string[] = [];
+    let cursor = 0;
+    for (const r of merged) {
+      if (r.startMin > cursor) {
+        freeWindows.push(`${formatMinutesTo12h(cursor)} - ${formatMinutesTo12h(r.startMin)}`);
+      }
+      cursor = Math.max(cursor, r.endMin);
+    }
+    if (cursor < 24 * 60) {
+      freeWindows.push(`${formatMinutesTo12h(cursor)} - ${formatMinutesTo12h(24 * 60 - 1)}`);
+    }
+    return freeWindows.length ? `Available: ${freeWindows.join(', ')}` : 'No remaining availability today';
+  }
+
+  function getOtherAssignmentsForWorker(workerId: string) {
+    const assignments = workerAssignmentsByDate[workerId] || [];
+    return assignments.filter((a) => a.siteName !== selectedSiteName);
+  }
+
+  function getBusyRangesForWorker(workerId: string) {
+    return getOtherAssignmentsForWorker(workerId).map((a) => parseTimeRangeToMinutes(a.timeRange));
+  }
+
+  function hasTimeConflictWithOtherSites(workerId: string, start: string, end: string) {
+    const startMin = toMinutes(start);
+    const endMin = toMinutes(end);
+    if (endMin <= startMin) return true;
+    const candidate = { startMin, endMin };
+    return getBusyRangesForWorker(workerId).some((busy) => rangesOverlap(candidate, busy));
+  }
+
+  function findSuggestedNonConflictingRange(workerId: string) {
+    const target = parseTimeRangeToMinutes(timeRangeForAdd);
+    const duration = Math.max(30, target.endMin - target.startMin);
+    const busyRanges = getBusyRangesForWorker(workerId).sort((a, b) => a.startMin - b.startMin);
+    const merged: Array<{ startMin: number; endMin: number }> = [];
+
+    for (const r of busyRanges) {
+      const last = merged[merged.length - 1];
+      if (!last || r.startMin > last.endMin) {
+        merged.push({ ...r });
+      } else {
+        last.endMin = Math.max(last.endMin, r.endMin);
+      }
+    }
+
+    let cursor = 0;
+    for (const r of merged) {
+      if (r.startMin - cursor >= duration) {
+        return {
+          start: minutesToHHmm(cursor),
+          end: minutesToHHmm(cursor + duration),
+        };
+      }
+      cursor = Math.max(cursor, r.endMin);
+    }
+    if (24 * 60 - cursor >= duration) {
+      return {
+        start: minutesToHHmm(cursor),
+        end: minutesToHHmm(cursor + duration),
+      };
+    }
+    return null;
+  }
+
   const filteredAvailableWorkers = useMemo(() => {
     const q = availableQuery.trim().toLowerCase();
     if (!q) return availableWorkersPool;
@@ -310,6 +521,59 @@ export default function AssignmentsRoute() {
     );
   }, [availableWorkersPool, addWorkersQuery]);
 
+  const workerAvailabilityMetaById = useMemo(() => {
+    const meta: Record<
+      string,
+      {
+        assignedSiteName?: string;
+        alreadyAssignedInSelectedSite?: boolean;
+        hasOverlap: boolean;
+        canAdd: boolean;
+        message?: string;
+      }
+    > = {};
+
+    const targetRange = parseTimeRangeToMinutes(timeRangeForAdd);
+    const selectedRange = parseTimeRangeValue(timeRangeForAdd);
+
+    for (const worker of workerPool) {
+      const assignments = workerAssignmentsByDate[worker.id] || [];
+      const inSelectedSite = assignments.find((a) => a.siteName === selectedSiteName);
+      if (inSelectedSite) {
+        meta[worker.id] = {
+          assignedSiteName: selectedSiteName,
+          alreadyAssignedInSelectedSite: true,
+          hasOverlap: false,
+          canAdd: false,
+          message: `Already assigned to ${selectedSiteName}`,
+        };
+        continue;
+      }
+
+      const otherAssignments = assignments.filter((a) => a.siteName !== selectedSiteName);
+      if (!otherAssignments.length) {
+        meta[worker.id] = { hasOverlap: false, canAdd: true };
+        continue;
+      }
+
+      const busyRanges = otherAssignments.map((a) => parseTimeRangeToMinutes(a.timeRange));
+      const conflict = busyRanges.some((busy) => rangesOverlap(targetRange, busy));
+      const firstSite = otherAssignments[0]?.siteName || 'another site';
+
+      meta[worker.id] = {
+        assignedSiteName: firstSite,
+        hasOverlap: conflict,
+        alreadyAssignedInSelectedSite: false,
+        canAdd: !conflict,
+        message: conflict
+          ? `Already assigned to ${firstSite}. ${describeAvailabilityWindows(busyRanges)}`
+          : `Already assigned to ${firstSite}, available for selected site at ${format12HourLabel(selectedRange.start)} - ${format12HourLabel(selectedRange.end)}`,
+      };
+    }
+
+    return meta;
+  }, [workerPool, workerAssignmentsByDate, selectedSiteName, timeRangeForAdd]);
+
   const selectedSite = useMemo(
     () => assignmentSites.find((s) => s.name === selectedSiteName) ?? assignmentSites[0],
     [assignmentSites, selectedSiteName]
@@ -333,10 +597,10 @@ export default function AssignmentsRoute() {
       {
         label: 'Assigned Today',
         value: String(assignedWorkers.length),
-        sub: `${availableWorkersPool.length} remaining workers`,
+        sub: `${remainingWorkersPool.length} remaining workers`,
       },
     ];
-  }, [workerPool.length, assignmentSites, assignedWorkers.length, availableWorkersPool.length]);
+  }, [workerPool.length, assignmentSites, assignedWorkers.length, remainingWorkersPool.length]);
 
   const draftCount = drafts.length;
   const publishedCount = drafts.filter((d) => d.published).length;
@@ -408,6 +672,23 @@ export default function AssignmentsRoute() {
       )
     );
     setAssignedSiteIdsForSelectedDate(ids);
+    const workerAssignmentMap: Record<string, Array<{ siteName: string; timeRange: string }>> = {};
+    for (const row of assignmentRows) {
+      const siteName = String(row?.siteName || '').trim();
+      const fallbackRange = String(row?.timeRange || '').trim();
+      const workers = Array.isArray(row?.assignedWorkers) ? row.assignedWorkers : [];
+      for (const w of workers) {
+        const workerId = String(w?.workerId || w?.id || '').trim();
+        if (!workerId) continue;
+        const workerTimeRange = String(w?.timeRange || fallbackRange || '00:00 - 23:59').trim();
+        if (!workerAssignmentMap[workerId]) workerAssignmentMap[workerId] = [];
+        workerAssignmentMap[workerId].push({
+          siteName: siteName || 'another site',
+          timeRange: workerTimeRange,
+        });
+      }
+    }
+    setWorkerAssignmentsByDate(workerAssignmentMap);
   }
 
   function mapApiWorkersToAssignedWorkers(list: any[]): AssignedWorker[] {
@@ -496,25 +777,62 @@ export default function AssignmentsRoute() {
     return newId;
   }
 
-  async function addWorkerToCurrentAssignment(worker: WorkerBasic) {
+  function upsertWorkerAssignmentInLocalCoverage(workerId: string, siteName: string, timeRange: string) {
+    setWorkerAssignmentsByDate((prev) => {
+      const current = prev[workerId] || [];
+      const next = current.filter((a) => a.siteName !== siteName);
+      next.push({ siteName, timeRange });
+      return {
+        ...prev,
+        [workerId]: next,
+      };
+    });
+  }
+
+  function removeWorkerAssignmentFromLocalCoverage(workerId: string, siteName: string) {
+    setWorkerAssignmentsByDate((prev) => {
+      const current = prev[workerId] || [];
+      const next = current.filter((a) => a.siteName !== siteName);
+      if (!next.length) {
+        const { [workerId]: _, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [workerId]: next,
+      };
+    });
+  }
+
+  async function addWorkerToCurrentAssignment(worker: WorkerBasic, customTimeRange?: string) {
     setWorkerAction({ workerId: worker.id, type: 'add' });
     try {
       const assignmentId = await ensureAssignmentForSelectedDate();
+      const appliedTimeRange = customTimeRange || timeRangeForAdd;
       const response = await fetch(`/api/assignments/${assignmentId}/workers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           workerId: worker.id,
-          time: timeRangeForAdd,
+          time: appliedTimeRange,
         }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to assign worker');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      upsertWorkerAssignmentInLocalCoverage(worker.id, selectedSiteName, appliedTimeRange);
+      if (selectedSiteId) {
+        setAssignedSiteIdsForSelectedDate((prev) =>
+          prev.includes(selectedSiteId) ? prev : [...prev, selectedSiteId]
+        );
+      }
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setWorkerAction((prev) =>
         prev?.workerId === worker.id && prev.type === 'add' ? null : prev
@@ -523,6 +841,7 @@ export default function AssignmentsRoute() {
   }
 
   function toggleWorkerSelectionForModal(workerId: string) {
+    if (!workerAvailabilityMetaById[workerId]?.canAdd) return;
     setSelectedWorkerIdsForAdd((prev) =>
       prev.includes(workerId) ? prev.filter((id) => id !== workerId) : [...prev, workerId]
     );
@@ -538,8 +857,8 @@ export default function AssignmentsRoute() {
       return;
     }
 
-    const selectedWorkers = availableWorkersPool.filter((w) =>
-      selectedWorkerIdsForAdd.includes(w.id)
+    const selectedWorkers = availableWorkersPool.filter(
+      (w) => selectedWorkerIdsForAdd.includes(w.id) && !!workerAvailabilityMetaById[w.id]?.canAdd
     );
     if (selectedWorkers.length === 0) {
       toast.error('Selected workers are no longer available.');
@@ -552,13 +871,14 @@ export default function AssignmentsRoute() {
 
       const results = await Promise.allSettled(
         selectedWorkers.map(async (worker) => {
+          const appliedTimeRange = timeRangeForAdd;
           const response = await fetch(`/api/assignments/${assignmentId}/workers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
               workerId: worker.id,
-              time: timeRangeForAdd,
+              time: appliedTimeRange,
             }),
           });
           if (!response.ok) {
@@ -571,8 +891,25 @@ export default function AssignmentsRoute() {
       const successCount = results.filter((r) => r.status === 'fulfilled').length;
       const failedCount = results.length - successCount;
 
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          const worker = selectedWorkers[idx];
+          if (worker) {
+            upsertWorkerAssignmentInLocalCoverage(worker.id, selectedSiteName, timeRangeForAdd);
+          }
+        }
+      });
+      if (successCount > 0 && selectedSiteId) {
+        setAssignedSiteIdsForSelectedDate((prev) =>
+          prev.includes(selectedSiteId) ? prev : [...prev, selectedSiteId]
+        );
+      }
+
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
 
       if (successCount > 0) {
         toast.success(
@@ -595,6 +932,41 @@ export default function AssignmentsRoute() {
     }
   }
 
+  function openConflictResolutionModal(worker: WorkerBasic) {
+    const selectedRange = parseTimeRangeValue(timeRangeForAdd);
+    const suggestion = findSuggestedNonConflictingRange(worker.id);
+    setConflictWorker(worker);
+    setConflictStartTime(suggestion?.start || selectedRange.start);
+    setConflictEndTime(suggestion?.end || selectedRange.end);
+    setConflictError(null);
+  }
+
+  async function resolveConflictAndAddWorker() {
+    if (!conflictWorker) return;
+
+    if (toMinutes(conflictEndTime) <= toMinutes(conflictStartTime)) {
+      setConflictError('End time must be after start time.');
+      return;
+    }
+
+    if (hasTimeConflictWithOtherSites(conflictWorker.id, conflictStartTime, conflictEndTime)) {
+      setConflictError('Selected time overlaps with another site assignment. Pick a non-overlapping range.');
+      return;
+    }
+
+    setIsResolvingConflict(true);
+    try {
+      const customRange = buildTimeRange(conflictStartTime, conflictEndTime);
+      await addWorkerToCurrentAssignment(conflictWorker, customRange);
+      setConflictWorker(null);
+      setConflictError(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to assign worker');
+    } finally {
+      setIsResolvingConflict(false);
+    }
+  }
+
   async function removeWorkerFromCurrentAssignment(workerId: string) {
     setWorkerAction({ workerId, type: 'remove' });
     if (!currentAssignmentId) {
@@ -613,8 +985,12 @@ export default function AssignmentsRoute() {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to remove worker');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      removeWorkerAssignmentFromLocalCoverage(workerId, selectedSiteName);
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setWorkerAction((prev) =>
         prev?.workerId === workerId && prev.type === 'remove' ? null : prev
@@ -636,8 +1012,12 @@ export default function AssignmentsRoute() {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update worker time');
       }
-      await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-      await fetchAssignmentsForSite(selectedSiteId);
+      upsertWorkerAssignmentInLocalCoverage(workerId, selectedSiteName, time);
+      await Promise.all([
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
     } finally {
       setWorkerAction((prev) =>
         prev?.workerId === workerId && prev.type === 'time' ? null : prev
@@ -731,6 +1111,12 @@ export default function AssignmentsRoute() {
       return;
     }
 
+    const effectiveStatus = shouldPublish
+      ? 'published'
+      : currentAssignmentStatus === 'published'
+        ? 'published'
+        : 'draft';
+
     const response = await fetch('/api/assignments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -739,7 +1125,7 @@ export default function AssignmentsRoute() {
         siteId: selectedSiteId,
         dates,
         timeRange: timeRangeForAdd,
-        status: shouldPublish ? 'published' : 'draft',
+        status: effectiveStatus,
         assignedWorkers: assignedWorkers.map((w) => ({
           id: w.id,
           time: w.time,
@@ -755,7 +1141,11 @@ export default function AssignmentsRoute() {
     await fetchAssignmentsForSite(selectedSiteId);
     await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
     toast.success(
-      shouldPublish ? `Published for ${dates.length} day(s).` : `Drafts saved for ${dates.length} day(s).`
+      shouldPublish
+        ? `Published for ${dates.length} day(s).`
+        : currentAssignmentId
+          ? `Updated for ${dates.length} day(s).`
+          : `Saved for ${dates.length} day(s).`
     );
   }
 
@@ -808,22 +1198,34 @@ export default function AssignmentsRoute() {
     });
   }
 
-  async function publishAllDrafts() {
-    const response = await fetch('/api/assignments/publish-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        siteId: selectedSiteId || undefined,
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to publish all drafts');
+  async function publishAllDrafts(draftIds: string[]) {
+    if (!draftIds.length) {
+      toast.error('No draft assignments to publish.');
+      return;
     }
-    await fetchAssignmentsForSite(selectedSiteId);
-    await fetchSelectedAssignmentByDate(selectedSiteId, selectedDate);
-    toast.success('All drafts published');
+    setIsPublishingAllDrafts(true);
+    try {
+      const response = await fetch('/api/assignments/publish-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ids: draftIds,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to publish all drafts');
+      }
+      await Promise.all([
+        fetchAssignmentsForSite(selectedSiteId),
+        fetchSelectedAssignmentByDate(selectedSiteId, selectedDate),
+        fetchAssignedSiteCoverageByDate(selectedDate),
+      ]);
+      toast.success('All draft assignments published');
+    } finally {
+      setIsPublishingAllDrafts(false);
+    }
   }
 
   useEffect(() => {
@@ -839,6 +1241,7 @@ export default function AssignmentsRoute() {
   useEffect(() => {
     fetchAssignedSiteCoverageByDate(selectedDate).catch(() => {
       setAssignedSiteIdsForSelectedDate([]);
+      setWorkerAssignmentsByDate({});
     });
   }, [selectedDate]);
 
@@ -1007,7 +1410,7 @@ export default function AssignmentsRoute() {
                     else createRangeDraft();
                   }}
                 >
-                  Save
+                  {currentAssignmentId ? 'Update' : 'Save'}
                 </Button>
               </div>
             </div>
@@ -1025,11 +1428,11 @@ export default function AssignmentsRoute() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Time for new workers</p>
-                    <Input value={timeRangeForAdd} onChange={(e) => setTimeRangeForAdd(e.target.value)} />
+                    <TimeRangePicker value={timeRangeForAdd} onChange={setTimeRangeForAdd} />
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Use <b>Save</b> to keep this assignment as draft.
+                  Use <b>{currentAssignmentId ? 'Update' : 'Save'}</b> to keep this assignment without changing status.
                 </p>
               </TabsContent>
 
@@ -1059,14 +1462,14 @@ export default function AssignmentsRoute() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Time for new workers</p>
-                    <Input value={timeRangeForAdd} onChange={(e) => setTimeRangeForAdd(e.target.value)} />
+                    <TimeRangePicker value={timeRangeForAdd} onChange={setTimeRangeForAdd} />
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Preview: {getDateRangeInclusive(rangeStart, rangeEnd).length} day(s)
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Use <b>Save</b> to keep the whole range as draft.
+                  Use <b>{currentAssignmentId ? 'Update' : 'Save'}</b> to keep the whole range without changing status.
                 </p>
               </TabsContent>
             </Tabs>
@@ -1109,25 +1512,21 @@ export default function AssignmentsRoute() {
                           <p className="font-semibold text-gray-900">{worker.name}</p>
                           <p className="text-sm text-gray-500">{worker.role}</p>
                         </div>
-                        <div className="w-full sm:w-[180px]">
+                        <div className="w-full sm:w-[260px]">
                           <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                             Time
                             {workerAction?.workerId === worker.id && workerAction.type === 'time' && (
                               <Loader2 className="w-3 h-3 animate-spin" />
                             )}
                           </p>
-                          <Input
+                          <TimeRangePicker
                             value={worker.time}
-                            onChange={(e) => {
-                              const next = e.target.value;
+                            onChange={(next) => {
                               setAssignedWorkers((prev) =>
                                 prev.map((w) =>
                                   w.id === worker.id ? { ...w, time: next } : w
                                 )
                               );
-                            }}
-                            onBlur={(e) => {
-                              const next = e.target.value;
                               updateWorkerTimeInCurrentAssignment(worker.id, next).catch((error) => {
                                 toast.error(
                                   error instanceof Error ? error.message : 'Failed to update worker time'
@@ -1181,25 +1580,21 @@ export default function AssignmentsRoute() {
                             <p className="font-semibold text-gray-900">{car.name}</p>
                             <p className="text-sm text-gray-500">{car.type}</p>
                           </div>
-                          <div className="w-full sm:w-[180px]">
+                        <div className="w-full sm:w-[260px]">
                             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                               Time
                               {carAction?.carId === car.id && carAction.type === 'time' && (
                                 <Loader2 className="w-3 h-3 animate-spin" />
                               )}
                             </p>
-                            <Input
+                            <TimeRangePicker
                               value={car.time}
-                              onChange={(e) => {
-                                const next = e.target.value;
+                              onChange={(next) => {
                                 setAssignedCars((prev) =>
                                   prev.map((c) =>
                                     c.id === car.id ? { ...c, time: next } : c
                                   )
                                 );
-                              }}
-                              onBlur={(e) => {
-                                const next = e.target.value;
                                 updateCarTimeInCurrentAssignment(car.id, next).catch((error) => {
                                   toast.error(
                                     error instanceof Error ? error.message : 'Failed to update car time'
@@ -1276,28 +1671,45 @@ export default function AssignmentsRoute() {
                   ) : (
                     <div className="space-y-2">
                     {filteredAvailableWorkers.map((worker) => (
+                      (() => {
+                        const meta = workerAvailabilityMetaById[worker.id];
+                        const canAdd = meta?.canAdd ?? true;
+                        const hasConflict = meta?.hasOverlap ?? false;
+                        const alreadyInSelectedSite = meta?.alreadyAssignedInSelectedSite ?? false;
+                        return (
                       <div key={worker.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-gray-900">{worker.name}</p>
                           <p className="text-sm text-gray-500">{worker.role}</p>
+                          {meta?.message && (
+                            <p className={`text-xs mt-1 ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
+                              {meta.message}
+                            </p>
+                          )}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           className="shrink-0"
                           onClick={() => {
+                            if (hasConflict) {
+                              openConflictResolutionModal(worker);
+                              return;
+                            }
                             addWorkerToCurrentAssignment(worker).catch((error) => {
                               toast.error(error instanceof Error ? error.message : 'Failed to assign worker');
                             });
                           }}
-                          disabled={isLoadingSelectedAssignment}
+                          disabled={isLoadingSelectedAssignment || (!canAdd && !hasConflict)}
                         >
                           {workerAction?.workerId === worker.id && workerAction.type === 'add' && (
                             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           )}
-                          Add
+                          {hasConflict ? 'Resolve time' : !canAdd && alreadyInSelectedSite ? 'Added' : 'Add'}
                         </Button>
                       </div>
+                        );
+                      })()
                     ))}
                     </div>
                   )}
@@ -1419,6 +1831,103 @@ export default function AssignmentsRoute() {
           </div>
         </div>
 
+        <Dialog
+          open={!!conflictWorker}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConflictWorker(null);
+              setConflictError(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Resolve time conflict</DialogTitle>
+            </DialogHeader>
+            {conflictWorker && (
+              <div className="space-y-3">
+                <div className="rounded-xl border p-3 bg-gray-50">
+                  <p className="text-sm font-medium text-gray-900">{conflictWorker.name}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Already assigned on {selectedDate}:
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {getOtherAssignmentsForWorker(conflictWorker.id).map((a, idx) => (
+                      <p key={`${a.siteName}-${a.timeRange}-${idx}`} className="text-xs text-gray-700">
+                        {a.siteName} ({formatTimeRange12h(a.timeRange)})
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Choose non-conflicting time for {selectedSiteName}</p>
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <select
+                      value={conflictStartTime}
+                      onChange={(e) => {
+                        setConflictStartTime(e.target.value);
+                        setConflictError(null);
+                      }}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {timeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-gray-400 text-sm text-center">to</span>
+                    <select
+                      value={conflictEndTime}
+                      onChange={(e) => {
+                        setConflictEndTime(e.target.value);
+                        setConflictError(null);
+                      }}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {timeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {conflictError && (
+                  <p className="text-xs text-red-600">{conflictError}</p>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setConflictWorker(null);
+                      setConflictError(null);
+                    }}
+                    disabled={isResolvingConflict}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-brand-gradient text-white hover:bg-brand-gradient"
+                    onClick={() => {
+                      resolveConflictAndAddWorker().catch((error) => {
+                        toast.error(error instanceof Error ? error.message : 'Failed to resolve conflict');
+                      });
+                    }}
+                    disabled={isResolvingConflict}
+                  >
+                    {isResolvingConflict && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Add worker
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={addWorkersOpen} onOpenChange={setAddWorkersOpen}>
           <DialogContent className="sm:max-w-[520px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -1448,22 +1957,36 @@ export default function AssignmentsRoute() {
               ) : (
                 <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                   {modalWorkerOptions.map((worker) => (
+                    (() => {
+                      const meta = workerAvailabilityMetaById[worker.id];
+                      const canAdd = meta?.canAdd ?? true;
+                      const hasConflict = meta?.hasOverlap ?? false;
+                      return (
                     <label
                       key={worker.id}
-                      className="flex items-center gap-3 rounded-xl border p-3 cursor-pointer"
+                      className={`flex items-center gap-3 rounded-xl border p-3 ${
+                        !canAdd ? 'opacity-70 cursor-not-allowed bg-gray-50' : 'cursor-pointer'
+                      }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedWorkerIdsForAdd.includes(worker.id)}
                         onChange={() => toggleWorkerSelectionForModal(worker.id)}
                         className="h-4 w-4"
-                        disabled={isAddingWorkersFromModal}
+                        disabled={isAddingWorkersFromModal || !canAdd}
                       />
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 truncate">{worker.name}</p>
                         <p className="text-sm text-gray-500 truncate">{worker.role}</p>
+                        {meta?.message && (
+                          <p className={`text-xs mt-1 ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
+                            {meta.message}
+                          </p>
+                        )}
                       </div>
                     </label>
+                      );
+                    })()
                   ))}
                 </div>
               )}
@@ -1509,9 +2032,26 @@ export default function AssignmentsRoute() {
                 </div>
                 <Badge variant="outline">{selectedSiteName}</Badge>
               </div>
-              <Badge variant="outline">
-                {draftItemsForSelectedSiteAndDate.length} draft / {publishedItemsForSelectedSiteAndDate.length} published
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {draftItemsForSelectedSiteAndDate.length} draft / {publishedItemsForSelectedSiteAndDate.length} published
+                </Badge>
+                {draftsModalMode === 'draft' && (
+                  <Button
+                    size="sm"
+                    className="bg-brand-gradient text-white hover:bg-brand-gradient"
+                    disabled={isPublishingAllDrafts || draftItemsForSelectedSiteAndDate.length === 0}
+                    onClick={() => {
+                      publishAllDrafts(draftItemsForSelectedSiteAndDate.map((d) => d.id)).catch((error) => {
+                        toast.error(error instanceof Error ? error.message : 'Failed to publish all drafts');
+                      });
+                    }}
+                  >
+                    {isPublishingAllDrafts && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Publish all
+                  </Button>
+                )}
+              </div>
             </div>
 
             <Tabs
