@@ -299,7 +299,7 @@ export async function GET(request: NextRequest) {
         type: 'offer',
         title: `${offer.offerNumber} - ${offer.title}`,
         description: `Client: ${offer.client || 'N/A'}`,
-        subtitle: `Status: ${offer.offerStatus} • Total: €${offer.totalAmount} • Valid until: ${offer.validUntil.toLocaleDateString()}`,
+        subtitle: `Status: ${offer.offerStatus} • Total: €${offer.totalAmount}`,
         image: null,
         url: `/offers/${offer.id}`,
         category: 'Offers'

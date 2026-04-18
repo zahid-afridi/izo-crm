@@ -15,7 +15,7 @@ interface Offer {
   clientId?: string;
   title: string;
   offerDate: string;
-  validUntil: string;
+  validUntil?: string | null;
   totalAmount: number;
   offerStatus: string;
   items: any[];
@@ -314,7 +314,6 @@ export function OfferExportDialog({ isOpen, onClose, offers }: OfferExportDialog
                       <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.client')}</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.title')}</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.exportCreatedDate')}</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.validUntil')}</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.status')}</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-900">{t('offers.totalAmount')}</th>
                     </tr>
@@ -327,14 +326,13 @@ export function OfferExportDialog({ isOpen, onClose, offers }: OfferExportDialog
                           <td className="px-4 py-3 text-gray-600">{row.client}</td>
                           <td className="px-4 py-3 text-gray-600">{row.title}</td>
                           <td className="px-4 py-3 text-gray-600">{row.createdDate}</td>
-                          <td className="px-4 py-3 text-gray-600">{row.validDate}</td>
                           <td className="px-4 py-3 text-gray-600">{row.status}</td>
                           <td className="px-4 py-3 text-gray-900 font-medium">€{row.totalAmount.toLocaleString()}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                           {t('offers.exportNoData')}
                         </td>
                       </tr>

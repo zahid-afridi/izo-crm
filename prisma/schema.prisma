@@ -565,6 +565,7 @@ model ServicePackage {
   description String?
   unit        String   @default("m²")
   price       Float
+  currency    String   @default("eur")
   status      String   @default("active")
   services    Json     @default("[]")
   products    Json     @default("[]")
@@ -622,7 +623,7 @@ model Offer {
   title               String
   description         String?
   offerDate           DateTime
-  validUntil          DateTime
+  validUntil          DateTime?
   currency            String        @default("eur")
   offerStatus         String        @default("draft")
   subtotal            Float         @default(0)
