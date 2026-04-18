@@ -13,7 +13,8 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Plus, Search, Download, MoreVertical, Eye, Send, Package, X, ArrowRight, Mail, FileText, Printer, Trash2, Loader } from 'lucide-react';
+import { Plus, Search, Download, MoreVertical, Eye, Send, Package, X, ArrowRight, Mail, FileText, Printer, Trash2, Loader, AlertTriangle } from 'lucide-react';
+import { getDocumentFiles, countDocumentFiles } from '@/lib/offers/documents';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { OfferExportDialog } from './OfferExportDialog';
 import { useAppSelector } from '@/store/hooks';
@@ -30,9 +31,10 @@ interface Offer {
   clientId?: string;
   title: string;
   offerDate: string;
-  validUntil: string;
+  validUntil?: string | null;
   totalAmount: number;
   offerStatus: string;
+  effectiveStatus?: string;
   items: any[];
   currency: string;
   subtotal: number;
@@ -102,9 +104,8 @@ export function OffersPage({ userRole }: OffersPageProps) {
     clientId: '',
     title: '',
     offerDate: new Date().toISOString().split('T')[0],
-    validUntil: '',
-    currency: 'eur',
-    offerStatus: 'sent',
+    currency: 'usd',
+    offerStatus: 'draft',
     paymentTerms: 'Payment within 30 days from invoice date.',
     deliveryTerms: 'Delivery within 5-7 business days after order confirmation.',
     validityPeriod: 'This offer is valid for 30 days from the date above.',
@@ -114,6 +115,8 @@ export function OffersPage({ userRole }: OffersPageProps) {
   const canEdit = ['admin', 'offer_manager'].includes(userRole);
   const canDelete = ['admin', 'offer_manager'].includes(userRole);
   const canView = ['admin', 'offer_manager', 'site_manager'].includes(userRole);
+
+  const displayOfferStatus = (offer: Offer) => offer.effectiveStatus ?? offer.offerStatus;
 
   // Function to get currency symbol
   const getCurrencySymbol = (currency: string) => {
@@ -186,10 +189,6 @@ export function OffersPage({ userRole }: OffersPageProps) {
     const errors: string[] = [];
     if (!offerData.clientId) errors.push(t('offers.clientRequired'));
     if (!offerData.title.trim()) errors.push(t('offers.offerTitleRequired'));
-    if (!offerData.validUntil) errors.push(t('offers.validUntilRequired'));
-    if (offerData.validUntil && new Date(offerData.validUntil) <= new Date(offerData.offerDate)) {
-      errors.push(t('offers.validUntilAfterDate'));
-    }
     setValidationErrors(errors);
     return errors.length === 0;
   };
@@ -250,10 +249,6 @@ export function OffersPage({ userRole }: OffersPageProps) {
         const detailsErrors: string[] = [];
         if (!offerData.clientId) detailsErrors.push(t('offers.clientRequired'));
         if (!offerData.title.trim()) detailsErrors.push(t('offers.offerTitleRequired'));
-        if (!offerData.validUntil) detailsErrors.push(t('offers.validUntilRequired'));
-        if (offerData.validUntil && new Date(offerData.validUntil) <= new Date(offerData.offerDate)) {
-          detailsErrors.push(t('offers.validUntilAfterDate'));
-        }
         return detailsErrors.length > 0;
       case 'products':
         const productsErrors: string[] = [];
@@ -312,9 +307,8 @@ export function OffersPage({ userRole }: OffersPageProps) {
       clientId: '',
       title: '',
       offerDate: new Date().toISOString().split('T')[0],
-      validUntil: '',
-      currency: 'eur',
-      offerStatus: 'sent',
+      currency: 'usd',
+      offerStatus: 'draft',
       paymentTerms: 'Payment within 30 days from invoice date.',
       deliveryTerms: 'Delivery within 5-7 business days after order confirmation.',
       validityPeriod: 'This offer is valid for 30 days from the date above.',
@@ -411,6 +405,8 @@ export function OffersPage({ userRole }: OffersPageProps) {
 
       const payload = {
         ...offerData,
+        offerStatus: 'draft',
+        validUntil: null,
         items: transformedItems,
         subtotal: calculateSubtotal(),
         discount: calculateTotalDiscount(),
@@ -477,6 +473,7 @@ export function OffersPage({ userRole }: OffersPageProps) {
 
       const payload = {
         ...offerData,
+        validUntil: null,
         items: transformedItems,
         subtotal: calculateSubtotal(),
         discount: calculateTotalDiscount(),
@@ -532,12 +529,35 @@ export function OffersPage({ userRole }: OffersPageProps) {
     }
   };
 
+  /** Send PDF to client email via configured SMTP (Company settings). */
   const handleEmailOffer = async (offer: Offer) => {
+    setIsSharing(offer.id);
     try {
-      // Set loading state
+      const response = await fetch(`/api/offers/${offer.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email');
+      }
+      await dispatchFetchOffers({ status: statusFilter });
+      alert(t('offers.emailSentSuccess'));
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to send email';
+      alert(msg);
+    } finally {
+      setIsSharing(null);
+    }
+  };
+
+  /** Upload PDF and get shareable link (Web Share / manual paste). */
+  const handleShareOfferLink = async (offer: Offer) => {
+    try {
       setIsSharing(offer.id);
 
-      // Upload PDF to Cloudinary and get public URL
       const response = await fetch(`/api/offers/${offer.id}/share`, {
         method: 'POST',
       });
@@ -548,7 +568,6 @@ export function OffersPage({ userRole }: OffersPageProps) {
 
       const result = await response.json();
 
-      // Check if Web Share API is supported (mainly mobile)
       if (navigator.share) {
         try {
           await navigator.share({
@@ -557,27 +576,22 @@ export function OffersPage({ userRole }: OffersPageProps) {
             url: result.url
           });
           return;
-        } catch (shareError) {
+        } catch {
           console.log('Web Share API failed, falling back to other methods');
         }
       }
 
-      // For desktop: Show user options with the cloud URL
       showEmailOptions(offer, result.url);
-
     } catch (error) {
       console.error('Error sharing offer:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`Error sharing offer: ${errorMessage}. Please try downloading the PDF manually.`);
-
-      // Fallback to download
       try {
         await handleDownloadOffer(offer);
       } catch (downloadError) {
         console.error('Download also failed:', downloadError);
       }
     } finally {
-      // Clear loading state
       setIsSharing(null);
     }
   };
@@ -610,7 +624,6 @@ Offer Details:
 • Offer Number: ${offer.offerNumber}
 • Project: ${offer.title}
 • Date: ${new Date(offer.offerDate).toLocaleDateString()}
-• Valid Until: ${new Date(offer.validUntil).toLocaleDateString()}
 • Total Amount: ${offer.currency === 'eur' ? '€' : offer.currency === 'usd' ? '$' : 'Lek '}${offer.totalAmount?.toFixed(2)}
 
 The PDF document is securely hosted and can be downloaded directly from the link above.
@@ -670,7 +683,6 @@ Offer Details:
 • Offer Number: ${offer.offerNumber}
 • Project: ${offer.title}
 • Date: ${new Date(offer.offerDate).toLocaleDateString()}
-• Valid Until: ${new Date(offer.validUntil).toLocaleDateString()}
 • Total Amount: ${offer.currency === 'eur' ? '€' : offer.currency === 'usd' ? '$' : 'Lek '}${offer.totalAmount?.toFixed(2)}
 
 The PDF document is securely hosted and can be downloaded directly from the link above.
@@ -712,7 +724,6 @@ Offer Details:
 - Offer Number: ${offer.offerNumber}
 - Project: ${offer.title}
 - Date: ${new Date(offer.offerDate).toLocaleDateString()}
-- Valid Until: ${new Date(offer.validUntil).toLocaleDateString()}
 - Total Amount: ${offer.currency === 'eur' ? '€' : offer.currency === 'usd' ? '$' : 'Lek '}${offer.totalAmount?.toFixed(2)}
 
 Items:
@@ -770,7 +781,6 @@ Offer Details:
 • Offer Number: ${offer.offerNumber}
 • Project: ${offer.title}
 • Date: ${new Date(offer.offerDate).toLocaleDateString()}
-• Valid Until: ${new Date(offer.validUntil).toLocaleDateString()}
 • Total Amount: ${offer.currency === 'eur' ? '€' : offer.currency === 'usd' ? '$' : 'Lek '}${offer.totalAmount?.toFixed(2)}
 
 The PDF document is securely hosted and can be downloaded directly from the link above.
@@ -859,7 +869,6 @@ Offer Number: ${offer.offerNumber}
 Project: ${offer.title}
 Client: ${offer.client}
 Date: ${new Date(offer.offerDate).toLocaleDateString()}
-Valid Until: ${new Date(offer.validUntil).toLocaleDateString()}
 Total Amount: ${offer.currency === 'eur' ? '€' : offer.currency === 'usd' ? '$' : 'Lek '}${offer.totalAmount?.toFixed(2)}
 
 📋 ITEMS:
@@ -988,7 +997,6 @@ ${offerText.substring(0, 200)}...
       clientId: offer.clientId || '',
       title: offer.title,
       offerDate: offer.offerDate.split('T')[0],
-      validUntil: offer.validUntil.split('T')[0],
       currency: offer.currency,
       offerStatus: offer.offerStatus,
       paymentTerms: offer.paymentTerms || 'Payment within 30 days from invoice date.',
@@ -1145,18 +1153,23 @@ ${offerText.substring(0, 200)}...
     const matchesSearch = offer.offerNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       offer.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
       offer.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || offer.offerStatus === statusFilter;
+    const eff = displayOfferStatus(offer);
+    const matchesStatus = statusFilter === 'all' || eff === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'draft':
+        return <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-100">{t('offers.draft')}</Badge>;
       case 'accepted':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{t('offers.accepted')}</Badge>;
       case 'rejected':
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{t('offers.rejected')}</Badge>;
       case 'sent':
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{t('offers.sent')}</Badge>;
+      case 'expired':
+        return <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">{t('offers.expired')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -1182,7 +1195,9 @@ ${offerText.substring(0, 200)}...
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('offers.allStatus')}</SelectItem>
+              <SelectItem value="draft">{t('offers.draft')}</SelectItem>
               <SelectItem value="sent">{t('offers.sent')}</SelectItem>
+              <SelectItem value="expired">{t('offers.expired')}</SelectItem>
               <SelectItem value="accepted">{t('offers.accepted')}</SelectItem>
               <SelectItem value="rejected">{t('offers.rejected')}</SelectItem>
             </SelectContent>
@@ -1242,17 +1257,17 @@ ${offerText.substring(0, 200)}...
                   >
                     <div className="flex items-center gap-2">
                       1. {t('offers.tabDetails')}
-                      {hasTabErrors('details') && <span className="text-red-500">⚠️</span>}
+                      {hasTabErrors('details') && <AlertTriangle className="inline w-4 h-4 text-red-500" aria-hidden />}
                     </div>
                   </TabsTrigger>
                   <TabsTrigger
                     value="products"
                     className={`text-sm data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 ${hasTabErrors('products') ? 'text-red-600 border-red-200' : ''}`}
-                    disabled={!offerData.clientId || !offerData.title.trim() || !offerData.validUntil}
+                    disabled={!offerData.clientId || !offerData.title.trim()}
                   >
                     <div className="flex items-center gap-2">
                       2. {t('offers.tabProducts')}
-                      {hasTabErrors('products') && <span className="text-red-500">⚠️</span>}
+                      {hasTabErrors('products') && <AlertTriangle className="inline w-4 h-4 text-red-500" aria-hidden />}
                     </div>
                   </TabsTrigger>
                   <TabsTrigger
@@ -1377,42 +1392,41 @@ ${offerText.substring(0, 200)}...
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">{t('offers.validUntil')} <span className="text-red-500">*</span></Label>
-                          <Input
-                            type="date"
-                            value={offerData.validUntil}
-                            onChange={(e) => {
-                              setOfferData({ ...offerData, validUntil: e.target.value });
-                              setValidationErrors([]);
-                            }}
-                            className={!offerData.validUntil && validationErrors.some(e => e === t('offers.validUntilRequired') || e === t('offers.validUntilAfterDate')) ? 'border-red-500' : ''}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">{t('offers.status')}</Label>
-                          <Select
-                            value={offerData.offerStatus}
-                            onValueChange={(value) => setOfferData({ ...offerData, offerStatus: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="sent">{t('offers.sent')}</SelectItem>
-                              <SelectItem value="accepted">{t('offers.accepted')}</SelectItem>
-                              <SelectItem value="rejected">{t('offers.rejected')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {!isEditMode ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">{t('offers.status')}</Label>
+                            <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                              {t('offers.draft')}
+                            </div>
+                            <p className="text-xs text-gray-500">{t('offers.statusCreateHint')}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">{t('offers.status')}</Label>
+                            <Select
+                              value={offerData.offerStatus}
+                              onValueChange={(value) => setOfferData({ ...offerData, offerStatus: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="draft">{t('offers.draft')}</SelectItem>
+                                <SelectItem value="sent">{t('offers.sent')}</SelectItem>
+                                <SelectItem value="accepted">{t('offers.accepted')}</SelectItem>
+                                <SelectItem value="rejected">{t('offers.rejected')}</SelectItem>
+                                <SelectItem value="expired">{t('offers.expired')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
 
                       {/* Validation Errors */}
                       {validationErrors.length > 0 && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                           <div className="flex items-start gap-3">
-                            <div className="w-5 h-5 text-red-500 mt-0.5">⚠️</div>
+                            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" aria-hidden />
                             <div>
                               <h4 className="text-sm font-medium text-red-800 mb-1">{t('offers.fixErrors')}</h4>
                               <ul className="text-sm text-red-700 space-y-1">
@@ -1634,7 +1648,7 @@ ${offerText.substring(0, 200)}...
                     {validationErrors.length > 0 && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
                         <div className="flex items-start gap-3">
-                          <div className="w-5 h-5 text-red-500 mt-0.5">⚠️</div>
+                          <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" aria-hidden />
                           <div>
                             <h4 className="text-sm font-medium text-red-800 mb-1">{t('offers.fixErrors')}</h4>
                             <ul className="text-sm text-red-700 space-y-1">
@@ -1688,9 +1702,7 @@ ${offerText.substring(0, 200)}...
                                   .filter(item => item.type === 'product' && item.id)
                                   .map((item, index) => {
                                     const product = availableProducts.find(p => p.id === item.id);
-                                    // Access documents from the documents JSON field
-                                    const documents = product?.documents ?
-                                      (Array.isArray(product.documents) ? product.documents : []) : [];
+                                    const documents = getDocumentFiles(product?.documents);
 
                                     return (
                                       <Card key={`product-${index}`} className="p-4 border-l-4 border-l-blue-500 bg-blue-50/30">
@@ -1764,9 +1776,7 @@ ${offerText.substring(0, 200)}...
                                   .filter(item => item.type === 'service' && item.id)
                                   .map((item, index) => {
                                     const service = availableServices.find(s => s.id === item.id);
-                                    // Access documents from the documents JSON field
-                                    const documents = service?.documents ?
-                                      (Array.isArray(service.documents) ? service.documents : []) : [];
+                                    const documents = getDocumentFiles(service?.documents);
 
                                     return (
                                       <Card key={`service-${index}`} className="p-4 border-l-4 border-l-purple-500 bg-purple-50/30">
@@ -1840,54 +1850,127 @@ ${offerText.substring(0, 200)}...
                                   .filter(item => item.type === 'service_package' && item.id)
                                   .map((item, index) => {
                                     const servicePackage = availablePackages.find(p => p.id === item.id);
-                                    // Service packages might have documents in a different structure
-                                    const documents = servicePackage?.documents ?
-                                      (Array.isArray(servicePackage.documents) ? servicePackage.documents : []) : [];
+                                    const pkgServices = (servicePackage?.services as any[]) || [];
+                                    const pkgProducts = (servicePackage?.products as any[]) || [];
+                                    const nestedServiceRows = pkgServices
+                                      .map((s) => s?.details || availableServices.find((sv) => sv.id === s?.id))
+                                      .filter(Boolean);
+                                    const nestedProductRows = pkgProducts
+                                      .map((p) => p?.details || availableProducts.find((pr) => pr.id === p?.id))
+                                      .filter(Boolean);
+                                    const packageDocTotal =
+                                      nestedServiceRows.reduce(
+                                        (n, row: any) => n + countDocumentFiles(row?.documents),
+                                        0
+                                      ) +
+                                      nestedProductRows.reduce(
+                                        (n, row: any) => n + countDocumentFiles(row?.documents),
+                                        0
+                                      );
 
                                     return (
                                       <Card key={`package-${index}`} className="p-4 border-l-4 border-l-green-500 bg-green-50/30">
-                                        <div className="space-y-3">
+                                        <div className="space-y-4">
                                           <div className="flex items-start justify-between">
                                             <div>
                                               <h5 className="font-medium text-gray-900">{item.name}</h5>
                                               <p className="text-sm text-gray-600">{t('offers.quantityLabel')}: {item.quantity}</p>
+                                              <p className="text-xs text-gray-500 mt-1">{t('offers.packageDocumentsHint')}</p>
                                             </div>
                                             <Badge variant="secondary" className="text-xs">
-                                              {t('offers.documentsCount', { count: documents.length })}
+                                              {t('offers.documentsCount', { count: packageDocTotal })}
                                             </Badge>
                                           </div>
 
-                                          {documents.length > 0 ? (
-                                            <div className="space-y-2">
-                                              {documents.map((doc: any, docIndex: number) => (
-                                                <div key={docIndex} className="flex items-center gap-3 p-2 bg-white rounded border">
-                                                  <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-xs font-bold text-green-600">📄</span>
-                                                  </div>
-                                                  <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                                      {doc.title || doc.fileName || doc.name || t('offers.documentDefault', { index: docIndex + 1 })}
-                                                    </p>
-                                                    {doc.description && (
-                                                      <p className="text-xs text-gray-500 truncate">{doc.description}</p>
+                                          {nestedServiceRows.length > 0 && (
+                                            <div className="space-y-2 pl-2 border-l-2 border-green-200">
+                                              <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+                                                {t('offers.servicesInPackage')}
+                                              </p>
+                                              {(nestedServiceRows as any[]).map((row, si) => {
+                                                const docs = getDocumentFiles(row?.documents);
+                                                return (
+                                                  <div key={`ps-${si}`} className="rounded-md bg-white/80 p-3 border border-green-100">
+                                                    <p className="text-sm font-medium text-gray-900">{row.title || row.name}</p>
+                                                    {docs.length === 0 ? (
+                                                      <p className="text-xs text-gray-500 mt-1">{t('offers.noDocumentsForService')}</p>
+                                                    ) : (
+                                                      <div className="mt-2 space-y-2">
+                                                        {docs.map((doc, di) => (
+                                                          <div key={di} className="flex items-center gap-3 p-2 bg-white rounded border">
+                                                            <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                              <p className="text-sm font-medium text-gray-900 truncate">
+                                                                {doc.title || doc.fileName || doc.name || t('offers.documentDefault', { index: di + 1 })}
+                                                              </p>
+                                                            </div>
+                                                            {(doc.fileUrl || doc.url) && (
+                                                              <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => window.open(doc.fileUrl || doc.url, '_blank')}
+                                                                className="text-green-600"
+                                                              >
+                                                                <Eye className="w-4 h-4" />
+                                                              </Button>
+                                                            )}
+                                                          </div>
+                                                        ))}
+                                                      </div>
                                                     )}
                                                   </div>
-                                                  {(doc.fileUrl || doc.url) && (
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={() => window.open(doc.fileUrl || doc.url, '_blank')}
-                                                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                    >
-                                                      <Eye className="w-4 h-4" />
-                                                    </Button>
-                                                  )}
-                                                </div>
-                                              ))}
+                                                );
+                                              })}
                                             </div>
-                                          ) : (
+                                          )}
+
+                                          {nestedProductRows.length > 0 && (
+                                            <div className="space-y-2 pl-2 border-l-2 border-emerald-200">
+                                              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">
+                                                {t('offers.productsInPackage')}
+                                              </p>
+                                              {(nestedProductRows as any[]).map((row, pi) => {
+                                                const docs = getDocumentFiles(row?.documents);
+                                                return (
+                                                  <div key={`pp-${pi}`} className="rounded-md bg-white/80 p-3 border border-emerald-100">
+                                                    <p className="text-sm font-medium text-gray-900">{row.title || row.name}</p>
+                                                    {docs.length === 0 ? (
+                                                      <p className="text-xs text-gray-500 mt-1">{t('offers.noDocumentsForProduct')}</p>
+                                                    ) : (
+                                                      <div className="mt-2 space-y-2">
+                                                        {docs.map((doc, di) => (
+                                                          <div key={di} className="flex items-center gap-3 p-2 bg-white rounded border">
+                                                            <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                              <p className="text-sm font-medium text-gray-900 truncate">
+                                                                {doc.title || doc.fileName || doc.name || t('offers.documentDefault', { index: di + 1 })}
+                                                              </p>
+                                                            </div>
+                                                            {(doc.fileUrl || doc.url) && (
+                                                              <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => window.open(doc.fileUrl || doc.url, '_blank')}
+                                                                className="text-emerald-600"
+                                                              >
+                                                                <Eye className="w-4 h-4" />
+                                                              </Button>
+                                                            )}
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+
+                                          {nestedServiceRows.length === 0 && nestedProductRows.length === 0 && (
                                             <div className="text-center py-4 text-gray-500 text-sm bg-white rounded border-2 border-dashed">
-                                              {t('offers.noDocumentsForPackage')}
+                                              {t('offers.noPackageItemsResolved')}
                                             </div>
                                           )}
                                         </div>
@@ -1910,19 +1993,26 @@ ${offerText.substring(0, 200)}...
                                   {offerItems.reduce((total, item) => {
                                     if (item.type === 'product') {
                                       const product = availableProducts.find(p => p.id === item.id);
-                                      const documents = product?.documents ?
-                                        (Array.isArray(product.documents) ? product.documents : []) : [];
-                                      return total + documents.length;
-                                    } else if (item.type === 'service') {
+                                      return total + countDocumentFiles(product?.documents);
+                                    }
+                                    if (item.type === 'service') {
                                       const service = availableServices.find(s => s.id === item.id);
-                                      const documents = service?.documents ?
-                                        (Array.isArray(service.documents) ? service.documents : []) : [];
-                                      return total + documents.length;
-                                    } else if (item.type === 'service_package') {
+                                      return total + countDocumentFiles(service?.documents);
+                                    }
+                                    if (item.type === 'service_package') {
                                       const servicePackage = availablePackages.find(p => p.id === item.id);
-                                      const documents = servicePackage?.documents ?
-                                        (Array.isArray(servicePackage.documents) ? servicePackage.documents : []) : [];
-                                      return total + documents.length;
+                                      const pkgServices = (servicePackage?.services as any[]) || [];
+                                      const pkgProducts = (servicePackage?.products as any[]) || [];
+                                      const svcRows = pkgServices
+                                        .map((s) => s?.details || availableServices.find((sv) => sv.id === s?.id))
+                                        .filter(Boolean) as any[];
+                                      const prodRows = pkgProducts
+                                        .map((p) => p?.details || availableProducts.find((pr) => pr.id === p?.id))
+                                        .filter(Boolean) as any[];
+                                      const nested =
+                                        svcRows.reduce((n, row) => n + countDocumentFiles(row?.documents), 0) +
+                                        prodRows.reduce((n, row) => n + countDocumentFiles(row?.documents), 0);
+                                      return total + nested;
                                     }
                                     return total;
                                   }, 0)}
@@ -1984,8 +2074,9 @@ ${offerText.substring(0, 200)}...
                 {/* Validation Errors */}
                 <div className="flex-1">
                   {validationErrors.length > 0 && (
-                    <div className="text-sm text-red-600 font-medium">
-                      ⚠️ {validationErrors[0]}
+                    <div className="text-sm text-red-600 font-medium flex items-center gap-1">
+                      <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
+                      {validationErrors[0]}
                     </div>
                   )}
                 </div>
@@ -2084,58 +2175,21 @@ ${offerText.substring(0, 200)}...
                   ) : (
                     <Mail className="w-4 h-4 mr-2" />
                   )}
-                  {t('offers.smartShare')}
+                  {t('offers.sendToClient')}
                 </Button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={async () => {
-                      await handleGmailShare(savedOfferForEmail);
-                      setShowEmailModalAfterSave(false);
-                      setSavedOfferForEmail(null);
-                    }}
-                    variant="outline"
-                    className="h-10"
-                    disabled={isSharing === savedOfferForEmail.id}
-                  >
-                    {isSharing === savedOfferForEmail.id ? (
-                      <div className="w-4 h-4 mr-2 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <span className="mr-2">📧</span>
-                    )}
-                    {t('offers.gmail')}
-                  </Button>
-
-                  <Button
-                    onClick={async () => {
-                      await handleOutlookShare(savedOfferForEmail);
-                      setShowEmailModalAfterSave(false);
-                      setSavedOfferForEmail(null);
-                    }}
-                    variant="outline"
-                    className="h-10"
-                    disabled={isSharing === savedOfferForEmail.id}
-                  >
-                    {isSharing === savedOfferForEmail.id ? (
-                      <div className="w-4 h-4 mr-2 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <span className="mr-2">📮</span>
-                    )}
-                    {t('offers.outlook')}
-                  </Button>
-                </div>
-
                 <Button
-                  onClick={() => {
-                    copyOfferToClipboard(savedOfferForEmail);
+                  onClick={async () => {
+                    await handleShareOfferLink(savedOfferForEmail);
                     setShowEmailModalAfterSave(false);
                     setSavedOfferForEmail(null);
                   }}
                   variant="outline"
                   className="w-full h-10"
+                  disabled={isSharing === savedOfferForEmail.id}
                 >
-                  <span className="w-4 h-4 mr-2">📋</span>
-                  {t('offers.copyDetails')}
+                  <Send className="w-4 h-4 mr-2" />
+                  {t('offers.shareOfferLink')}
                 </Button>
               </div>
 
@@ -2169,18 +2223,26 @@ ${offerText.substring(0, 200)}...
       )}
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('offers.totalOffers')}</p>
           <p className="text-gray-900">{offers.length}</p>
         </Card>
         <Card className="p-4">
+          <p className="text-sm text-gray-500 mb-1">{t('offers.draft')}</p>
+          <p className="text-gray-900">{offers.filter(o => displayOfferStatus(o) === 'draft').length}</p>
+        </Card>
+        <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('offers.sent')}</p>
-          <p className="text-gray-900">{offers.filter(o => o.offerStatus === 'sent').length}</p>
+          <p className="text-gray-900">{offers.filter(o => displayOfferStatus(o) === 'sent').length}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-gray-500 mb-1">{t('offers.expired')}</p>
+          <p className="text-gray-900">{offers.filter(o => displayOfferStatus(o) === 'expired').length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('offers.accepted')}</p>
-          <p className="text-gray-900">{offers.filter(o => o.offerStatus === 'accepted').length}</p>
+          <p className="text-gray-900">{offers.filter(o => displayOfferStatus(o) === 'accepted').length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('offers.totalValue')}</p>
@@ -2199,7 +2261,6 @@ ${offerText.substring(0, 200)}...
                   <TableHead>{t('offers.client')}</TableHead>
                   <TableHead>{t('offers.title')}</TableHead>
                   <TableHead>{t('offers.date')}</TableHead>
-                  <TableHead>{t('offers.validUntil')}</TableHead>
                   <TableHead>{t('offers.items')}</TableHead>
                   <TableHead>{t('offers.totalAmount')}</TableHead>
                   <TableHead>{t('offers.status')}</TableHead>
@@ -2209,7 +2270,7 @@ ${offerText.substring(0, 200)}...
               <TableBody>
                 {isInitialLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12">
+                    <TableCell colSpan={8} className="text-center py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader className="w-8 h-8 animate-spin text-gray-400" />
                         <span className="text-gray-500">{t('offers.loadingOffers')}</span>
@@ -2218,7 +2279,7 @@ ${offerText.substring(0, 200)}...
                   </TableRow>
                 ) : filteredOffers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-gray-500">
+                    <TableCell colSpan={8} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <FileText className="w-8 h-8 text-gray-400" />
@@ -2251,25 +2312,27 @@ ${offerText.substring(0, 200)}...
                       <TableCell className="text-gray-900">{offer.client}</TableCell>
                       <TableCell className="text-gray-600 max-w-[200px] truncate">{offer.title}</TableCell>
                       <TableCell className="text-gray-600">{new Date(offer.offerDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-gray-600">{new Date(offer.validUntil).toLocaleDateString()}</TableCell>
                       <TableCell className="text-gray-900">{offer.items?.length || 0}</TableCell>
                       <TableCell className="text-gray-900">
                         {getCurrencySymbol(offer.currency)}{offer.totalAmount.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          {getStatusBadge(displayOfferStatus(offer))}
                           <Select
                             value={offer.offerStatus}
                             onValueChange={(value) => handleUpdateOfferStatus(offer.id, value)}
                             disabled={isUpdatingField === `${offer.id}-status`}
                           >
-                            <SelectTrigger className="w-auto min-w-[100px] h-8 text-xs">
+                            <SelectTrigger className="w-auto min-w-[120px] h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="sent">Sent</SelectItem>
-                              <SelectItem value="accepted">Accepted</SelectItem>
-                              <SelectItem value="rejected">Rejected</SelectItem>
+                              <SelectItem value="draft">{t('offers.draft')}</SelectItem>
+                              <SelectItem value="sent">{t('offers.sent')}</SelectItem>
+                              <SelectItem value="accepted">{t('offers.accepted')}</SelectItem>
+                              <SelectItem value="rejected">{t('offers.rejected')}</SelectItem>
+                              <SelectItem value="expired">{t('offers.expired')}</SelectItem>
                             </SelectContent>
                           </Select>
                           {isUpdatingField === `${offer.id}-status` && (
@@ -2369,7 +2432,7 @@ ${offerText.substring(0, 200)}...
                       <p className="text-sm text-gray-500">{t('offers.basicOfferDetails')}</p>
                     </div>
                     <div className="ml-auto">
-                      {getStatusBadge(selectedOfferForView.offerStatus)}
+                      {getStatusBadge(displayOfferStatus(selectedOfferForView))}
                     </div>
                   </div>
 
@@ -2391,10 +2454,6 @@ ${offerText.substring(0, 200)}...
                       <div>
                         <Label className="text-sm font-medium text-gray-600">{t('offers.offerDate')}</Label>
                         <p className="text-gray-900 mt-1">{new Date(selectedOfferForView.offerDate).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">{t('offers.validUntil')}</Label>
-                        <p className="text-gray-900 mt-1">{new Date(selectedOfferForView.validUntil).toLocaleDateString()}</p>
                       </div>
                     </div>
 
@@ -2621,7 +2680,7 @@ ${offerText.substring(0, 200)}...
                         ) : (
                           <Mail className="w-4 h-4 mr-2" />
                         )}
-                        Share Offer
+                        {t('offers.sendToClient')}
                       </Button>
                     </div>
                   </div>
@@ -2726,7 +2785,23 @@ ${offerText.substring(0, 200)}...
                   ) : (
                     <Mail className="w-4 h-4 mr-2" />
                   )}
-                  {t('offers.smartShare')}
+                  {t('offers.sendToClient')}
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center disabled:opacity-50 transition-colors duration-150"
+                  onClick={() => {
+                    const offer = offers.find(o => o.id === openDropdownId);
+                    if (offer) handleShareOfferLink(offer);
+                    closeDropdown();
+                  }}
+                  disabled={isSharing === openDropdownId}
+                >
+                  {isSharing === openDropdownId ? (
+                    <div className="w-4 h-4 mr-2 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  {t('offers.shareOfferLink')}
                 </button>
                 <button
                   className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center disabled:opacity-50 transition-colors duration-150"

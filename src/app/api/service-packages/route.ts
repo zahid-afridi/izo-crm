@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { name, description, unit, price, status, services, products } = body;
+    const { name, description, unit, price, currency, status, services, products } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -77,9 +77,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!price) {
+    const priceNum = parseFloat(price);
+    if (price === undefined || price === null || price === '' || Number.isNaN(priceNum) || priceNum < 0) {
       return NextResponse.json(
-        { error: 'Package price is required' },
+        { error: 'A valid package price is required' },
         { status: 400 }
       );
     }
@@ -89,7 +90,8 @@ export async function POST(request: NextRequest) {
         name,
         description: description || null,
         unit: unit || 'm²',
-        price: parseFloat(price),
+        price: priceNum,
+        currency: typeof currency === 'string' && currency.trim() ? currency.trim().toLowerCase() : 'eur',
         status: status || 'active',
         services: services || [],
         products: products || [],

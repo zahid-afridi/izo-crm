@@ -25,10 +25,24 @@ interface ServicePackage {
   description?: string;
   unit: string;
   price: number;
+  currency?: string;
   status: string;
   services: any[];
   products: any[];
   createdAt: string;
+}
+
+function getCurrencySymbol(currency?: string): string {
+  const c = (currency || 'eur').toLowerCase();
+  if (c === 'eur') return '€';
+  if (c === 'usd') return '$';
+  if (c === 'gbp') return '£';
+  if (c === 'all' || c === 'lek') return 'Lek ';
+  return `${c.toUpperCase()} `;
+}
+
+function formatMoney(amount: number, currency?: string) {
+  return `${getCurrencySymbol(currency)}${amount.toFixed(2)}`;
 }
 
 export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
@@ -52,6 +66,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
     name: '',
     unit: 'm2',
     price: '',
+    currency: 'eur',
     description: '',
     status: 'active'
   });
@@ -220,7 +235,8 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
   };
 
   const handleCreatePackage = async () => {
-    if (!formData.name || !formData.price) {
+    const priceNum = parseFloat(formData.price);
+    if (!formData.name || formData.price === '' || Number.isNaN(priceNum) || priceNum < 0) {
       toast.error(t('servicePackages.allFieldsRequired'));
       return;
     }
@@ -235,7 +251,8 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
         body: JSON.stringify({
           name: formData.name,
           unit: formData.unit,
-          price: parseFloat(formData.price),
+          price: priceNum,
+          currency: formData.currency,
           description: formData.description,
           status: formData.status,
           services,
@@ -265,6 +282,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
       name: '',
       unit: 'm2',
       price: '',
+      currency: 'eur',
       description: '',
       status: 'active'
     });
@@ -348,6 +366,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
       name: pkg.name,
       unit: pkg.unit,
       price: pkg.price.toString(),
+      currency: (pkg.currency || 'eur').toLowerCase(),
       description: pkg.description || '',
       status: pkg.status
     });
@@ -388,7 +407,8 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
 
   const handleUpdatePackage = async () => {
     if (!editingPackageId) return;
-    if (!formData.name || !formData.price) {
+    const priceNum = parseFloat(formData.price);
+    if (!formData.name || formData.price === '' || Number.isNaN(priceNum) || priceNum < 0) {
       toast.error(t('servicePackages.allFieldsRequired'));
       return;
     }
@@ -403,7 +423,8 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
         body: JSON.stringify({
           name: formData.name,
           unit: formData.unit,
-          price: parseFloat(formData.price),
+          price: priceNum,
+          currency: formData.currency,
           description: formData.description,
           status: formData.status,
           services,
@@ -461,6 +482,43 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
     pkg.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const servicesSubtotal = services.reduce(
+    (sum, s) => sum + ((s.price || 0) * (s.quantity || 1)),
+    0
+  );
+  const productsSubtotal = products.reduce(
+    (sum, p) => sum + ((p.price || 0) * (p.quantity || 1)),
+    0
+  );
+  const calculatedLineTotal = servicesSubtotal + productsSubtotal;
+
+  const averagePriceDisplay = (() => {
+    if (packages.length === 0) return formatMoney(0, 'eur');
+    const first = (packages[0].currency || 'eur').toLowerCase();
+    const allSame = packages.every(
+      (p) => (p.currency || 'eur').toLowerCase() === first
+    );
+    if (!allSame) return '—';
+    const avg = packages.reduce((s, p) => s + p.price, 0) / packages.length;
+    return formatMoney(avg, first);
+  })();
+
+  const selectedPkgCurrency = selectedPackage
+    ? (selectedPackage.currency || 'eur').toLowerCase()
+    : 'eur';
+  const selectedPkgCalculatedTotal = selectedPackage
+    ? (selectedPackage.services || []).reduce(
+        (sum, s) =>
+          sum + ((s.details?.price || s.price || 0) * (s.quantity || 1)),
+        0
+      ) +
+      (selectedPackage.products || []).reduce(
+        (sum, p) =>
+          sum + ((p.details?.price || p.price || 0) * (p.quantity || 1)),
+        0
+      )
+    : 0;
+
   return (
     <div className="space-y-6 relative">
       {/* Header */}
@@ -490,7 +548,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                 <DialogTitle className="text-xl sm:text-2xl">{isEditMode ? t('servicePackages.editPackage') : t('servicePackages.createPackageTitle')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-6 sm:space-y-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <div className="col-span-full">
                     <Label className="text-sm sm:text-base font-medium">{t('servicePackages.packageName')} <span className="text-red-500">*</span></Label>
                     <Input 
@@ -501,7 +559,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                     />
                   </div>
                   
-                  <div className="sm:col-span-1">
+                  <div>
                     <Label className="text-sm sm:text-base font-medium">{t('servicePackages.unit')}</Label>
                     <Select value={formData.unit} onValueChange={(value) => setFormData({ ...formData, unit: value })}>
                       <SelectTrigger className="h-10 sm:h-12 mt-1">
@@ -515,27 +573,8 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div className="sm:col-span-1">
-                    <Label className="text-sm sm:text-base font-medium">{t('servicePackages.totalPrice')} <span className="text-red-500">*</span></Label>
-                    <Input 
-                      type="text"
-                      placeholder={t('servicePackages.pricePlaceholder')}
-                      value={formData.price}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow only numbers and decimal point
-                        if (/^\d*\.?\d*$/.test(value)) {
-                          setFormData({ ...formData, price: value });
-                        }
-                      }}
-                      className="h-10 sm:h-12 mt-1"
-                      title="Total price is automatically calculated but can be manually adjusted"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{t('servicePackages.priceHint')}</p>
-                  </div>
 
-                  <div className="sm:col-span-1">
+                  <div>
                     <Label className="text-sm sm:text-base font-medium">{t('common.status')}</Label>
                     <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                       <SelectTrigger className="h-10 sm:h-12 mt-1">
@@ -745,7 +784,9 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                                 </Select>
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs font-medium text-gray-600">Price (€)</Label>
+                                <Label className="text-xs font-medium text-gray-600">
+                                  {t('servicePackages.price')} ({getCurrencySymbol(formData.currency).trim()})
+                                </Label>
                                 <Input 
                                   type="text"
                                   placeholder="0.00"
@@ -868,30 +909,66 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                   </div>
                 </div>
 
-                {/* Package Summary */}
+                {/* Package Summary — final price & currency at bottom */}
                 <div className="border-t pt-6 sm:pt-8">
-                  <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('servicePackages.packageSummary')}</h3>
+                  <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm">
+                    <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-slate-900">{t('servicePackages.packageSummary')}</h3>
                     <div className="space-y-3 sm:space-y-4">
                       <div className="flex flex-col sm:flex-row sm:justify-between text-sm sm:text-base gap-1">
-                        <span className="text-gray-600">Services ({services.length}):</span>
-                        <span className="text-gray-900 font-medium">€{services.reduce((sum, s) => sum + ((s.price || 0) * (s.quantity || 1)), 0).toFixed(2)}</span>
+                        <span className="text-gray-600">{t('servicePackages.servicesSubtotal', { count: services.length })}</span>
+                        <span className="text-gray-900 font-medium tabular-nums">{formatMoney(servicesSubtotal, formData.currency)}</span>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:justify-between text-sm sm:text-base gap-1">
-                        <span className="text-gray-600">Products ({products.length}):</span>
-                        <span className="text-gray-900 font-medium">€{products.reduce((sum, p) => sum + ((p.price || 0) * (p.quantity || 1)), 0).toFixed(2)}</span>
+                        <span className="text-gray-600">{t('servicePackages.productsSubtotal', { count: products.length })}</span>
+                        <span className="text-gray-900 font-medium tabular-nums">{formatMoney(productsSubtotal, formData.currency)}</span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between border-t pt-3 text-lg sm:text-xl gap-1">
-                        <span className="text-gray-900 font-bold">{t('servicePackages.calculatedTotal')}:</span>
-                        <span className="text-blue-600 font-bold">€{(services.reduce((sum, s) => sum + ((s.price || 0) * (s.quantity || 1)), 0) + products.reduce((sum, p) => sum + ((p.price || 0) * (p.quantity || 1)), 0)).toFixed(2)}</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between border-t border-slate-200 pt-3 text-base sm:text-lg gap-1">
+                        <span className="text-gray-900 font-semibold">{t('servicePackages.calculatedTotal')}</span>
+                        <span className="text-blue-600 font-bold tabular-nums">{formatMoney(calculatedLineTotal, formData.currency)}</span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between text-lg sm:text-xl gap-1">
-                        <span className="text-gray-900 font-bold">{t('servicePackages.packagePriceLabel')}:</span>
-                        <span className="text-green-600 font-bold">€{parseFloat(formData.price || '0').toFixed(2)}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">{t('servicePackages.currency')}</Label>
+                          <Select
+                            value={formData.currency}
+                            onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                          >
+                            <SelectTrigger className="h-11 bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="z-[9999]">
+                              <SelectItem value="eur">{t('servicePackages.currencyEur')}</SelectItem>
+                              <SelectItem value="usd">{t('servicePackages.currencyUsd')}</SelectItem>
+                              <SelectItem value="gbp">{t('servicePackages.currencyGbp')}</SelectItem>
+                              <SelectItem value="all">{t('servicePackages.currencyAll')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">
+                            {t('servicePackages.totalPrice')} <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="flex rounded-md border border-slate-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/30 focus-within:border-blue-400">
+                            <span className="flex items-center px-3 text-sm text-slate-600 border-r border-slate-200 bg-slate-50 shrink-0">
+                              {getCurrencySymbol(formData.currency)}
+                            </span>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder={t('servicePackages.pricePlaceholder')}
+                              value={formData.price}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (/^\d*\.?\d*$/.test(value)) {
+                                  setFormData({ ...formData, price: value });
+                                }
+                              }}
+                              className="h-11 border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-500 mt-2">
-                        {t('servicePackages.packagePriceHint')}
-                      </div>
+                      <p className="text-xs sm:text-sm text-slate-500">{t('servicePackages.packagePriceHint')}</p>
                     </div>
                   </div>
                 </div>
@@ -938,9 +1015,7 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
         </Card>
         <Card className="p-4">
           <p className="text-sm text-gray-500 mb-1">{t('servicePackages.averagePrice')}</p>
-          <p className="text-gray-900">
-            €{packages.length > 0 ? (packages.reduce((sum, p) => sum + p.price, 0) / packages.length).toFixed(2) : '0.00'}
-          </p>
+          <p className="text-gray-900 tabular-nums">{averagePriceDisplay}</p>
         </Card>
       </div>
 
@@ -1012,7 +1087,9 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                     <Badge variant="outline">{(pkg.products || []).length}</Badge>
                   </TableCell>
                   <TableCell className="text-gray-600">{pkg.unit}</TableCell>
-                  <TableCell className="text-gray-900">€{pkg.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-gray-900 tabular-nums">
+                    {formatMoney(pkg.price, pkg.currency)}
+                  </TableCell>
                   <TableCell>
                     {canEdit ? (
                       <Select 
@@ -1222,7 +1299,9 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                 </div>
                 <div>
                   <Label className="text-sm text-gray-500 mb-2 block">{t('servicePackages.price')}</Label>
-                  <p className="text-lg sm:text-xl font-semibold text-gray-900">€{selectedPackage.price.toFixed(2)}</p>
+                  <p className="text-lg sm:text-xl font-semibold text-gray-900 tabular-nums">
+                    {formatMoney(selectedPackage.price, selectedPkgCurrency)}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-sm text-gray-500 mb-2 block">{t('servicePackages.unit')}</Label>
@@ -1278,11 +1357,22 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                           </div>
                           <div className="bg-white p-3 sm:p-4 rounded border">
                             <p className="text-gray-500 text-xs font-medium mb-1">Unit Price</p>
-                            <p className="text-gray-900 font-semibold text-base">€{service.details?.price?.toFixed(2) || service.price?.toFixed(2) || '0.00'}</p>
+                            <p className="text-gray-900 font-semibold text-base tabular-nums">
+                              {formatMoney(
+                                service.details?.price ?? service.price ?? 0,
+                                selectedPkgCurrency
+                              )}
+                            </p>
                           </div>
                           <div className="bg-white p-3 sm:p-4 rounded border">
                             <p className="text-gray-500 text-xs font-medium mb-1">Total</p>
-                            <p className="text-blue-600 font-bold text-base">€{((service.details?.price || service.price || 0) * service.quantity).toFixed(2)}</p>
+                            <p className="text-blue-600 font-bold text-base tabular-nums">
+                              {formatMoney(
+                                (service.details?.price || service.price || 0) *
+                                  (service.quantity || 1),
+                                selectedPkgCurrency
+                              )}
+                            </p>
                           </div>
                         </div>
 
@@ -1349,11 +1439,22 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                           </div>
                           <div className="bg-white p-3 sm:p-4 rounded border">
                             <p className="text-gray-500 text-xs font-medium mb-1">Unit Price</p>
-                            <p className="text-gray-900 font-semibold text-base">€{product.details?.price?.toFixed(2) || product.price?.toFixed(2) || '0.00'}</p>
+                            <p className="text-gray-900 font-semibold text-base tabular-nums">
+                              {formatMoney(
+                                product.details?.price ?? product.price ?? 0,
+                                selectedPkgCurrency
+                              )}
+                            </p>
                           </div>
                           <div className="bg-white p-3 sm:p-4 rounded border">
                             <p className="text-gray-500 text-xs font-medium mb-1">Total</p>
-                            <p className="text-green-600 font-bold text-base">€{((product.details?.price || product.price || 0) * product.quantity).toFixed(2)}</p>
+                            <p className="text-green-600 font-bold text-base tabular-nums">
+                              {formatMoney(
+                                (product.details?.price || product.price || 0) *
+                                  (product.quantity || 1),
+                                selectedPkgCurrency
+                              )}
+                            </p>
                           </div>
                         </div>
 
@@ -1412,11 +1513,10 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                       <div className="text-xs sm:text-sm text-gray-500 mt-1">Total Items</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl sm:text-3xl font-bold text-orange-600">
-                        €{((selectedPackage.services || []).reduce((sum, s) => sum + ((s.details?.price || s.price || 0) * s.quantity), 0) + 
-                            (selectedPackage.products || []).reduce((sum, p) => sum + ((p.details?.price || p.price || 0) * p.quantity), 0)).toFixed(2)}
+                      <div className="text-2xl sm:text-3xl font-bold text-orange-600 tabular-nums">
+                        {formatMoney(selectedPkgCalculatedTotal, selectedPkgCurrency)}
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-500 mt-1">Calculated Total</div>
+                      <div className="text-xs sm:text-sm text-gray-500 mt-1">{t('servicePackages.calculatedTotal')}</div>
                     </div>
                   </div>
                   
@@ -1424,28 +1524,31 @@ export function ServicePackagesPage({ userRole }: ServicePackagesPageProps) {
                   <div className="pt-4 sm:pt-6 border-t border-gray-200">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:text-left">
                       <div>
-                        <span className="text-sm text-gray-600 block mb-1">Package Price:</span>
-                        <span className="font-semibold text-lg sm:text-xl">€{selectedPackage.price.toFixed(2)}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm text-gray-600 block mb-1">Calculated Total:</span>
-                        <span className="font-semibold text-lg sm:text-xl">
-                          €{((selectedPackage.services || []).reduce((sum, s) => sum + ((s.details?.price || s.price || 0) * s.quantity), 0) + 
-                              (selectedPackage.products || []).reduce((sum, p) => sum + ((p.details?.price || p.price || 0) * p.quantity), 0)).toFixed(2)}
+                        <span className="text-sm text-gray-600 block mb-1">{t('servicePackages.packagePriceLabel')}:</span>
+                        <span className="font-semibold text-lg sm:text-xl tabular-nums">
+                          {formatMoney(selectedPackage.price, selectedPkgCurrency)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700 block mb-1">Savings/Markup:</span>
-                        <span className={`font-bold text-lg sm:text-xl ${
-                          selectedPackage.price < ((selectedPackage.services || []).reduce((sum, s) => sum + ((s.details?.price || s.price || 0) * s.quantity), 0) + 
-                                                    (selectedPackage.products || []).reduce((sum, p) => sum + ((p.details?.price || p.price || 0) * p.quantity), 0))
-                          ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {selectedPackage.price < ((selectedPackage.services || []).reduce((sum, s) => sum + ((s.details?.price || s.price || 0) * s.quantity), 0) + 
-                                                    (selectedPackage.products || []).reduce((sum, p) => sum + ((p.details?.price || p.price || 0) * p.quantity), 0))
-                          ? '-' : '+'}€{Math.abs(selectedPackage.price - 
-                              ((selectedPackage.services || []).reduce((sum, s) => sum + ((s.details?.price || s.price || 0) * s.quantity), 0) + 
-                               (selectedPackage.products || []).reduce((sum, p) => sum + ((p.details?.price || p.price || 0) * p.quantity), 0))).toFixed(2)}
+                        <span className="text-sm text-gray-600 block mb-1">{t('servicePackages.calculatedTotal')}:</span>
+                        <span className="font-semibold text-lg sm:text-xl tabular-nums">
+                          {formatMoney(selectedPkgCalculatedTotal, selectedPkgCurrency)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 block mb-1">{t('servicePackages.savingsMarkup')}:</span>
+                        <span
+                          className={`font-bold text-lg sm:text-xl tabular-nums ${
+                            selectedPackage.price < selectedPkgCalculatedTotal
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}
+                        >
+                          {selectedPackage.price < selectedPkgCalculatedTotal ? '-' : '+'}
+                          {formatMoney(
+                            Math.abs(selectedPackage.price - selectedPkgCalculatedTotal),
+                            selectedPkgCurrency
+                          )}
                         </span>
                       </div>
                     </div>

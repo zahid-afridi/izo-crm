@@ -25,6 +25,7 @@ export type SystemMailInput = {
   cc?: string | string[];
   bcc?: string | string[];
   replyTo?: string;
+  attachments?: NonNullable<SendMailOptions['attachments']>;
 };
 
 function parseEnvBoolean(value: string | undefined, fallback: boolean): boolean {
@@ -151,6 +152,7 @@ export async function sendSystemMail(
     cc: payload.cc,
     bcc: payload.bcc,
     replyTo: payload.replyTo ?? settings.mailerEmail,
+    attachments: payload.attachments,
   };
 
   return transporter.sendMail(mailOptions);

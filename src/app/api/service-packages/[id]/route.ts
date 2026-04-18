@@ -77,14 +77,23 @@ export async function PUT(
       );
     }
 
-    const { name, description, unit, price, status, services, products } = body;
+    const { name, description, unit, price, currency, status, services, products } = body;
 
     const updateData: any = {};
 
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description || null;
     if (unit) updateData.unit = unit;
-    if (price) updateData.price = parseFloat(price);
+    if (price !== undefined && price !== null && price !== '') {
+      const n = parseFloat(price);
+      if (!Number.isNaN(n) && n >= 0) updateData.price = n;
+    }
+    if (currency !== undefined) {
+      updateData.currency =
+        typeof currency === 'string' && currency.trim()
+          ? currency.trim().toLowerCase()
+          : 'eur';
+    }
     if (status) updateData.status = status;
     if (services !== undefined) updateData.services = services;
     if (products !== undefined) updateData.products = products;

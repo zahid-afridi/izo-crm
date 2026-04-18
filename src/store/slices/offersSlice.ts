@@ -20,8 +20,10 @@ export interface Offer {
   title: string;
   description?: string;
   offerDate: string;
-  validUntil: string;
+  validUntil?: string | null;
   offerStatus: string;
+  /** Set by API: draft, sent, accepted, rejected, expired (sent + past validUntil) */
+  effectiveStatus?: string;
   currency: string;
   subtotal: number;
   discount: number;

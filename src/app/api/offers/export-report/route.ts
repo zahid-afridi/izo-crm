@@ -34,7 +34,9 @@ export async function POST(request: NextRequest) {
       client: offer.client || 'N/A',
       title: offer.title,
       createdDate: new Date(offer.offerDate).toLocaleDateString(),
-      validDate: new Date(offer.validUntil).toLocaleDateString(),
+      validDate: offer.validUntil
+        ? new Date(offer.validUntil).toLocaleDateString()
+        : '—',
       status: offer.offerStatus,
       totalAmount: offer.totalAmount,
     }];
@@ -48,7 +50,9 @@ export async function POST(request: NextRequest) {
         clientId: offer.clientId || 'N/A',
         title: offer.title,
         offerDate: new Date(offer.offerDate).toLocaleDateString(),
-        validUntil: new Date(offer.validUntil).toLocaleDateString(),
+        validUntil: offer.validUntil
+          ? new Date(offer.validUntil).toLocaleDateString()
+          : '—',
         currency: offer.currency || 'EUR',
         offerStatus: offer.offerStatus,
         subtotal: offer.subtotal,

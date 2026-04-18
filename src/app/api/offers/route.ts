@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getEffectiveOfferStatus } from '@/lib/offers/offerStatus';
 
 // GET all offers
 export async function GET(request: NextRequest) {
@@ -8,7 +9,30 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
 
     const where: any = {};
-    if (status && status !== 'all') where.offerStatus = status;
+    const now = new Date();
+
+    if (status && status !== 'all') {
+      if (status === 'sent') {
+        where.AND = [
+          { offerStatus: 'sent' },
+          {
+            OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+          },
+        ];
+      } else if (status === 'expired') {
+        where.OR = [
+          { offerStatus: 'expired' },
+          {
+            AND: [
+              { offerStatus: 'sent' },
+              { validUntil: { not: null, lt: now } },
+            ],
+          },
+        ];
+      } else {
+        where.offerStatus = status;
+      }
+    }
 
     const offers = await prisma.offer.findMany({
       where,
@@ -17,7 +41,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ offers }, { status: 200 });
+    const offersWithEffective = offers.map((o) => ({
+      ...o,
+      effectiveStatus: getEffectiveOfferStatus(o),
+    }));
+
+    return NextResponse.json({ offers: offersWithEffective }, { status: 200 });
   } catch (error) {
     console.error('Error fetching offers:', error);
     return NextResponse.json(
@@ -55,13 +84,6 @@ export async function POST(request: NextRequest) {
     if (!client || !title) {
       return NextResponse.json(
         { error: 'Client and title are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!validUntil) {
-      return NextResponse.json(
-        { error: 'Valid Until date is required' },
         { status: 400 }
       );
     }
@@ -276,8 +298,11 @@ export async function POST(request: NextRequest) {
         title,
         description: description || null,
         offerDate: new Date(offerDate),
-        validUntil: new Date(validUntil),
-        offerStatus: offerStatus || 'sent',
+        validUntil:
+          validUntil != null && validUntil !== ''
+            ? new Date(validUntil)
+            : null,
+        offerStatus: 'draft',
         currency: currency || 'eur',
         subtotal: finalSubtotal,
         discount: discount || 0,
@@ -295,6 +320,7 @@ export async function POST(request: NextRequest) {
         message: 'Offer created successfully', 
         offer: {
           ...offer,
+          effectiveStatus: getEffectiveOfferStatus(offer),
           itemsCount: validatedItems.length,
           calculatedSubtotal,
           finalTotal

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getEffectiveOfferStatus } from '@/lib/offers/offerStatus';
 
 // GET single offer
 export async function GET(
@@ -19,7 +20,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ offer }, { status: 200 });
+    return NextResponse.json(
+      {
+        offer: {
+          ...offer,
+          effectiveStatus: getEffectiveOfferStatus(offer),
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error fetching offer:', error);
     return NextResponse.json(
@@ -72,13 +81,6 @@ export async function PUT(
     if (!client || !title) {
       return NextResponse.json(
         { error: 'Client and title are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!validUntil) {
-      return NextResponse.json(
-        { error: 'Valid Until date is required' },
         { status: 400 }
       );
     }
@@ -267,7 +269,12 @@ export async function PUT(
       title,
       description: description !== undefined ? description : existingOffer.description,
       offerDate: offerDate ? new Date(offerDate) : existingOffer.offerDate,
-      validUntil: new Date(validUntil),
+      validUntil:
+        validUntil !== undefined
+          ? validUntil != null && validUntil !== ''
+            ? new Date(validUntil)
+            : null
+          : existingOffer.validUntil,
       offerStatus: offerStatus || existingOffer.offerStatus,
       currency: currency || existingOffer.currency,
       subtotal: finalSubtotal !== undefined ? finalSubtotal : existingOffer.subtotal,
@@ -290,6 +297,7 @@ export async function PUT(
         message: 'Offer updated successfully', 
         offer: {
           ...offer,
+          effectiveStatus: getEffectiveOfferStatus(offer),
           itemsCount: Array.isArray(validatedItems) ? validatedItems.length : 0,
           calculatedSubtotal: calculatedSubtotal || finalSubtotal
         }
