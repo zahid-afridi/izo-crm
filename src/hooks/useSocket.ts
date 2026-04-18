@@ -86,6 +86,11 @@ interface UseSocketReturn {
 }
 
 export function useSocket(userId?: string): UseSocketReturn {
+  const isDev = process.env.NODE_ENV === 'development';
+  const dbg = (...args: unknown[]) => {
+    if (isDev) dbg(...args);
+  };
+
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -121,7 +126,7 @@ export function useSocket(userId?: string): UseSocketReturn {
 
     // Connection events
     socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
+      dbg('Socket connected:', socket.id);
       setIsConnected(true);
 
       // Register user
@@ -129,20 +134,20 @@ export function useSocket(userId?: string): UseSocketReturn {
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      dbg('Socket disconnected');
       setIsConnected(false);
     });
 
     // User connection events
     socket.on('userConnected', (data: { userId: string; rooms: ChatRoom[]; onlineUsers: string[] }) => {
-      console.log('User connected successfully:', data);
+      dbg('User connected successfully:', data);
       setRooms(data.rooms);
       setOnlineUsers(data.onlineUsers.map(id => ({ userId: id, status: 'online' as const })));
     });
 
     // Message events
     socket.on('newMessage', (message: Message) => {
-      console.log('New message received:', message);
+      dbg('New message received:', message);
       setMessages(prev => ({
         ...prev,
         [message.roomId]: [...(prev[message.roomId] || []), message]
@@ -151,7 +156,7 @@ export function useSocket(userId?: string): UseSocketReturn {
     });
 
     socket.on('messageDeleted', (data: { messageId: string; deletedBy: string; isAdmin: boolean }) => {
-      console.log('Message deleted:', data);
+      dbg('Message deleted:', data);
       setMessages(prev => {
         const newMessages = { ...prev };
         Object.keys(newMessages).forEach(roomId => {
@@ -164,19 +169,19 @@ export function useSocket(userId?: string): UseSocketReturn {
 
     // Room events
     socket.on('newRoom', (room: ChatRoom) => {
-      console.log('New room created:', room);
+      dbg('New room created:', room);
       setRooms(prev => [...prev, room]);
       eventHandlers.current.onNewRoom?.(room);
     });
 
     socket.on('teamCreated', (data: { room: ChatRoom; message: string }) => {
-      console.log('Team created:', data);
+      dbg('Team created:', data);
       setRooms(prev => [...prev, data.room]);
       eventHandlers.current.onTeamCreated?.(data);
     });
 
     socket.on('teamDeleted', (data: { roomId: string; teamName: string; message: string }) => {
-      console.log('Team deleted:', data);
+      dbg('Team deleted:', data);
       setRooms(prev => prev.filter(room => room.id !== data.roomId));
       setMessages(prev => {
         const newMessages = { ...prev };
@@ -188,7 +193,7 @@ export function useSocket(userId?: string): UseSocketReturn {
 
     // Chat request events
     socket.on('chatRequest', (request: ChatRequest) => {
-      console.log('Chat request received:', request);
+      dbg('Chat request received:', request);
       setChatRequests(prev => {
         // Dedupe by userId - same user should only appear once
         const existsByUser = prev.some(r => r.userId === request.userId);
@@ -200,22 +205,22 @@ export function useSocket(userId?: string): UseSocketReturn {
     });
 
     socket.on('chatRequestSent', (data: { message: string }) => {
-      console.log('Chat request sent:', data);
+      dbg('Chat request sent:', data);
     });
 
     socket.on('chatApproved', (data: { roomId: string; adminName: string }) => {
-      console.log('Chat approved:', data);
+      dbg('Chat approved:', data);
       eventHandlers.current.onChatApproved?.(data);
     });
 
     socket.on('chatRejected', (data: { reason: string; adminName: string }) => {
-      console.log('Chat rejected:', data);
+      dbg('Chat rejected:', data);
       eventHandlers.current.onChatRejected?.(data);
     });
 
     // User status events
     socket.on('userStatusChanged', (data: { userId: string; status: string }) => {
-      console.log('User status changed:', data);
+      dbg('User status changed:', data);
       setOnlineUsers(prev => {
         const existing = prev.find(u => u.userId === data.userId);
         if (existing) {
@@ -233,18 +238,18 @@ export function useSocket(userId?: string): UseSocketReturn {
     });
 
     socket.on('onlineUsers', (users: OnlineUser[]) => {
-      console.log('Online users:', users);
+      dbg('Online users:', users);
       setOnlineUsers(users);
     });
 
     // Confirmation events
     socket.on('confirmMessageDeletion', (data: { messageId: string; content: string; senderName: string }) => {
-      console.log('Confirm message deletion:', data);
+      dbg('Confirm message deletion:', data);
       eventHandlers.current.onConfirmMessageDeletion?.(data);
     });
 
     socket.on('confirmTeamDeletion', (data: { roomId: string; teamName: string; memberCount: number }) => {
-      console.log('Confirm team deletion:', data);
+      dbg('Confirm team deletion:', data);
       eventHandlers.current.onConfirmTeamDeletion?.(data);
     });
 

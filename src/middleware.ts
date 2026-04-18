@@ -1,15 +1,27 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { extractToken, verifyTokenEdge } from '@/lib/jwt-edge'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import type { JWTPayload } from '@/lib/auth';
+import { extractToken, verifyTokenEdge } from '@/lib/jwt-edge';
+
+const isDev = process.env.NODE_ENV === 'development';
+
+function debugLog(...args: unknown[]) {
+  if (isDev) console.log(...args);
+}
+
+function attachUserHeaders(res: NextResponse, payload: JWTPayload | null) {
+  if (payload) {
+    res.headers.set('x-user-id', payload.userId);
+    res.headers.set('x-user-role', payload.role);
+    res.headers.set('x-user-email', payload.email);
+  }
+  return res;
+}
 
 /**
  * Public pages
  */
-const PUBLIC_PAGES = [
-  '/auth/login',
-  '/auth/register',
-  '/403',
-]
+const PUBLIC_PAGES = ['/auth/login', '/auth/register', '/403'];
 
 /**
  * Public APIs
@@ -19,9 +31,9 @@ const PUBLIC_APIS = [
   '/api/auth/register',
   '/api/auth/me',
   '/api/settings/branding',
-  '/api/debug/auth', // Debug endpoint
-  '/api/debug/token-test', // Token test endpoint
-]
+  '/api/debug/auth',
+  '/api/debug/token-test',
+];
 
 /**
  * Role-based access
@@ -31,52 +43,52 @@ const ROLE_ACCESS: Record<
   { pages: string[]; apis: string[]; home: string }
 > = {
   worker: {
-    pages: ["/workers", "/my-assignments", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/my-assignments",
+    pages: ['/workers', '/my-assignments', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/my-assignments',
   },
   product_manager: {
-    pages: ["/products", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/products",
+    pages: ['/products', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/products',
   },
   site_manager: {
-    pages: ["/sites", "/cars", "/assignments", "/teams", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/assignments",
+    pages: ['/sites', '/cars', '/assignments', '/teams', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/assignments',
   },
   offer_manager: {
-    pages: ["/offers", "/service-packages", "/clients", "/products", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/offers",
+    pages: ['/offers', '/service-packages', '/clients', '/products', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/offers',
   },
   sales_agent: {
-    pages: ["/products", "/clients", "/orders", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/orders",
+    pages: ['/products', '/clients', '/orders', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/orders',
   },
   order_manager: {
     pages: [
-      "/orders",
-      "/clients",
-      "/products",
-      "/chat",
-      "/team-management",
-      "/order-management",
-      "/attendance",
+      '/orders',
+      '/clients',
+      '/products',
+      '/chat',
+      '/team-management',
+      '/order-management',
+      '/attendance',
     ],
-    apis: ["*"],
-    home: "/orders",
+    apis: ['*'],
+    home: '/orders',
   },
   office_employee: {
-    pages: ["/orders", "/chat", "/attendance"],
-    apis: ["*"],
-    home: "/orders",
+    pages: ['/orders', '/chat', '/attendance'],
+    apis: ['*'],
+    home: '/orders',
   },
   website_manager: {
-    pages: ["/website-manager", "/attendance"],
-    apis: ["*"],
-    home: "/website-manager",
+    pages: ['/website-manager', '/attendance'],
+    apis: ['*'],
+    home: '/website-manager',
   },
   hr: {
     pages: ['/workers', '/chat', '/attendance'],
@@ -86,201 +98,107 @@ const ROLE_ACCESS: Record<
 };
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-  const isApi = pathname.startsWith('/api')
+  const { pathname } = req.nextUrl;
+  const isApi = pathname.startsWith('/api');
 
-  // ─────────────────────────────────
-  // 1️⃣ Public API routes (always allow)
-  // ─────────────────────────────────
-  if (PUBLIC_APIS.some(p => pathname.startsWith(p))) {
-    return NextResponse.next()
+  if (PUBLIC_APIS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
   }
 
-  // ─────────────────────────────────
-  //  2️⃣ Auth tokens (extract role from token only)
-  // ─────────────────────────────────
-  let token: string | undefined = req.cookies.get('auth-token')?.value
-  let role: string | undefined = undefined
+  // Single JWT verification per request (was 2–3× before)
+  let token: string | undefined = req.cookies.get('auth-token')?.value;
+  let payload: JWTPayload | null = null;
 
-  console.log('🔍 Middleware Debug - Initial auth check:', {
-    pathname,
-    hasCookieToken: !!token,
-    hasAuthHeader: !!req.headers.get('authorization')
-  })
-
-  // If token exists in cookies, extract role from it
   if (token) {
-    const payload = await verifyTokenEdge(token)
-    if (payload) {
-      role = payload.role.toLowerCase()
-      console.log('✅ Middleware Debug - Token from cookie:', {
-        userId: payload.userId,
-        role: payload.role,
-        email: payload.email
-      })
-    }
-  }
-
-  // If no token in cookies, check Authorization header
-  if (!token) {
-    const authHeader = req.headers.get('authorization')
-    const headerToken = extractToken(authHeader)
-    
-    // If token found in header, extract role from token
+    payload = await verifyTokenEdge(token);
+  } else {
+    const headerToken = extractToken(req.headers.get('authorization'));
     if (headerToken) {
-      token = headerToken
-      const payload = await verifyTokenEdge(headerToken)
-      if (payload) {
-        role = payload.role.toLowerCase()
-        console.log('✅ Middleware Debug - Token from header:', {
-          userId: payload.userId,
-          role: payload.role,
-          email: payload.email
-        })
-      } else {
-        console.log('❌ Middleware Debug - Invalid token from header')
-      }
+      token = headerToken;
+      payload = await verifyTokenEdge(headerToken);
     }
   }
 
-  // ─────────────────────────────────
-  // 3️⃣ Handle auth pages (login/register)
-  // ─────────────────────────────────
-  if (PUBLIC_PAGES.some(p => pathname.startsWith(p))) {
-    // If user is already authenticated, redirect to dashboard
+  const role = payload?.role?.toLowerCase();
+
+  debugLog('🔍 Middleware:', {
+    pathname,
+    hasToken: !!token,
+    hasPayload: !!payload,
+    role: role ?? null,
+  });
+
+  if (PUBLIC_PAGES.some((p) => pathname.startsWith(p))) {
     if (token && role) {
-      console.log('🔄 Middleware Debug - Authenticated user accessing auth page, redirecting to dashboard')
-      
-      // Redirect to role-specific home page or dashboard
+      debugLog('🔄 Authenticated user on auth page → redirect home');
       if (role === 'admin') {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-      } else if (ROLE_ACCESS[role]) {
-        return NextResponse.redirect(new URL(ROLE_ACCESS[role].home, req.url))
-      } else {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
+        return NextResponse.redirect(new URL('/dashboard', req.url));
       }
+      if (ROLE_ACCESS[role]) {
+        return NextResponse.redirect(new URL(ROLE_ACCESS[role].home, req.url));
+      }
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-    // If not authenticated, allow access to auth pages
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  // ─────────────────────────────────
-  // 4️⃣ Not logged in - redirect to login
-  // ─────────────────────────────────
   if (!token) {
     if (isApi) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.redirect(new URL('/auth/login', req.url))
+    return NextResponse.redirect(new URL('/auth/login', req.url));
   }
 
-  // ─────────────────────────────────
-  // 5️⃣ Admin → full access (except team-management and order-management)
-  // ─────────────────────────────────
   if (role === 'admin') {
-    // Restrict admin access to team-management and order-management pages (only for order_manager)
     if (pathname.startsWith('/team-management') || pathname.startsWith('/order-management')) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-    
     if (isApi) {
-      // Pass user info to API routes via headers for admin
-      const response = NextResponse.next()
-      if (token) {
-        const payload = await verifyTokenEdge(token)
-        if (payload) {
-          response.headers.set('x-user-id', payload.userId)
-          response.headers.set('x-user-role', payload.role)
-          response.headers.set('x-user-email', payload.email)
-          console.log('✅ Middleware Debug - Setting headers for admin API access:', {
-            userId: payload.userId,
-            role: payload.role,
-            email: payload.email
-          })
-        }
-      }
-      return response
+      return attachUserHeaders(NextResponse.next(), payload);
     }
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  // ─────────────────────────────────
-  // 5b️⃣ Settings page — administrators only
-  // ─────────────────────────────────
   if (!isApi && pathname.startsWith('/settings') && role && role !== 'admin') {
-    const home = ROLE_ACCESS[role]?.home ?? '/dashboard'
-    return NextResponse.redirect(new URL(home, req.url))
+    const home = ROLE_ACCESS[role]?.home ?? '/dashboard';
+    return NextResponse.redirect(new URL(home, req.url));
   }
 
-  // ─────────────────────────────────
-  // 6️⃣ Invalid role
-  // ─────────────────────────────────
   if (!role || !ROLE_ACCESS[role]) {
-    console.log('🚨 Middleware Debug - Invalid role:', {
-      pathname,
-      role,
-      availableRoles: Object.keys(ROLE_ACCESS),
-      hasToken: !!token,
-      isApi
-    })
-    
+    debugLog('🚨 Invalid role for route', { pathname, role });
     if (isApi) {
-      return NextResponse.json({ 
-        error: 'Forbidden', 
-        debug: { role, availableRoles: Object.keys(ROLE_ACCESS) }
-      }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    return NextResponse.redirect(new URL('/403', req.url))
+    return NextResponse.redirect(new URL('/403', req.url));
   }
 
-  const { pages, apis, home } = ROLE_ACCESS[role]
+  const { pages, apis, home } = ROLE_ACCESS[role];
 
-  // Profile page — any authenticated non-admin role (admin already passes above)
   if (!isApi && pathname.startsWith('/profile')) {
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  // ─────────────────────────────────
-  // 7️⃣ API access
-  // ─────────────────────────────────
-if (isApi) {
-  const allowed =
-    apis.includes('*') || // ✅ allow all APIs
-    apis.some(api => pathname.startsWith(api))
-
-  if (!allowed) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  // Pass user info to API routes via headers
-  const response = NextResponse.next()
-  if (token) {
-    const payload = await verifyTokenEdge(token)
-    if (payload) {
-      response.headers.set('x-user-id', payload.userId)
-      response.headers.set('x-user-role', payload.role)
-      response.headers.set('x-user-email', payload.email)
+  if (isApi) {
+    const allowed = apis.includes('*') || apis.some((api) => pathname.startsWith(api));
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    return attachUserHeaders(NextResponse.next(), payload);
   }
-  
-  return response
-}
 
-  // ─────────────────────────────────
-  // 8️⃣ PAGE access
-  // ─────────────────────────────────
-  const allowed = pages.some(page => pathname.startsWith(page))
+  const allowed = pages.some((page) => pathname.startsWith(page));
   if (!allowed) {
-    // 🔁 redirect worker to their allowed home page
-    return NextResponse.redirect(new URL(home, req.url))
+    return NextResponse.redirect(new URL(home, req.url));
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
-/**
- * Middleware matcher
- */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-}
+  matcher: [
+    /*
+     * Skip static assets and common file extensions to reduce Edge invocations.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|gif|svg|webp|woff2?)$).*)',
+  ],
+};
