@@ -82,6 +82,10 @@ export default function AssignmentsRoute() {
   const [sitesQuery, setSitesQuery] = useState('');
   const [siteStatusFilter, setSiteStatusFilter] = useState<'all' | 'active' | 'unassigned'>('all');
   const [assignedSiteIdsForSelectedDate, setAssignedSiteIdsForSelectedDate] = useState<string[]>([]);
+  /** Workers on the daily assignment per site for `selectedDate` (from /api/assignments?date=) */
+  const [workerCountBySiteIdForSelectedDate, setWorkerCountBySiteIdForSelectedDate] = useState<
+    Record<string, number>
+  >({});
   const [workerAssignmentsByDate, setWorkerAssignmentsByDate] = useState<
     Record<string, Array<{ siteName: string; timeRange: string }>>
   >({});
@@ -141,15 +145,31 @@ export default function AssignmentsRoute() {
   const [conflictCarError, setConflictCarError] = useState<string | null>(null);
   const [isResolvingCarConflict, setIsResolvingCarConflict] = useState(false);
 
+  /** Stable id for the selected site name (from Redux) — avoids stale counts vs assignment panel */
+  const selectedSiteIdForCounts = useMemo(
+    () => reduxSites.find((s) => s.name === selectedSiteName)?.id ?? '',
+    [reduxSites, selectedSiteName]
+  );
+
   const assignmentSites = useMemo(
     () =>
-      reduxSites.map((site) => ({
-        id: site.id,
-        name: site.name,
-        assigned: site.assignedWorkers ?? 0,
-        status: site.status,
-      })),
-    [reduxSites]
+      reduxSites.map((site) => {
+        const fromCoverage = workerCountBySiteIdForSelectedDate[site.id] ?? 0;
+        const fromOpenAssignment =
+          site.id === selectedSiteIdForCounts ? assignedWorkers.length : 0;
+        return {
+          id: site.id,
+          name: site.name,
+          assigned: Math.max(fromCoverage, fromOpenAssignment),
+          status: site.status,
+        };
+      }),
+    [
+      reduxSites,
+      workerCountBySiteIdForSelectedDate,
+      selectedSiteIdForCounts,
+      assignedWorkers.length,
+    ]
   );
 
   const filteredSites = useMemo(() => {
@@ -334,7 +354,7 @@ export default function AssignmentsRoute() {
   }) {
     const { start, end } = parseTimeRangeValue(value);
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-center">
+      <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
         <select
           value={start}
           onChange={(e) => onChange(buildTimeRange(e.target.value, end))}
@@ -765,6 +785,7 @@ export default function AssignmentsRoute() {
   async function fetchAssignedSiteCoverageByDate(dateParam: string) {
     const response = await fetch(`/api/assignments?date=${encodeURIComponent(dateParam)}`, {
       credentials: 'include',
+      cache: 'no-store',
     });
     if (!response.ok) {
       throw new Error('Failed to fetch assignment coverage');
@@ -779,6 +800,15 @@ export default function AssignmentsRoute() {
       )
     );
     setAssignedSiteIdsForSelectedDate(ids);
+
+    const counts: Record<string, number> = {};
+    for (const row of assignmentRows) {
+      const sid = String(row?.siteId || '').trim();
+      if (!sid) continue;
+      const workers = Array.isArray(row?.assignedWorkers) ? row.assignedWorkers : [];
+      counts[sid] = workers.length;
+    }
+    setWorkerCountBySiteIdForSelectedDate(counts);
     const workerAssignmentMap: Record<string, Array<{ siteName: string; timeRange: string }>> = {};
     const carAssignmentMap: Record<string, Array<{ siteName: string; timeRange: string }>> = {};
     for (const row of assignmentRows) {
@@ -843,6 +873,7 @@ export default function AssignmentsRoute() {
       });
       const response = await fetch(`/api/assignments?${qs.toString()}`, {
         credentials: 'include',
+        cache: 'no-store',
       });
       if (!response.ok) throw new Error('Failed to fetch assignment for selected date');
       const payload = await response.json();
@@ -853,6 +884,7 @@ export default function AssignmentsRoute() {
         setCurrentAssignmentStatus(null);
         setAssignedWorkers([]);
         setAssignedCars([]);
+        setWorkerCountBySiteIdForSelectedDate((prev) => ({ ...prev, [siteIdParam]: 0 }));
         return;
       }
 
@@ -861,6 +893,8 @@ export default function AssignmentsRoute() {
       if (row.timeRange) setTimeRangeForAdd(String(row.timeRange));
       setAssignedWorkers(mapApiWorkersToAssignedWorkers(row.assignedWorkers || []));
       setAssignedCars(mapApiCarsToAssignedCars(row.assignedCars || []));
+      const workerTotal = Array.isArray(row.assignedWorkers) ? row.assignedWorkers.length : 0;
+      setWorkerCountBySiteIdForSelectedDate((prev) => ({ ...prev, [siteIdParam]: workerTotal }));
     } finally {
       setIsLoadingSelectedAssignment(false);
     }
@@ -1441,6 +1475,7 @@ export default function AssignmentsRoute() {
   useEffect(() => {
     fetchAssignedSiteCoverageByDate(selectedDate).catch(() => {
       setAssignedSiteIdsForSelectedDate([]);
+      setWorkerCountBySiteIdForSelectedDate({});
       setWorkerAssignmentsByDate({});
       setCarAssignmentsByDate({});
     });
@@ -1448,7 +1483,7 @@ export default function AssignmentsRoute() {
 
   return (
     <AuthenticatedLayout>
-      <div className="max-w-[1500px] mx-auto space-y-3 sm:space-y-4">
+      <div className="mx-auto w-full min-w-0 max-w-[1500px] space-y-3 overflow-x-clip sm:space-y-4">
         <div className="flex flex-col gap-2">
           <div>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">Daily Workforce Planner</h1>
@@ -1458,9 +1493,9 @@ export default function AssignmentsRoute() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
           {statCards.map((card) => (
-            <Card key={card.label} className="p-2.5 sm:p-3 rounded-xl border">
+            <Card key={card.label} className="min-w-0 p-2.5 sm:p-3 rounded-xl border">
               <p className="text-xs text-gray-500">{card.label}</p>
               <p className="mt-0.5 font-semibold break-words text-gray-900 text-2xl sm:text-3xl leading-none">
                 {card.value}
@@ -1470,20 +1505,20 @@ export default function AssignmentsRoute() {
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-3">
-          <div className="w-full sm:w-auto">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+          <div className="min-w-0 w-full sm:w-auto sm:max-w-xs">
             <p className="text-xs text-gray-500 mb-1">Assignment date</p>
             <Input
               type="date"
               min={TODAY_DATE}
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-10 min-w-[200px] border-gray-200"
+              className="h-10 w-full min-w-0 max-w-full border-gray-200 sm:max-w-[240px]"
             />
           </div>
           <Button
             variant="outline"
-            className="w-full sm:w-auto h-10"
+            className="h-10 w-full shrink-0 sm:w-auto"
             onClick={() => {
               setAllAssignmentsFilterDate(selectedDate);
               setDraftsModalMode('draft');
@@ -1496,11 +1531,11 @@ export default function AssignmentsRoute() {
 
         {/* Program view removed: use Draft/Publish modals instead */}
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-          <Card className="p-4 rounded-2xl xl:col-span-3">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Sites</h2>
-              <Badge variant="outline">Instant filter</Badge>
+        <div className="grid min-w-0 grid-cols-1 items-start gap-2 md:gap-3 lg:gap-4 md:grid-cols-12">
+          <Card className="min-w-0 rounded-xl p-3 md:rounded-2xl md:p-3.5 lg:p-4 md:col-span-3">
+            <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:mb-3">
+              <h2 className="text-base font-semibold text-gray-900 md:text-lg lg:text-xl xl:text-2xl">Sites</h2>
+              <Badge variant="outline" className="w-fit shrink-0 text-[10px] md:text-xs">Instant filter</Badge>
             </div>
             <div className="relative mb-3">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1511,7 +1546,7 @@ export default function AssignmentsRoute() {
                 onChange={(e) => setSitesQuery(e.target.value)}
               />
             </div>
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 size="sm"
@@ -1554,14 +1589,14 @@ export default function AssignmentsRoute() {
                       setIsLoadingSelectedAssignment(true);
                       setSelectedSiteName(site.name);
                     }}
-                    className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                    className={`w-full text-left rounded-lg border p-3 transition-colors md:rounded-xl md:p-3.5 lg:p-4 ${
                       site.name === selectedSiteName
                         ? 'bg-brand-gradient text-white border-transparent'
                         : 'bg-white text-gray-900'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`font-semibold ${site.name === selectedSiteName ? 'text-white' : 'text-gray-900'}`}>{site.name}</p>
+                      <p className={`text-sm font-semibold md:text-base ${site.name === selectedSiteName ? 'text-white' : 'text-gray-900'}`}>{site.name}</p>
                       {statusBadge(site.status)}
                     </div>
                     <p className={`text-sm mt-1 ${site.name === selectedSiteName ? 'text-white/80' : 'text-gray-500'}`}>{site.assigned} assigned</p>
@@ -1571,11 +1606,11 @@ export default function AssignmentsRoute() {
             </div>
           </Card>
 
-          <Card className="p-4 rounded-2xl xl:col-span-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Assignments</h2>
-                <p className="text-sm text-gray-500">
+          <Card className="min-w-0 rounded-xl p-3 md:rounded-2xl md:p-3.5 lg:p-4 md:col-span-5">
+            <div className="mb-2 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:mb-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-gray-900 md:text-lg lg:text-xl xl:text-2xl">Assignments</h2>
+                <p className="break-words text-xs text-gray-500 md:text-sm">
                   {selectedSiteName} • {selectedDate}
                 </p>
                 {currentAssignmentStatus && (
@@ -1584,11 +1619,11 @@ export default function AssignmentsRoute() {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:justify-end">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto sm:min-w-0"
                   onClick={() => {
                     if (!selectedSiteId) {
                       toast.error('Please select a site first.');
@@ -1605,7 +1640,7 @@ export default function AssignmentsRoute() {
 
                 <Button
                   size="sm"
-                  className="w-full sm:w-auto bg-brand-gradient text-white hover:bg-brand-gradient"
+                  className="w-full bg-brand-gradient text-white hover:bg-brand-gradient sm:w-auto sm:min-w-0"
                   onClick={() => {
                     if (assignTab === 'day') createDayDraft();
                     else createRangeDraft();
@@ -1638,7 +1673,7 @@ export default function AssignmentsRoute() {
               </TabsContent>
 
               <TabsContent value="range" className="mt-3">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Start date</p>
                     <Input
@@ -1679,11 +1714,11 @@ export default function AssignmentsRoute() {
               value={assignedView}
               onValueChange={(v) => setAssignedView(v as 'workers' | 'cars')}
             >
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="workers" className="sm:px-4">
+              <TabsList className="h-auto min-h-8 w-full flex-wrap justify-start gap-0.5 p-0.5 md:min-h-9 md:gap-1 md:p-1">
+                <TabsTrigger value="workers" className="px-2 text-xs sm:px-4 sm:text-sm">
                   Workers
                 </TabsTrigger>
-                <TabsTrigger value="cars" className="sm:px-4">
+                <TabsTrigger value="cars" className="px-2 text-xs sm:px-4 sm:text-sm">
                   Cars
                 </TabsTrigger>
               </TabsList>
@@ -1707,13 +1742,13 @@ export default function AssignmentsRoute() {
                     </div>
                   )}
                   {filteredAssignedWorkers.map((worker) => (
-                    <div key={worker.id} className="rounded-xl border p-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
-                        <div>
-                          <p className="font-semibold text-gray-900">{worker.name}</p>
-                          <p className="text-sm text-gray-500">{worker.role}</p>
+                    <div key={worker.id} className="rounded-lg border p-3 md:rounded-xl md:p-3.5 lg:p-4">
+                      <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[1fr_auto]">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 md:text-base">{worker.name}</p>
+                          <p className="text-xs text-gray-500 md:text-sm">{worker.role}</p>
                         </div>
-                        <div className="w-full sm:w-[260px]">
+                        <div className="w-full min-w-0 xl:max-w-[280px] xl:shrink-0">
                           <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                             Time
                             {workerAction?.workerId === worker.id && workerAction.type === 'time' && (
@@ -1775,13 +1810,13 @@ export default function AssignmentsRoute() {
                 ) : (
                   <div className="space-y-2">
                     {assignedCars.map((car) => (
-                      <div key={car.id} className="rounded-xl border p-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
-                          <div>
-                            <p className="font-semibold text-gray-900">{car.name}</p>
-                            <p className="text-sm text-gray-500">{car.type}</p>
+                      <div key={car.id} className="rounded-lg border p-3 md:rounded-xl md:p-3.5 lg:p-4">
+                        <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[1fr_auto]">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 md:text-base">{car.name}</p>
+                            <p className="text-xs text-gray-500 md:text-sm">{car.type}</p>
                           </div>
-                        <div className="w-full sm:w-[260px]">
+                        <div className="w-full min-w-0 xl:max-w-[280px] xl:shrink-0">
                             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                               Time
                               {carAction?.carId === car.id && carAction.type === 'time' && (
@@ -1833,22 +1868,22 @@ export default function AssignmentsRoute() {
             </Tabs>
           </Card>
 
-          <div className="xl:col-span-4 space-y-4">
-            <Card className="p-4 rounded-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Assignments Pool</h2>
-                <Badge variant="outline">Instant filter</Badge>
+          <div className="min-w-0 space-y-4 md:col-span-4">
+            <Card className="min-w-0 rounded-xl p-3 md:rounded-2xl md:p-3.5 lg:p-4">
+              <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:mb-3">
+                <h2 className="text-base font-semibold text-gray-900 md:text-lg lg:text-xl xl:text-2xl">Assignments Pool</h2>
+                <Badge variant="outline" className="text-[10px] md:text-xs">Instant filter</Badge>
               </div>
 
               <Tabs value={poolTab} onValueChange={(v) => setPoolTab(v as 'available' | 'remaining' | 'cars')}>
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger value="available" className="sm:px-4">
+                <TabsList className="h-auto min-h-8 w-full flex-wrap justify-start gap-0.5 p-0.5 md:min-h-9 md:gap-1 md:p-1">
+                  <TabsTrigger value="available" className="px-2 text-[11px] sm:px-3 sm:text-xs lg:text-sm">
                     Available workers
                   </TabsTrigger>
-                  <TabsTrigger value="remaining" className="sm:px-4">
+                  <TabsTrigger value="remaining" className="px-2 text-[11px] sm:px-3 sm:text-xs lg:text-sm">
                     Remaining workers
                   </TabsTrigger>
-                  <TabsTrigger value="cars" className="sm:px-4">
+                  <TabsTrigger value="cars" className="px-2 text-[11px] sm:px-3 sm:text-xs lg:text-sm">
                     Cars
                   </TabsTrigger>
                 </TabsList>
@@ -1878,12 +1913,12 @@ export default function AssignmentsRoute() {
                         const hasConflict = meta?.hasOverlap ?? false;
                         const alreadyInSelectedSite = meta?.alreadyAssignedInSelectedSite ?? false;
                         return (
-                      <div key={worker.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
-                        <div>
+                      <div key={worker.id} className="flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-gray-900">{worker.name}</p>
                           <p className="text-sm text-gray-500">{worker.role}</p>
                           {meta?.message && (
-                            <p className={`text-xs mt-1 ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
+                            <p className={`mt-1 break-words text-xs ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
                               {meta.message}
                             </p>
                           )}
@@ -1891,7 +1926,7 @@ export default function AssignmentsRoute() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="shrink-0"
+                          className="w-full shrink-0 sm:w-auto"
                           onClick={() => {
                             if (hasConflict) {
                               openConflictResolutionModal(worker);
@@ -1936,16 +1971,16 @@ export default function AssignmentsRoute() {
                     <div className="space-y-2">
                     {filteredRemainingWorkers.map((worker) => (
                       <div key={worker.id} className="rounded-xl border p-3 sm:p-4">
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div>
+                        <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
                             <p className="font-medium text-gray-900">{worker.name}</p>
                             <p className="text-sm text-gray-500">{worker.role}</p>
                           </div>
-                          <Badge variant="outline">Day off</Badge>
+                          <Badge variant="outline" className="w-fit shrink-0">Day off</Badge>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="relative min-w-0 flex-1">
                             <select
                               value={worker.status}
                               className="h-11 w-full rounded-md border border-input bg-background px-3 pr-9 text-sm appearance-none"
@@ -1964,6 +1999,7 @@ export default function AssignmentsRoute() {
                           <Button
                             variant="outline"
                             size="sm"
+                            className="w-full shrink-0 sm:w-auto"
                             onClick={() => {
                               addWorkerToCurrentAssignment(worker).catch((error) => {
                                 toast.error(error instanceof Error ? error.message : 'Failed to assign worker');
@@ -2007,12 +2043,12 @@ export default function AssignmentsRoute() {
                         const hasConflict = meta?.hasOverlap ?? false;
                         const alreadyInSelectedSite = meta?.alreadyAssignedInSelectedSite ?? false;
                         return (
-                      <div key={car.id} className="rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-3">
-                        <div>
+                      <div key={car.id} className="flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-gray-900">{car.name}</p>
                           <p className="text-sm text-gray-500">{car.type}</p>
                           {meta?.message && (
-                            <p className={`text-xs mt-1 ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
+                            <p className={`mt-1 break-words text-xs ${hasConflict ? 'text-red-600' : 'text-amber-700'}`}>
                               {meta.message}
                             </p>
                           )}
@@ -2020,7 +2056,7 @@ export default function AssignmentsRoute() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="shrink-0"
+                          className="w-full shrink-0 sm:w-auto"
                           onClick={() => {
                             if (hasConflict) {
                               openCarConflictResolutionModal(car);
@@ -2080,7 +2116,7 @@ export default function AssignmentsRoute() {
 
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Choose non-conflicting time for {selectedSiteName}</p>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
                     <select
                       value={conflictStartTime}
                       onChange={(e) => {
@@ -2177,7 +2213,7 @@ export default function AssignmentsRoute() {
 
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Choose non-conflicting time for {selectedSiteName}</p>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
                     <select
                       value={conflictCarStartTime}
                       onChange={(e) => {
@@ -2334,20 +2370,20 @@ export default function AssignmentsRoute() {
               <DialogTitle>View all assignments</DialogTitle>
             </DialogHeader>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <div className="relative min-w-0">
+                  <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <Input
                     type="date"
                     value={allAssignmentsFilterDate}
                     onChange={(e) => setAllAssignmentsFilterDate(e.target.value)}
-                    className="pl-9 w-[170px]"
+                    className="w-full min-w-0 max-w-full pl-9 sm:max-w-[200px]"
                   />
                 </div>
-                <Badge variant="outline">{selectedSiteName}</Badge>
+                <Badge variant="outline" className="max-w-full truncate">{selectedSiteName}</Badge>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant="outline">
                   {draftItemsForSelectedSiteAndDate.length} draft / {publishedItemsForSelectedSiteAndDate.length} published
                 </Badge>
@@ -2373,7 +2409,7 @@ export default function AssignmentsRoute() {
               value={draftsModalMode}
               onValueChange={(v) => setDraftsModalMode(v as 'draft' | 'published')}
             >
-              <TabsList className="w-full justify-start mb-3">
+              <TabsList className="mb-3 h-auto min-h-9 w-full flex-wrap justify-start gap-1 p-1">
                 <TabsTrigger value="draft" className="sm:px-4">
                   Draft
                 </TabsTrigger>
