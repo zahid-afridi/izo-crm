@@ -82,8 +82,7 @@ export const fetchSites = createAsyncThunk(
       const res = await req;
       pendingFetch = null;
       if (!res.ok) return rejectWithValue('Failed to fetch sites');
-      const data = await res.json();
-      return JSON.parse(JSON.stringify(data));
+      return (await res.json()) as { sites: Site[] };
     } catch (e) {
       pendingFetch = null;
       return rejectWithValue(e instanceof Error ? e.message : 'Failed to fetch sites');
@@ -134,7 +133,7 @@ export const createSite = createAsyncThunk(
         return rejectWithValue(err.error || 'Failed to create site');
       }
       const data = await res.json();
-      return JSON.parse(JSON.stringify(data.site));
+      return data.site as Site;
     } catch (e) {
       return rejectWithValue('Failed to create site');
     }
@@ -156,7 +155,7 @@ export const updateSite = createAsyncThunk(
         return rejectWithValue(err.error || 'Failed to update site');
       }
       const result = await res.json();
-      return JSON.parse(JSON.stringify(result.site));
+      return result.site as Site;
     } catch (e) {
       return rejectWithValue('Failed to update site');
     }

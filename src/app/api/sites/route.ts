@@ -50,31 +50,55 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Assignment module removed: use site.workerIds as assignment source.
-    const sitesWithWorkers = await Promise.all(
-      sites.map(async (site) => {
-        const workers = site.workerIds.length
-          ? await prisma.users.findMany({
-              where: { id: { in: site.workerIds } },
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-                phone: true,
-                role: true,
-              },
-            })
-          : [];
+    // One query for all referenced workers (avoids N+1 per site).
+    const workerIdSet = new Set<string>();
+    for (const site of sites) {
+      for (const id of site.workerIds) {
+        workerIdSet.add(id);
+      }
+    }
+    const workerIds = [...workerIdSet];
 
-        return {
-          ...site,
-          status: normalizeSiteStatus(site.status),
-          workers,
-          assignedWorkers: workers.length,
-          totalAssignments: 0,
-        };
-      })
-    );
+    type WorkerRow = {
+      id: string;
+      fullName: string;
+      email: string;
+      phone: string | null;
+      role: string;
+    };
+    const workersById = new Map<string, WorkerRow>();
+    if (workerIds.length > 0) {
+      const rows = await prisma.users.findMany({
+        where: { id: { in: workerIds } },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          role: true,
+        },
+      });
+      for (const w of rows) {
+        workersById.set(w.id, w);
+      }
+    }
+
+    // Assignment module removed: use site.workerIds as assignment source.
+    const sitesWithWorkers = sites.map((site) => {
+      const workers: WorkerRow[] = [];
+      for (const wId of site.workerIds) {
+        const w = workersById.get(wId);
+        if (w) workers.push(w);
+      }
+
+      return {
+        ...site,
+        status: normalizeSiteStatus(site.status),
+        workers,
+        assignedWorkers: workers.length,
+        totalAssignments: 0,
+      };
+    });
 
     return NextResponse.json({ sites: sitesWithWorkers }, { status: 200 });
   } catch (error) {
