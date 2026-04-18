@@ -34,19 +34,7 @@ app.prepare().then(() => {
   })
 
   io.on('connection', (socket) => {
-    console.log('✅ Socket connected:', socket.id)
-
-    // Log all incoming events for debugging
-    const originalEmit = socket.emit;
-    const originalOn = socket.on;
-
-    socket.on = function (event: string, handler: (...args: any[]) => void | Promise<void>) {
-      console.log(`🎧 Server listening for event: ${event}`);
-      return originalOn.call(this, event, (...args: any[]) => {
-        console.log(`📨 Server received event: ${event}`, args.length > 0 ? args[0] : 'no data');
-        return handler(...args);
-      });
-    };
+    if (dev) console.log('✅ Socket connected:', socket.id)
 
     // Ping/pong test
     socket.on('ping', () => socket.emit('pong'))
@@ -54,14 +42,16 @@ app.prepare().then(() => {
     // User connects and registers their socket
     socket.on('userConnect', async ({ userId }) => {
       try {
-        console.log(`🔌 User ${userId} connecting with socket ${socket.id}`)
+        if (dev) console.log(`🔌 User ${userId} connecting with socket ${socket.id}`)
 
         // Store user connection
         userConnections.set(userId, { socketId: socket.id, status: 'online' })
         socketToUser.set(socket.id, userId)
 
-        console.log(`✅ User ${userId} connected with socket ${socket.id}`)
-        console.log(`📊 Total connections: ${userConnections.size}`)
+        if (dev) {
+          console.log(`✅ User ${userId} connected with socket ${socket.id}`)
+          console.log(`📊 Total connections: ${userConnections.size}`)
+        }
 
         // Get user's chat rooms
         const rooms = await prisma.chatRoomMember.findMany({
@@ -79,12 +69,12 @@ app.prepare().then(() => {
           },
         })
 
-        console.log(`📋 Found ${rooms.length} rooms for user ${userId}`)
+        if (dev) console.log(`📋 Found ${rooms.length} rooms for user ${userId}`)
 
         // Join all approved rooms
         rooms.forEach((member) => {
           socket.join(member.roomId)
-          console.log(`🚪 User ${userId} joined room ${member.roomId}`)
+          if (dev) console.log(`🚪 User ${userId} joined room ${member.roomId}`)
         })
 
         // Notify user of successful connection and send their rooms
@@ -94,7 +84,7 @@ app.prepare().then(() => {
           onlineUsers: Array.from(userConnections.keys())
         })
 
-        console.log(`✅ User ${userId} connection complete`)
+        if (dev) console.log(`✅ User ${userId} connection complete`)
 
         // Notify other users that this user is online
         socket.broadcast.emit('userStatusChanged', { userId, status: 'online' })
